@@ -1,0 +1,166 @@
+Orbit 0.1.0 — Third-party notices
+Dependency snapshot: releaseRuntimeClasspath, 2026-10-03
+
+AndroidX / Jetpack Compose / Material icons
+Copyright The Android Open Source Project and contributors. Apache-2.0.
+https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt
+
+Kotlin standard library and runtime / Kotlinx Coroutines / Serialization
+Copyright JetBrains s.r.o. and contributors. Apache-2.0.
+https://github.com/JetBrains/kotlin/blob/v2.2.20/license/README.md
+https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.2/LICENSE.txt
+https://github.com/Kotlin/kotlinx.serialization/blob/v1.7.3/LICENSE.txt
+Kotlin time code includes ThreeTen backport code; see BSD-3-Clause-ThreeTen.txt.
+Kotlin JVM math code includes Boost-derived functions (Boost Software License 1.0),
+Copyright Eric Ford & Hubert Holin 2001; see Kotlin-boost_LICENSE.txt.
+Kotlin collections / unsigned JVM code include GWT / Guava-derived code;
+see Kotlin-gwt_license.txt and Kotlin-guava_license.txt for original notices.
+
+JetBrains annotations. Apache-2.0.
+https://github.com/JetBrains/java-annotations/blob/23.0.0/LICENSE.txt
+
+Coil 3.3.0. Copyright Coil contributors. Apache-2.0.
+https://github.com/coil-kt/coil/blob/3.3.0/LICENSE.txt
+
+OkHttp 4.12.0 / Okio 3.15.0. Copyright Square, Inc. and contributors. Apache-2.0.
+https://github.com/square/okhttp/blob/parent-4.12.0/LICENSE.txt
+https://github.com/square/okio/blob/parent-3.15.0/LICENSE.txt
+
+Accompanist / Guava listenablefuture. Copyright Google LLC and contributors. Apache-2.0.
+https://github.com/google/accompanist/blob/v0.37.3/LICENSE
+https://github.com/google/guava/blob/master/LICENSE
+
+JSpecify. Copyright JSpecify authors. Apache-2.0.
+https://github.com/jspecify/jspecify/blob/v1.0.0/LICENSE
+
+Protocol Buffers runtime repackaged by AndroidX DataStore 1.1.7. BSD-3-Clause.
+Copyright 2008 Google Inc. All rights reserved.
+See BSD-3-Clause-Protobuf.txt.
+https://github.com/androidx/androidx/tree/androidx-main/datastore/datastore-preferences-external-protobuf
+
+OkHttp's original public suffix NOTICE (retained verbatim):
+Note that publicsuffixes.gz is compiled from The Public Suffix List:
+https://publicsuffix.org/list/public_suffix_list.dat
+
+It is subject to the terms of the Mozilla Public License, v. 2.0:
+https://mozilla.org/MPL/2.0/
+
+See MPL-2.0.txt. Source data is available at the Public Suffix List URL above.
+OkHttp's resource and loader source for this version:
+https://github.com/square/okhttp/tree/parent-4.12.0/okhttp/src/main/resources/okhttp3/internal/publicsuffix
+https://github.com/square/okhttp/tree/parent-4.12.0/okhttp/src/main/kotlin/okhttp3/internal/publicsuffix
+
+Apache-2.0 license text: APACHE-2.0.txt.
+The following resolved modules include transitives; dependency resolution does not
+imply that all classes survive release shrinking. Android/WebView are supplied
+by the device and are not bundled in this application.
+
+Resolved release runtime modules:
+androidx.activity:activity-compose:1.12.1
+androidx.activity:activity-ktx:1.12.1
+androidx.activity:activity:1.12.1
+androidx.annotation:annotation-experimental:1.4.1
+androidx.annotation:annotation-jvm:1.9.1
+androidx.appcompat:appcompat-resources:1.7.1
+androidx.arch.core:core-common:2.2.0
+androidx.arch.core:core-runtime:2.2.0
+androidx.autofill:autofill:1.0.0
+androidx.collection:collection-jvm:1.5.0
+androidx.collection:collection-ktx:1.5.0
+androidx.compose.animation:animation-android:1.10.1
+androidx.compose.animation:animation-core-android:1.10.1
+androidx.compose.foundation:foundation-android:1.10.1
+androidx.compose.foundation:foundation-layout-android:1.10.1
+androidx.compose.material3:material3-android:1.4.0
+androidx.compose.material:material-icons-core-android:1.7.8
+androidx.compose.material:material-icons-extended-android:1.7.8
+androidx.compose.material:material-ripple-android:1.10.1
+androidx.compose.runtime:runtime-android:1.10.1
+androidx.compose.runtime:runtime-annotation-android:1.10.1
+androidx.compose.runtime:runtime-retain-android:1.10.1
+androidx.compose.runtime:runtime-saveable-android:1.10.1
+androidx.compose.ui:ui-android:1.10.1
+androidx.compose.ui:ui-geometry-android:1.10.1
+androidx.compose.ui:ui-graphics-android:1.10.1
+androidx.compose.ui:ui-text-android:1.10.1
+androidx.compose.ui:ui-tooling-preview-android:1.10.1
+androidx.compose.ui:ui-unit-android:1.10.1
+androidx.compose.ui:ui-util-android:1.10.1
+androidx.concurrent:concurrent-futures:1.1.0
+androidx.core:core-ktx:1.17.0
+androidx.core:core-viewtree:1.0.0
+androidx.core:core:1.17.0
+androidx.customview:customview-poolingcontainer:1.0.0
+androidx.datastore:datastore-android:1.1.7
+androidx.datastore:datastore-core-android:1.1.7
+androidx.datastore:datastore-core-okio-jvm:1.1.7
+androidx.datastore:datastore-preferences-android:1.1.7
+androidx.datastore:datastore-preferences-core-android:1.1.7
+androidx.datastore:datastore-preferences-external-protobuf:1.1.7
+androidx.datastore:datastore-preferences-proto:1.1.7
+androidx.documentfile:documentfile:1.0.0
+androidx.dynamicanimation:dynamicanimation:1.0.0
+androidx.emoji2:emoji2:1.4.0
+androidx.exifinterface:exifinterface:1.4.1
+androidx.graphics:graphics-path:1.0.1
+androidx.interpolator:interpolator:1.0.0
+androidx.legacy:legacy-support-core-utils:1.0.0
+androidx.lifecycle:lifecycle-common-java8:2.10.0
+androidx.lifecycle:lifecycle-common-jvm:2.10.0
+androidx.lifecycle:lifecycle-livedata-core-ktx:2.10.0
+androidx.lifecycle:lifecycle-livedata-core:2.10.0
+androidx.lifecycle:lifecycle-livedata:2.10.0
+androidx.lifecycle:lifecycle-process:2.10.0
+androidx.lifecycle:lifecycle-runtime-android:2.10.0
+androidx.lifecycle:lifecycle-runtime-compose-android:2.10.0
+androidx.lifecycle:lifecycle-runtime-ktx-android:2.10.0
+androidx.lifecycle:lifecycle-viewmodel-android:2.10.0
+androidx.lifecycle:lifecycle-viewmodel-compose-android:2.10.0
+androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0
+androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.10.0
+androidx.lifecycle:lifecycle-viewmodel:2.10.0
+androidx.loader:loader:1.0.0
+androidx.localbroadcastmanager:localbroadcastmanager:1.0.0
+androidx.navigation:navigation-common-android:2.9.8
+androidx.navigation:navigation-compose-android:2.9.8
+androidx.navigation:navigation-runtime-android:2.9.8
+androidx.navigationevent:navigationevent-android:1.0.1
+androidx.navigationevent:navigationevent-compose-android:1.0.1
+androidx.print:print:1.0.0
+androidx.profileinstaller:profileinstaller:1.4.1
+androidx.room:room-common-jvm:2.7.2
+androidx.room:room-ktx:2.7.2
+androidx.room:room-runtime-android:2.7.2
+androidx.savedstate:savedstate-android:1.4.0
+androidx.savedstate:savedstate-compose-android:1.4.0
+androidx.savedstate:savedstate-ktx:1.4.0
+androidx.sqlite:sqlite-android:2.5.1
+androidx.sqlite:sqlite-framework-android:2.5.1
+androidx.startup:startup-runtime:1.1.1
+androidx.tracing:tracing:1.2.0
+androidx.transition:transition:1.6.0
+androidx.vectordrawable:vectordrawable-animated:1.1.0
+androidx.vectordrawable:vectordrawable:1.1.0
+androidx.versionedparcelable:versionedparcelable:1.1.1
+androidx.window:window-core-android:1.5.0
+androidx.window:window:1.5.0
+com.google.accompanist:accompanist-drawablepainter:0.37.3
+com.google.guava:listenablefuture:1.0
+com.squareup.okhttp3:okhttp:4.12.0
+com.squareup.okio:okio-jvm:3.15.0
+io.coil-kt.coil3:coil-android:3.3.0
+io.coil-kt.coil3:coil-compose-android:3.3.0
+io.coil-kt.coil3:coil-compose-core-android:3.3.0
+io.coil-kt.coil3:coil-core-android:3.3.0
+io.coil-kt.coil3:coil-network-core-android:3.3.0
+io.coil-kt.coil3:coil-network-okhttp-jvm:3.3.0
+org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.9.22
+org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.22
+org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21
+org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21
+org.jetbrains.kotlin:kotlin-stdlib:2.2.20
+org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2
+org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2
+org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3
+org.jetbrains:annotations:23.0.0
+org.jspecify:jspecify:1.0.0

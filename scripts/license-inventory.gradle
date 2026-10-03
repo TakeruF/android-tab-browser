@@ -1,0 +1,18 @@
+// Usage: ./gradlew -I scripts/license-inventory.gradle :app:licenseInventory
+// Resolve the same runtime artifacts used by the release build, including transitives.
+gradle.projectsEvaluated {
+    def app = rootProject.project(':app')
+    app.tasks.register('licenseInventory') {
+        group = 'verification'
+        description = 'Write resolved release runtime modules for license review'
+        doLast {
+            def modules = app.configurations.releaseRuntimeClasspath
+                .resolvedConfiguration.resolvedArtifacts
+                .collect { it.moduleVersion.id.toString() }.unique().sort()
+            def output = app.layout.buildDirectory.file('reports/licenses/release-runtime-modules.txt').get().asFile
+            output.parentFile.mkdirs()
+            output.text = modules.join('\n') + '\n'
+            println "Resolved ${modules.size()} runtime modules: ${output}"
+        }
+    }
+}
