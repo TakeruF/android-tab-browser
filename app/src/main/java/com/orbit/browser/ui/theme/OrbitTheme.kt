@@ -81,24 +81,42 @@ internal fun OrbitSystemBars(dark: Boolean = MaterialTheme.colorScheme.backgroun
 }
 
 @Composable
-fun OrbitTheme(mode: ThemeMode, accentColor: Long = 0xFF426B5A, content: @Composable () -> Unit) {
+fun OrbitTheme(mode: ThemeMode, themeColor: Long = 0xFF426B5A, content: @Composable () -> Unit) {
     val dark = mode == ThemeMode.DARK || mode == ThemeMode.SYSTEM && isSystemInDarkTheme()
     OrbitSystemBars(dark)
-    MaterialTheme(colorScheme = accentColorScheme(dark, accentColor), content = content)
+    MaterialTheme(colorScheme = themeColorScheme(dark, themeColor), content = content)
 }
 
 // Keep user colors intact in storage; adapt their displayed roles for contrast.
-internal fun accentColorScheme(dark: Boolean, accentColor: Long): ColorScheme {
-    val base = if (dark) DarkColors else LightColors
-    if (accentColor == 0xFF426B5A) return base.copy(secondary = base.primary, onSecondary = base.onPrimary,
-        secondaryContainer = base.primaryContainer, onSecondaryContainer = base.onPrimaryContainer)
-    val seed = Color(accentColor or 0xFF000000)
-    val primary = readableSpaceColor(seed, base.onSurface, listOf(base.surface, base.surfaceContainerLow, base.background), minimumContrast = 5f)
+internal fun themeColorScheme(dark: Boolean, themeColor: Long): ColorScheme {
+    val original = if (dark) DarkColors else LightColors
+    val seed = Color(themeColor or 0xFF000000)
+    // Tint all browser chrome with the chosen hue, keeping neutral text readable.
+    fun tint(color: Color, amount: Float = 0.09f) = lerp(color, seed, amount)
+    val base = original.copy(
+        background = tint(original.background), surface = tint(original.surface, 0.05f),
+        surfaceVariant = tint(original.surfaceVariant), surfaceDim = tint(original.surfaceDim),
+        surfaceBright = tint(original.surfaceBright, 0.05f),
+        surfaceContainerLowest = tint(original.surfaceContainerLowest, 0.03f),
+        surfaceContainerLow = tint(original.surfaceContainerLow, 0.06f),
+        surfaceContainer = tint(original.surfaceContainer), surfaceContainerHigh = tint(original.surfaceContainerHigh),
+        surfaceContainerHighest = tint(original.surfaceContainerHighest),
+        outline = tint(original.outline), outlineVariant = tint(original.outlineVariant),
+    )
+    val primary = readableSpaceColor(seed, base.onSurface,
+        listOf(base.surface, base.surfaceContainerLow, base.background), minimumContrast = 5f)
     val container = lerp(base.surface, seed, if (dark) 0.25f else 0.16f)
     val onContainer = readableSpaceColor(base.onSurface, if (dark) Color.White else Color.Black, listOf(container), minimumContrast = 5f)
     val onPrimary = if (primary.luminance() > 0.179f) Color.Black else Color.White
-    return base.copy(primary = primary, onPrimary = onPrimary, primaryContainer = container,
+    val surfaces = listOf(base.background, base.surface, base.surfaceVariant, base.surfaceContainerLowest,
+        base.surfaceContainerLow, base.surfaceContainer, base.surfaceContainerHigh, base.surfaceContainerHighest)
+    val foreground = if (dark) Color.White else Color.Black
+    return base.copy(onSurface = readableSpaceColor(base.onSurface, foreground, surfaces, 5f),
+        onBackground = readableSpaceColor(base.onBackground, foreground, surfaces, 5f),
+        onSurfaceVariant = readableSpaceColor(base.onSurfaceVariant, foreground, surfaces, 5f),
+        primary = primary, onPrimary = onPrimary, primaryContainer = container,
         onPrimaryContainer = onContainer, surfaceTint = primary,
         secondary = primary, onSecondary = onPrimary, secondaryContainer = container, onSecondaryContainer = onContainer,
+        tertiary = primary, onTertiary = onPrimary, tertiaryContainer = container, onTertiaryContainer = onContainer,
         inversePrimary = readableSpaceColor(seed, base.inverseOnSurface, listOf(base.inverseSurface)))
 }

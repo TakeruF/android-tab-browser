@@ -168,21 +168,21 @@ class AppearanceUiTest {
         compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(264.dp)
     }
 
-    @Test fun customAccentPersistsAndRemainsReadableInBothThemes() {
+    @Test fun customThemeColorPersistsAndRemainsReadableInBothThemes() {
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Accent color"))
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Theme color"))
         text("Blue").performScrollTo().performClick()
-        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().accentColor == 0xFF3568C0 } }
+        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().themeColor == 0xFF3568C0 } }
         compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
         compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
         text("Save").performClick()
-        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().accentColor == 0xFFFEFE00 } }
+        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().themeColor == 0xFFFEFE00 } }
         for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
             theme(mode)
             contrast(compose.onNodeWithText("Custom color", substring = true, useUnmergedTree = true))
-            save("custom-accent-${mode.name.lowercase()}")
+            save("custom-theme-color-${mode.name.lowercase()}")
         }
-        assertEquals(0xFFFEFE00, runBlocking { container.settings.settings.first().accentColor })
+        assertEquals(0xFFFEFE00, runBlocking { container.settings.settings.first().themeColor })
     }
 
     @Test fun lightSidebarFavoritesAndNewTabRemainReadable() = sidebarAndHome(ThemeMode.LIGHT)
@@ -234,20 +234,32 @@ class AppearanceUiTest {
         }
     }
 
-    @Test fun allSixSpaceColorsStayReadableInBothThemesAndCloudUsesTextColor() {
+    @Test fun lucideAndEmojiPersistAcrossRecreationAndBothThemes() {
         val colors = listOf(0xFF426B5A, 0xFF6C6193, 0xFFB07D47, 0xFF477F96, 0xFF995C77, 0xFF687081)
         for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
             theme(mode)
             colors.forEachIndexed { index, color ->
                 compose.onNodeWithContentDescription("Space actions").performClick()
                 compose.onNodeWithText("Edit Space").performClick()
-                compose.onNodeWithContentDescription("Space icon ☁").performClick()
+                compose.onNodeWithText("Lucide").performClick()
+                compose.onNodeWithContentDescription("Space icon cloud").performClick()
                 compose.onNodeWithContentDescription("Space theme ${index + 1}").performClick()
+                if (index == 0) save("${mode.name.lowercase()}-lucide-picker")
                 compose.onNodeWithText("Save").performClick()
-                compose.waitUntil(10_000) { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.color == color } }
-                contrast(compose.onAllNodesWithText("☁\uFE0E", useUnmergedTree = true)[0], 4.4)
+                compose.waitUntil(10_000) { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.let { it.color == color && it.icon == "lucide:cloud" } } }
+                assertEquals("lucide:cloud", runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon })
             }
             save("${mode.name.lowercase()}-cloud-space")
+            compose.activityRule.scenario.recreate()
+            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Space actions").fetchSemanticsNodes().isNotEmpty() }
+            assertEquals("lucide:cloud", runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon })
+            compose.onNodeWithContentDescription("Space actions").performClick()
+            compose.onNodeWithText("Edit Space").performClick()
+            compose.onNodeWithText("Emoji").performClick()
+            compose.onNodeWithText("Custom emoji").performScrollTo().performTextReplacement("🦊")
+            save("${mode.name.lowercase()}-space-icon-picker")
+            compose.onNodeWithText("Save").performClick()
+            compose.waitUntil(10_000) { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon == "🦊" } }
         }
     }
 

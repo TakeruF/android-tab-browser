@@ -164,7 +164,7 @@ fun OrbitApp(activity: MainActivity, host: NativeBrowserHost, container: AppCont
     }
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
     BackHandler(enabled = fullscreen == null && route == "browser" && pages[focusedTab?.id]?.canGoBack == true) { focusedEngine?.goBack() }
-    OrbitTheme(state.settings.theme, state.settings.accentColor) {
+    OrbitTheme(state.settings.theme, state.settings.themeColor) {
         Surface(color = androidx.compose.ui.graphics.Color(state.currentSpace?.color ?: 0xFF426B5A).copy(alpha = 0.1f).compositeOver(MaterialTheme.colorScheme.background),
             contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
             if (!state.ready) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

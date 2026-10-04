@@ -12,7 +12,8 @@ private val Context.browserDataStore by preferencesDataStore("browser_settings")
 class SettingsStore(context: Context, private val store: androidx.datastore.core.DataStore<Preferences> = context.applicationContext.browserDataStore) {
     private object Keys {
         val theme = stringPreferencesKey("theme")
-        val accent = longPreferencesKey("accent_color")
+        // Keep the original storage key so existing color choices survive this rename.
+        val themeColor = longPreferencesKey("accent_color")
         val width = floatPreferencesKey("sidebar_width")
         val collapsed = booleanPreferencesKey("sidebar_collapsed")
         val engine = stringPreferencesKey("default_search_engine")
@@ -42,7 +43,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         automaticSearchRegion = p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
         searchRegionCheckedAt = p[Keys.regionCheckedAt] ?: 0,
-        accentColor = p[Keys.accent] ?: 0xFF426B5A,
+        themeColor = p[Keys.themeColor] ?: 0xFF426B5A,
     ) }
     suspend fun additionalEnginesSeeded(): Boolean = store.data.first()[Keys.additionalEnginesSeeded] ?: false
     suspend fun markAdditionalEnginesSeeded() { store.edit { it[Keys.additionalEnginesSeeded] = true } }
@@ -58,9 +59,9 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
                 p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
-                p[Keys.accent] ?: 0xFF426B5A)
+                p[Keys.themeColor] ?: 0xFF426B5A)
             val next = change(current)
-            p[Keys.accent] = next.accentColor
+            p[Keys.themeColor] = next.themeColor
             p[Keys.theme] = next.theme.name; p[Keys.width] = next.sidebarWidth.coerceIn(220f, 380f)
             p[Keys.collapsed] = next.sidebarCollapsed; p[Keys.engine] = next.defaultSearchEngineId
             p[Keys.space] = next.selectedSpaceId; p[Keys.restore] = next.restoreTabs

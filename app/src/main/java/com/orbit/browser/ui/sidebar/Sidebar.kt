@@ -266,16 +266,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         AlertDialog(onDismissRequest = { createSpace = false; editingSpace = null }, title = { OrbitSystemBars(); Text(if (createSpace) strings(R.string.ui_new_space) else strings(R.string.ui_edit_space)) },
             text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text(strings(R.string.ui_space_name)) }, singleLine = true)
-                OutlinedTextField(icon, { icon = it }, label = { Text(strings(R.string.ui_emoji_or_custom_icon)) }, singleLine = true)
-                Row { listOf("🏠", "💼", "📚", "🚀", "🎨", "🌏").forEach { value ->
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(if (icon == value) palette.primaryContainer else Color.Transparent)
-                        .clickable { icon = value }.semantics { contentDescription = strings(R.string.ui_space_icon_1_s, value) }, contentAlignment = Alignment.Center) { SpaceIcon(value, palette.onSurface) }
-                } }
-                Text(strings(R.string.ui_icon), style = MaterialTheme.typography.labelMedium)
-                Row { listOf("✦", "☁", "♥", "△").forEach { value ->
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(if (icon == value) palette.primaryContainer else Color.Transparent)
-                        .clickable { icon = value }.semantics { contentDescription = strings(R.string.ui_space_icon_1_s, value) }, contentAlignment = Alignment.Center) { Text(value + "\uFE0E") }
-                } }
+                SpaceIconPicker(icon, onSelect = { icon = it })
                 Text(strings(R.string.ui_theme), style = MaterialTheme.typography.labelMedium)
                 Row { listOf(0xFF426B5A, 0xFF6C6193, 0xFFB07D47, 0xFF477F96, 0xFF995C77, 0xFF687081).forEachIndexed { index, value ->
                     Box(Modifier.size(48.dp).padding(6.dp).clip(RoundedCornerShape(18.dp)).background(Color(value))
@@ -364,18 +355,4 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
             DropdownMenuItem(leadingIcon = { Icon(OrbitIcons.X, null) }, text = { Text(strings(R.string.ui_close_tab)) }, onClick = { vm.closeTab(tab.id); menu = false })
         }
     }
-}
-
-@Composable
-private fun SpaceIcon(value: String, color: Color) {
-    // Keep legacy monochrome symbols, while letting emoji retain their color presentation.
-    val emoji = defaultSpaceEmoji(value)
-    val display = if (emoji in listOf("✦", "☁", "♥", "△")) emoji + "\uFE0E" else emoji
-    Text(display, color = color, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-}
-
-private fun defaultSpaceEmoji(value: String): String = when (value) {
-    "◉" -> "🏠"
-    "▣" -> "💼"
-    else -> value
 }

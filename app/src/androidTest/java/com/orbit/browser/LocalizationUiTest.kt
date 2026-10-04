@@ -66,7 +66,7 @@ class LocalizationUiTest {
             list.performScrollToNode(hasContentDescription(description))
             compose.onNodeWithContentDescription(description).assertIsDisplayed()
         }
-        list.performScrollToNode(hasText(strings(R.string.ui_accent_color)))
+        list.performScrollToNode(hasText(strings(R.string.ui_theme_color)))
         compose.onNodeWithText(strings(R.string.ui_dark)).performScrollTo().performClick()
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().theme == ThemeMode.DARK } }
         screenshot("$language-settings")

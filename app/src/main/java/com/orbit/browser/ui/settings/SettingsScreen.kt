@@ -32,7 +32,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
     val strings = rememberOrbitStrings()
     var editing by remember { mutableStateOf<SearchEngine?>(null) }
     var adding by remember { mutableStateOf(false) }
-    var accentEditor by remember { mutableStateOf(false) }
+    var themeColorEditor by remember { mutableStateOf(false) }
     var clearHistory by remember { mutableStateOf(false) }
     val prefs = state.settings
     Column(Modifier.fillMaxSize()) {
@@ -93,21 +93,21 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
                 ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
             }
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(strings(R.string.ui_accent_color))
+                Text(strings(R.string.ui_theme_color))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(strings(R.string.ui_forest) to 0xFF426B5A, strings(R.string.ui_blue) to 0xFF3568C0, strings(R.string.ui_purple) to 0xFF8059B1,
                         strings(R.string.ui_rose) to 0xFFB4496B, strings(R.string.ui_orange) to 0xFFC76D26, strings(R.string.ui_slate) to 0xFF64748B).forEach { (name, color) ->
-                        FilterChip(selected = prefs.accentColor == color,
-                            onClick = { vm.updateSettings { it.copy(accentColor = color) } },
+                        FilterChip(selected = prefs.themeColor == color,
+                            onClick = { vm.updateSettings { it.copy(themeColor = color) } },
                             label = { Text(name) }, leadingIcon = {
                                 Surface(Modifier.size(18.dp), shape = CircleShape, color = Color(color),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {}
                             })
                     }
                 }
-                TextButton(onClick = { accentEditor = true }) {
+                TextButton(onClick = { themeColorEditor = true }) {
                     Icon(OrbitIcons.Palette, null, Modifier.size(18.dp))
-                    Text(strings(R.string.ui_custom_color_1_s, "%06X".format(prefs.accentColor and 0xFFFFFF)), Modifier.padding(start = 8.dp))
+                    Text(strings(R.string.ui_custom_color_1_s, "%06X".format(prefs.themeColor and 0xFFFFFF)), Modifier.padding(start = 8.dp))
                 }
             }
             var width by remember(prefs.sidebarWidth) { mutableFloatStateOf(prefs.sidebarWidth) }
@@ -158,8 +158,8 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
         item { Text(strings(R.string.ui_orbit_0_1_0_made_for_a_little_more_room), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
-    if (accentEditor) AccentColorEditor(prefs.accentColor, onDismiss = { accentEditor = false }) { color ->
-        vm.updateSettings { it.copy(accentColor = color) }; accentEditor = false
+    if (themeColorEditor) ThemeColorEditor(prefs.themeColor, onDismiss = { themeColorEditor = false }) { color ->
+        vm.updateSettings { it.copy(themeColor = color) }; themeColorEditor = false
     }
     if (adding || editing != null) SearchEngineEditor(editing, state.workspace.searchEngines,
         onDismiss = { adding = false; editing = null }, onSave = { vm.saveEngine(it); adding = false; editing = null })
@@ -215,11 +215,11 @@ private fun SearchEngineEditor(engine: SearchEngine?, engines: List<SearchEngine
 }
 
 @Composable
-private fun AccentColorEditor(current: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
+private fun ThemeColorEditor(current: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
     val strings = rememberOrbitStrings()
     var hex by remember { mutableStateOf("%06X".format(current and 0xFFFFFF)) }
     val valid = hex.removePrefix("#").matches(Regex("[0-9a-fA-F]{6}"))
-    AlertDialog(onDismissRequest = onDismiss, title = { OrbitSystemBars(); Text(strings(R.string.ui_custom_accent_color)) },
+    AlertDialog(onDismissRequest = onDismiss, title = { OrbitSystemBars(); Text(strings(R.string.ui_custom_theme_color)) },
         text = {
             OutlinedTextField(hex, { hex = it }, label = { Text(strings(R.string.ui_hex_color)) }, singleLine = true,
                 isError = !valid, supportingText = { Text(strings(R.string.ui_six_hexadecimal_digits_for_example_3568c0)) },

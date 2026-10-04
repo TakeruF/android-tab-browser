@@ -31,11 +31,11 @@ class WorkspaceRepositoryTest {
         spaces = SpaceRepository(workspace, settings, tabs); workspace.initialize()
     }
     @After fun close() { db.close() }
-    @Test fun accentSurvivesIndependentSettingsUpdatesAndStoreRecreation() = runBlocking {
-        settings.update { it.copy(accentColor = 0xFF3568C0) }
+    @Test fun themeColorSurvivesIndependentSettingsUpdatesAndStoreRecreation() = runBlocking {
+        settings.update { it.copy(themeColor = 0xFF3568C0) }
         settings.update { it.copy(theme = ThemeMode.DARK, sidebarWidth = 310f, sidebarCollapsed = true) }
         val saved = SettingsStore(RuntimeEnvironment.getApplication()).settings.first()
-        assertEquals(0xFF3568C0, saved.accentColor)
+        assertEquals(0xFF3568C0, saved.themeColor)
         assertEquals(310f, saved.sidebarWidth)
         assertTrue(saved.sidebarCollapsed)
         assertEquals(ThemeMode.DARK, saved.theme)

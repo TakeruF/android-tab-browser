@@ -199,3 +199,11 @@ Appearanceにアクセントカラー6色とカスタムHEX入力を追加。ボ
 画面: [日本語ホーム](screenshots/locale-ja-home.png)・[韓国語設定](screenshots/locale-ko-settings.png)・[中国語コマンド](screenshots/locale-zh-CN-commands.png)・[英語設定](screenshots/locale-en-settings.png)。[言語設定・検索URL・実装範囲](LOCALIZATION.md)。
 
 最終検証: 単体44件・端末42件が全件成功（失敗・スキップ0）。Debug／Releaseビルド成功（Releaseはunsigned）、Lintはエラー0・警告25（追加分はlocaleConfigがAPI 33以降で使われることの通知）。API 36のOrbit_Tablet_QAで実行。物理端末・Android 8–15・各検索サービスでの実検索結果は未検証です。
+
+## 2026-10-04 — Space icons and theme color
+
+Space編集に絵文字／Lucide切り替え、各24種の折り返しグリッド、選択プレビュー、任意の絵文字入力を追加。Lucideは`lucide:<name>`を既存のSpace icon列へ保存し、旧絵文字・記号も表示できます。
+
+アクセントカラーをテーマカラーへ改名し、ブラウザーの背景・パネル・選択色にも反映。DataStoreの既存`accent_color`キーを維持して保存済みの色を引き継ぎます。ライト／ダークと極端な色の文字コントラストを検証しました。
+
+検証: Debug APK・AndroidTest APKビルド成功、単体テスト44件成功、Lintエラー0。API 36のOrbit_Tablet_QAで`AppearanceUiTest#customThemeColorPersistsAndRemainsReadableInBothThemes`、`AppearanceUiTest#lucideAndEmojiPersistAcrossRecreationAndBothThemes`成功。Lucide・任意の絵文字の保存、Activity再生成後のLucide復元、両テーマの選択画面とカスタム色表示を確認。実機では未検証です。
