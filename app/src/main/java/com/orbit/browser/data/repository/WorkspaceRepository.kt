@@ -35,6 +35,11 @@ class WorkspaceRepository(val database: OrbitDatabase, private val settings: Set
                 if (!settings.regionalEngineSeeded() && dao.engines().none { it.id == "baidu" || it.keyword == "bd" }) {
                     dao.putEngine(DefaultSearchEngines.all.first { it.id == "baidu" }.entity())
                 }
+                if (!settings.additionalEnginesSeeded()) {
+                    DefaultSearchEngines.all.filter { it.id in DefaultSearchEngines.additionalIds }.forEach { engine ->
+                        if (dao.engines().none { it.id == engine.id || it.keyword == engine.keyword }) dao.putEngine(engine.entity())
+                    }
+                }
                 dao.observeBookmarks().first().filter { it.isFavorite && it.spaceId != null }.forEach {
                     dao.putBookmark(it.copy(spaceId = null))
                 }
@@ -56,6 +61,7 @@ class WorkspaceRepository(val database: OrbitDatabase, private val settings: Set
                 }
                 dao.trimClosedTabs()
             }
+            settings.markAdditionalEnginesSeeded()
             settings.markRegionalEngineSeeded()
             val spaces = dao.spaces()
             settings.update { if (spaces.none { s -> s.id == it.selectedSpaceId })

@@ -1,8 +1,15 @@
 package com.orbit.browser.ui
 
+import com.orbit.browser.R
+import com.orbit.browser.ui.localization.rememberOrbitStrings
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,8 +19,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isPrimaryPressed
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -37,8 +52,10 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun OrbitApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingUrls: Flow<String>) {
+    val strings = rememberOrbitStrings()
     val vm: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
+    val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
     val sessions = remember(host) { BrowserSessionController(container) { _, desktop ->
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop)
@@ -119,7 +136,7 @@ fun OrbitApp(activity: MainActivity, host: NativeBrowserHost, container: AppCont
         activity.shortcutHandler = { shortcutHandler(it) }
         onDispose { activity.shortcutHandler = null }
     }
-    LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(currentStrings.translate(it)) } }
     LaunchedEffect(incomingUrls) { incomingUrls.collect { url ->
         vm.state.first { it.ready }
         vm.newTab(url); navigate("browser")
@@ -147,36 +164,74 @@ fun OrbitApp(activity: MainActivity, host: NativeBrowserHost, container: AppCont
     }
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
     BackHandler(enabled = fullscreen == null && route == "browser" && pages[focusedTab?.id]?.canGoBack == true) { focusedEngine?.goBack() }
-    OrbitTheme(state.settings.theme) {
+    OrbitTheme(state.settings.theme, state.settings.accentColor) {
         Surface(color = androidx.compose.ui.graphics.Color(state.currentSpace?.color ?: 0xFF426B5A).copy(alpha = 0.1f).compositeOver(MaterialTheme.colorScheme.background),
             contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
             if (!state.ready) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (state.startupError != null) Text("Workspace could not be opened: ${state.startupError}") else CircularProgressIndicator()
+                if (state.startupError != null) Text(strings(R.string.ui_workspace_could_not_be_opened_1_s, strings.translate(state.startupError.orEmpty()))) else CircularProgressIndicator()
             } else Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 val density = LocalDensity.current
                 var resizingWidth by remember { mutableStateOf<Float?>(null) }
-                val width = if (state.settings.sidebarCollapsed) 72.dp else (resizingWidth ?: state.settings.sidebarWidth).dp
+                var resizingCollapsed by remember { mutableStateOf<Boolean?>(null) }
+                val previewCollapsed = resizingCollapsed ?: state.settings.sidebarCollapsed
+                val previewState = state.copy(settings = state.settings.copy(sidebarCollapsed = previewCollapsed))
+                val width = if (previewCollapsed) 72.dp else (resizingWidth ?: state.settings.sidebarWidth).dp
                 Row(Modifier.fillMaxSize()) {
-                    Box(Modifier.width(width).fillMaxHeight()) {
-                        Sidebar(state, vm, pages.filterValues { it.isLoading }.keys, onNavigate = ::navigate, onOmnibox = { openOmnibox(false) },
+                    Box(Modifier.width(width).fillMaxHeight().testTag("sidebar")) {
+                        Sidebar(previewState, vm, pages.filterValues { it.isLoading }.keys, onNavigate = ::navigate, onOmnibox = { openOmnibox(false) },
                             onOpenUrl = { vm.newTab(it); rightFocused = false; navigate("browser") }, onSplitTab = { id ->
                                 if (id == state.activeTab?.id) split() else { rightTabId = id; rightFocused = true; navigate("browser") }
                             })
                     }
-                    val widthValue by rememberUpdatedState(resizingWidth ?: state.settings.sidebarWidth)
-                    val collapsed by rememberUpdatedState(state.settings.sidebarCollapsed)
-                    Box(Modifier.width(8.dp).fillMaxHeight().pointerInput(density) {
-                        var totalDrag = 0f
-                        detectHorizontalDragGestures(onDragStart = { totalDrag = 0f }, onDragEnd = {
-                            if (collapsed && totalDrag > 30f) vm.updateSettings { it.copy(sidebarCollapsed = false) }
-                            else if (!collapsed && totalDrag < -120f) vm.updateSettings { it.copy(sidebarCollapsed = true) }
-                            else resizingWidth?.let { value -> vm.updateSettings { it.copy(sidebarWidth = value) } }
-                            resizingWidth = null
-                        }, onDragCancel = { resizingWidth = null }, onHorizontalDrag = { change, delta ->
-                            change.consume(); totalDrag += delta
-                            if (!collapsed) resizingWidth = (widthValue + delta / density.density).coerceIn(220f, 380f)
-                        })
-                    })
+                    val resizeSettings by rememberUpdatedState(state.settings)
+                    var resizeOriginX by remember { mutableFloatStateOf(0f) }
+                    val hoverSource = remember { MutableInteractionSource() }
+                    val edgeHovered by hoverSource.collectIsHoveredAsState()
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val resizeCursor = remember(context) { PointerIcon(android.view.PointerIcon.getSystemIcon(context,
+                        android.view.PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW)) }
+                    Box(Modifier.width(8.dp).fillMaxHeight().testTag("sidebar-resize-handle")
+                        .onGloballyPositioned { resizeOriginX = it.positionInRoot().x }
+                        .pointerHoverIcon(resizeCursor).hoverable(hoverSource)
+                        .pointerInput(density) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+                                val downX = resizeOriginX + down.position.x
+                                val startWidth = resizeSettings.sidebarWidth
+                                val startCollapsed = resizeSettings.sidebarCollapsed
+                                val slop = if (down.type == PointerType.Mouse) 1f else viewConfiguration.touchSlop
+                                var dragging = false
+                                try {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (change.isConsumed) break
+                                        val delta = resizeOriginX + change.position.x - downX
+                                        if (kotlin.math.abs(delta) > slop) dragging = true
+                                        if (dragging) {
+                                            val raw = (if (startCollapsed) 72f else startWidth) + delta / density.density
+                                            resizingCollapsed = raw <= (if (startCollapsed) 102f else 220f)
+                                            resizingWidth = raw.coerceIn(220f, 380f)
+                                        }
+                                        val released = change.changedToUp()
+                                        change.consume()
+                                        if (!change.pressed) {
+                                            if (released && dragging) {
+                                                val collapse = resizingCollapsed ?: startCollapsed
+                                                val value = resizingWidth ?: startWidth
+                                                vm.updateSettings { it.copy(sidebarCollapsed = collapse,
+                                                    sidebarWidth = if (collapse) startWidth else value) }
+                                            }
+                                            break
+                                        }
+                                    }
+                                } finally { resizingWidth = null; resizingCollapsed = null }
+                            }
+                        }, contentAlignment = Alignment.Center) {
+                        if (edgeHovered || resizingWidth != null) Box(Modifier.width(2.dp).fillMaxHeight()
+                            .padding(vertical = 16.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
+                    }
                     Surface(shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f).fillMaxHeight().padding(top = 8.dp, end = 8.dp, bottom = 8.dp),
                         color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
                         NavHost(navController = nav, startDestination = "browser") {
@@ -205,7 +260,7 @@ fun OrbitApp(activity: MainActivity, host: NativeBrowserHost, container: AppCont
             }
             fullscreen?.let { view -> Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
                 NativeSurface(view, Modifier.fillMaxSize())
-                TextButton(onClick = host::hideFullscreen, modifier = Modifier.align(Alignment.TopEnd).padding(24.dp)) { Text("Exit fullscreen", color = androidx.compose.ui.graphics.Color.White) }
+                TextButton(onClick = host::hideFullscreen, modifier = Modifier.align(Alignment.TopEnd).padding(24.dp)) { Text(strings(R.string.ui_exit_fullscreen), color = androidx.compose.ui.graphics.Color.White) }
             } }
         }
     }

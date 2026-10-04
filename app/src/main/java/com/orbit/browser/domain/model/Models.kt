@@ -54,6 +54,7 @@ data class BrowserSettings(
     val searchRegionCountry: String? = null,
     val searchRegionSource: String? = null,
     val searchRegionCheckedAt: Long = 0,
+    val accentColor: Long = 0xFF426B5A,
 )
 
 data class WorkspaceSnapshot(

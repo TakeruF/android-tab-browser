@@ -1,5 +1,8 @@
 package com.orbit.browser
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import java.io.ByteArrayOutputStream
 import java.net.ServerSocket
 import java.util.concurrent.Executors
 
@@ -19,13 +22,25 @@ class FixtureServer : AutoCloseable {
                     if (line.isNullOrEmpty()) break
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
                 }
+                if (path == "/favicon.ico" || path == "/custom-icon.png") {
+                    val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+                    bitmap.eraseColor(if (path == "/favicon.ico") Color.MAGENTA else Color.CYAN)
+                    val bytes = ByteArrayOutputStream().use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
+                    }
+                    bitmap.recycle()
+                    client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                    client.getOutputStream().write(bytes)
+                    return@use
+                }
                 if (path.startsWith("/download")) {
                     val data = "Orbit download fixture".toByteArray()
                     client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=orbit.txt\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n").toByteArray())
                     client.getOutputStream().write(data)
                     return@use
                 }
-                val body = if (path.startsWith("/ua")) "<html><head><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Mobile")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
+                val body = if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
+                else if (path.startsWith("/ua")) "<html><head><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Mobile")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
                 else if (path.startsWith("/scroll")) """
                     <html><head><title>Fixture Scroll</title><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1"></head>
                     <body style="margin:0;width:4000px;height:4000px;background:linear-gradient(#f5f8f4,#244435)">

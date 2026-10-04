@@ -7,6 +7,21 @@ import org.junit.Test
 
 class InputResolverTest {
     private val engines = DefaultSearchEngines.all
+    @Test fun addedEnginesEncodeMultilingualQueriesAndPathSpaces() {
+        val query = "日本語 한국어 中文 a+b /?&"
+        for ((keyword, id) in listOf("sg" to "sogou", "360" to "so360", "dy" to "douyin", "sm" to "shenma")) {
+            val result = InputResolver.resolve("$keyword $query", engines, "google") as ResolvedInput.Search
+            assertEquals(id, result.engine.id)
+            assertEquals(query, result.query)
+            assertTrue(result.url.startsWith("https://"))
+            assertTrue(result.url.contains("%2B"))
+            assertTrue(result.url.contains("%2F%3F%26"))
+            if (id == "douyin") {
+                assertFalse(result.url.contains("+"))
+                assertTrue(result.url.contains("%20"))
+            }
+        }
+    }
     @Test fun handlesRequestedUrlForms() {
         mapOf("google.com" to "https://google.com", "https://google.com" to "https://google.com",
             "localhost:8080" to "https://localhost:8080", "192.168.1.1" to "https://192.168.1.1",

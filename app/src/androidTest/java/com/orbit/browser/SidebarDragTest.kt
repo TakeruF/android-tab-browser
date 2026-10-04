@@ -2,7 +2,7 @@ package com.orbit.browser
 
 import android.graphics.Bitmap
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.orbit.browser.domain.model.BrowserSettings
@@ -57,7 +57,8 @@ class SidebarDragTest {
     }
     private fun tab(title: String) = compose.onNodeWithContentDescription("Tab $title")
     private fun saveScreen(name: String) {
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        compose.waitForIdle()
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(compose.activity.getExternalFilesDir(null), "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
     private fun drag(source: SemanticsNodeInteraction, destination: SemanticsNodeInteraction, after: Boolean = false, cancel: Boolean = false) {
@@ -99,6 +100,42 @@ class SidebarDragTest {
         compose.onNodeWithText("Automatic search by region").assertExists()
         saveScreen("regional-search-settings")
     }
+    @Test fun hoverActionsAndSecondaryClickDoNotSelectOrDrag() {
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId }
+        val reading = tab("Reading list")
+        reading.performMouseInput { moveTo(center) }
+        compose.onNodeWithContentDescription("Actions for Reading list").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close Reading list").assertIsDisplayed()
+        saveScreen("sidebar-hover-actions")
+        reading.performMouseInput { exit() }
+        compose.onNodeWithContentDescription("Actions for Reading list").assertDoesNotExist()
+        reading.performMouseInput { moveTo(center); press(MouseButton.Secondary); release(MouseButton.Secondary) }
+        compose.onNodeWithText("Pin tab").assertIsDisplayed()
+        assertEquals(active, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+        assertNull(runBlocking { container.workspace.dao.tab(beta)!!.closedAt })
+        saveScreen("sidebar-context-menu")
+        compose.onNodeWithText("Pin tab").performClick()
+        compose.waitUntil { runBlocking { container.workspace.dao.tab(beta)!!.isPinned } }
+        compose.onNodeWithContentDescription("Favorite Gmail").performMouseInput {
+            moveTo(center); press(MouseButton.Secondary); release(MouseButton.Secondary)
+        }
+        compose.onNodeWithText("Remove favorite").assertIsDisplayed()
+    }
+
+    @Test fun customEmojiAndNewTabHomeSurviveRecreation() {
+        compose.onNodeWithContentDescription("Space actions").performClick()
+        compose.onNodeWithText("Edit Space").performClick()
+        compose.onNodeWithText("Emoji or custom icon").performTextReplacement("🧑‍💻")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon == "🧑‍💻" } }
+        compose.onNode(hasText("New tab") and hasContentDescription("Tab New tab").not()).performClick()
+        compose.onAllNodesWithContentDescription("New tab home", useUnmergedTree = true).onFirst().assertIsDisplayed()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil { compose.onAllNodesWithText("🧑‍💻").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithContentDescription("New tab home", useUnmergedTree = true).onFirst().assertIsDisplayed()
+        saveScreen("sidebar-custom-emoji-home")
+    }
+
     @Test fun mouseDragsWithoutLongPressAndLongListAutoScrolls() {
         val source = tab("Design references")
         val from = source.fetchSemanticsNode().boundsInRoot
@@ -122,6 +159,7 @@ class SidebarDragTest {
             down(Offset(bounds.width * 0.45f, bounds.height / 2)); advanceEventTime(650)
             moveTo(Offset(bounds.width * 0.45f, viewport.bottom - 16f - bounds.top), delayMillis = 100)
         }
+        compose.waitForIdle()
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Tab Reference 24").fetchSemanticsNodes().isNotEmpty() }
         saveScreen("arc-sidebar-drag")
         compose.onRoot().performTouchInput { cancel() }

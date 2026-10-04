@@ -31,9 +31,18 @@ class WorkspaceRepositoryTest {
         spaces = SpaceRepository(workspace, settings, tabs); workspace.initialize()
     }
     @After fun close() { db.close() }
-    @Test fun seedsEachSpaceWithOneSelectedTabAndNineEditableEngines() = runBlocking {
+    @Test fun accentSurvivesIndependentSettingsUpdatesAndStoreRecreation() = runBlocking {
+        settings.update { it.copy(accentColor = 0xFF3568C0) }
+        settings.update { it.copy(theme = ThemeMode.DARK, sidebarWidth = 310f, sidebarCollapsed = true) }
+        val saved = SettingsStore(RuntimeEnvironment.getApplication()).settings.first()
+        assertEquals(0xFF3568C0, saved.accentColor)
+        assertEquals(310f, saved.sidebarWidth)
+        assertTrue(saved.sidebarCollapsed)
+        assertEquals(ThemeMode.DARK, saved.theme)
+    }
+    @Test fun seedsEachSpaceWithOneSelectedTabAndEditableEngines() = runBlocking {
         assertEquals(2, db.browserDao().spaces().size)
-        assertEquals(9, db.browserDao().engines().size)
+        assertEquals(com.orbit.browser.browser.search.DefaultSearchEngines.all.size, db.browserDao().engines().size)
         db.browserDao().spaces().forEach { assertNotNull(db.browserDao().tab(it.activeTabId!!)) }
         val engine = db.browserDao().engines().first()
         db.browserDao().putEngine(engine.copy(name = "Edited"))
@@ -134,6 +143,29 @@ class WorkspaceRepositoryTest {
         val restored = db.browserDao().tabs("work").first { it.url == "https://a.com" }
         assertTrue(restored.isPinned); assertEquals("Alpha", restored.title)
         assertTrue(db.browserDao().observeBookmarks().first().none { it.id == favorite.id })
+    }
+    @Test fun reloadingPinnedTabKeepsIconUntilNewIconArrivesButNavigationClearsIt() = runBlocking {
+        val id = tabs.create("personal", "https://example.com")
+        tabs.togglePin(id)
+        tabs.updatePage(id, "https://example.com", "Example", "/saved/icon.png")
+        tabs.updatePage(id, "https://example.com", "Reloading", null)
+        assertEquals("/saved/icon.png", db.browserDao().tab(id)!!.faviconUrl)
+        tabs.updatePage(id, "https://other.example", "Other", null)
+        assertNull(db.browserDao().tab(id)!!.faviconUrl)
+    }
+    @Test fun lateIconUpdatesExistingFavoritesAndBookmarksWithoutChangingTitles() = runBlocking {
+        val library = LibraryRepository(workspace)
+        val id = tabs.create("personal", "https://example.com")
+        library.addBookmark(BrowserTab(id, "personal", "https://example.com", "Custom title"), true)
+        library.addBookmark(BrowserTab(id, "personal", "https://example.com/", "Bookmark title"), false)
+        library.addBookmark(BrowserTab(id, "personal", "https://other.example", "Other"), false)
+        tabs.updatePage(id, "https://example.com/", "Page title", "/saved/icon.png")
+        val saved = db.browserDao().observeBookmarks().first()
+        assertEquals("/saved/icon.png", saved.first { it.title == "Custom title" }.faviconUrl)
+        assertEquals("/saved/icon.png", saved.first { it.title == "Bookmark title" }.faviconUrl)
+        assertNull(saved.first { it.title == "Other" }.faviconUrl)
+        tabs.updatePage(id, "https://example.com/", "Reloading", null)
+        assertEquals("/saved/icon.png", db.browserDao().observeBookmarks().first().first { it.title == "Custom title" }.faviconUrl)
     }
     @Test fun deletedBaiduIsNotReseededOnLaunch() = runBlocking {
         SearchEngineRepository(workspace, settings).delete("baidu")

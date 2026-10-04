@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -9,7 +10,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application android:name=".OrbitApplication" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/ic_launcher" android:label="Orbit" android:supportsRtl="true"
+        android:icon="@drawable/ic_launcher" android:label="Orbit" android:localeConfig="@xml/locales_config" android:supportsRtl="true"
         android:theme="@style/Theme.Orbit" android:usesCleartextTraffic="true">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">

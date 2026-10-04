@@ -8,6 +8,7 @@ import android.view.KeyEvent
 import android.view.WindowInsetsController
 import android.view.inspector.WindowInspector
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -120,6 +121,68 @@ class AppearanceUiTest {
             contrast(nodes[0]); contrast(nodes[1])
         }
         save("${mode.name.lowercase()}-home")
+    }
+
+    @Test fun boundaryMouseResizeCollapsesAtMinimumAndReopens() {
+        val edge = compose.onNodeWithTag("sidebar-resize-handle")
+        val density = compose.activity.resources.displayMetrics.density
+        fun drag(deltaDp: Float) {
+            val start = edge.fetchSemanticsNode().boundsInRoot.center
+            compose.onRoot().performMouseInput {
+                moveTo(start); press()
+                moveTo(start + androidx.compose.ui.geometry.Offset(deltaDp * density / 2f, 0f), delayMillis = 100)
+            }
+            compose.waitForIdle()
+            compose.onRoot().performMouseInput {
+                moveTo(start + androidx.compose.ui.geometry.Offset(deltaDp * density, 0f), delayMillis = 100)
+                release()
+            }
+            compose.waitForIdle()
+        }
+        drag(70f)
+        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().sidebarWidth > 300f } }
+        val savedWidth = runBlocking { container.settings.settings.first().sidebarWidth }
+        drag(-180f)
+        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().sidebarCollapsed } }
+        compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(72.dp)
+        assertEquals(savedWidth, runBlocking { container.settings.settings.first().sidebarWidth })
+        save("sidebar-minimum-collapsed")
+        drag(210f)
+        compose.waitUntil(10_000) { runBlocking { !container.settings.settings.first().sidebarCollapsed } }
+        compose.onNodeWithTag("sidebar").assertWidthIsAtLeast(220.dp)
+    }
+
+    @Test fun boundarySecondaryClickAndCanceledTouchDoNotSaveWidth() {
+        val edge = compose.onNodeWithTag("sidebar-resize-handle")
+        edge.performMouseInput {
+            moveTo(center); press(MouseButton.Secondary)
+            moveTo(center + androidx.compose.ui.geometry.Offset(100f, 0f)); release(MouseButton.Secondary)
+        }
+        edge.performTouchInput {
+            down(center); moveBy(androidx.compose.ui.geometry.Offset(-100f, 0f)); cancel()
+        }
+        compose.waitForIdle()
+        val saved = runBlocking { container.settings.settings.first() }
+        assertEquals(264f, saved.sidebarWidth)
+        assertFalse(saved.sidebarCollapsed)
+        compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(264.dp)
+    }
+
+    @Test fun customAccentPersistsAndRemainsReadableInBothThemes() {
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Accent color"))
+        text("Blue").performScrollTo().performClick()
+        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().accentColor == 0xFF3568C0 } }
+        compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
+        text("Save").performClick()
+        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().accentColor == 0xFFFEFE00 } }
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            theme(mode)
+            contrast(compose.onNodeWithText("Custom color", substring = true, useUnmergedTree = true))
+            save("custom-accent-${mode.name.lowercase()}")
+        }
+        assertEquals(0xFFFEFE00, runBlocking { container.settings.settings.first().accentColor })
     }
 
     @Test fun lightSidebarFavoritesAndNewTabRemainReadable() = sidebarAndHome(ThemeMode.LIGHT)

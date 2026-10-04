@@ -29,8 +29,12 @@ object InputResolver {
         return search(engine, text)
     }
 
-    fun search(engine: SearchEngine, query: String): ResolvedInput.Search =
-        ResolvedInput.Search(engine, query, engine.urlTemplate.replace("{query}", URLEncoder.encode(query, "UTF-8")))
+    fun search(engine: SearchEngine, query: String): ResolvedInput.Search {
+        val encoded = URLEncoder.encode(query, "UTF-8")
+        // A path placeholder needs percent-encoded spaces; '+' only means space in a query string.
+        val replacement = if (engine.urlTemplate.substringBefore('?').contains("{query}")) encoded.replace("+", "%20") else encoded
+        return ResolvedInput.Search(engine, query, engine.urlTemplate.replace("{query}", replacement))
+    }
 
     fun normalizeUrl(input: String): String? {
         if (input.any { it.isWhitespace() }) return null

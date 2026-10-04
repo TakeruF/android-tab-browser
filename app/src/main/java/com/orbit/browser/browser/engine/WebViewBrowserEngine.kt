@@ -1,5 +1,8 @@
 package com.orbit.browser.browser.engine
 
+import com.orbit.browser.R
+import com.orbit.browser.ui.localization.OrbitStrings
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -8,6 +11,8 @@ import android.net.http.SslError
 import android.os.Bundle
 import android.os.Message
 import android.webkit.*
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -21,6 +26,7 @@ class WebViewBrowserEngine(
     context: Context, private val host: BrowserHost, private val fullscreenHost: FullscreenHost,
     private val openLinksInNewTab: () -> Boolean, desktopDefault: Boolean,
 ) : BrowserEngine, AndroidEngineSurface {
+    private val strings = OrbitStrings(context)
     private val webView = WebView(context)
     override val surface get() = webView
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -29,7 +35,7 @@ class WebViewBrowserEngine(
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
     private val mobileUa = WebSettings.getDefaultUserAgent(context)
-    private val faviconDirectory = File(context.cacheDir, "favicons").apply { mkdirs() }
+    private val faviconDirectory = File(context.filesDir, "favicons").apply { mkdirs() }
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val popupViews = mutableSetOf<WebView>()
     private var destroyed = false
@@ -52,6 +58,12 @@ class WebViewBrowserEngine(
             useWideViewPort = true; loadWithOverviewMode = true
             safeBrowsingEnabled = true
         }
+        // WebView defaults to disabling WebAuthn. Browser mode preserves website origins,
+        // RP-ID validation and the system credential UI; never inject a JavaScript credential bridge.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
+            WebSettingsCompat.setWebAuthenticationSupport(webView.settings,
+                WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER)
+        }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
         applyUserAgent(desktopDefault)
@@ -69,12 +81,13 @@ class WebViewBrowserEngine(
                 }
                 if (scheme == "about") return url != "about:blank"
                 if (request.hasGesture() && scheme in setOf("mailto", "tel", "sms", "geo")) host.openExternal(url)
-                else host.showMessage("This address type is not supported")
+                else host.showMessage(strings(R.string.ui_this_address_type_is_not_supported))
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 failedNavigation = false
-                update { it.copy(url = url, isLoading = true, progress = 0, error = null) }
+                update { it.copy(url = url, isLoading = true, progress = 0, error = null,
+                    faviconUrl = if (it.url == url) it.faviconUrl else null) }
                 metadata()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
@@ -103,7 +116,7 @@ class WebViewBrowserEngine(
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel() // Never bypass certificate validation.
                 failedNavigation = true
-                update { it.copy(isLoading = false, error = "The site's certificate could not be verified.") }
+                update { it.copy(isLoading = false, error = strings(R.string.ui_the_site_s_certificate_could_not_be_verified)) }
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -120,7 +133,7 @@ class WebViewBrowserEngine(
                             val hash = java.security.MessageDigest.getInstance("SHA-256").digest(pageUrl.toByteArray())
                                 .joinToString("") { "%02x".format(it) }
                             val file = File(faviconDirectory, "$hash.png")
-                            file.outputStream().use { icon.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                            file.outputStream().use { check(icon.compress(Bitmap.CompressFormat.PNG, 100, it)) }
                             file.absolutePath
                         }.getOrNull()
                     }
@@ -144,7 +157,7 @@ class WebViewBrowserEngine(
                 val popup = WebView(context)
                 popupViews.add(popup)
                 popup.postDelayed({ if (popupViews.remove(popup)) {
-                    popup.destroy(); host.showMessage("Blank script-generated popups are not supported in this MVP")
+                    popup.destroy(); host.showMessage(strings(R.string.ui_blank_script_generated_popups_are_not_supported_in_this_mvp))
                 } }, 5_000)
                 popup.webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
@@ -200,14 +213,14 @@ class WebViewBrowserEngine(
                 DownloadRequest(url, userAgent, disposition, mimeType,
                     CookieManager.getInstance().getCookie(url), DownloadFilename.fromDisposition(disposition)
                         ?: URLUtil.guessFileName(url, disposition, mimeType)))
-            else host.showMessage("Blob and data downloads are not supported in this MVP")
+            else host.showMessage(strings(R.string.ui_blob_and_data_downloads_are_not_supported_in_this_mvp))
         }
         webView.setFindListener { active, count, _ -> update { it.copy(findMatches = count, activeFindMatch = active) } }
     }
     private fun dispatchPopup(url: String, popup: WebView) {
         if (!popupViews.remove(popup)) return
         if (url.startsWith("http://") || url.startsWith("https://")) eventChannel.trySend(EngineEvent.OpenTab(url))
-        else host.showMessage("This popup address is not supported")
+        else host.showMessage(strings(R.string.ui_this_popup_address_is_not_supported))
         popup.post { popup.stopLoading(); popup.destroy() }
     }
     private fun update(change: (PageState) -> PageState) { if (!destroyed) mutableState.update(change) }

@@ -4,15 +4,17 @@ Orbit本体のソースコード・ドキュメントには[MIT License](LICENSE
 
 ## APKに含まれるライブラリ
 
-2026-10-03の`releaseRuntimeClasspath`で解決された108モジュールの一覧と出典は、[THIRD_PARTY_NOTICES.txt](app/src/main/assets/licenses/THIRD_PARTY_NOTICES.txt)に記録しています。推移的依存も含む一覧であり、R8後の全クラスの残存を意味しません。
+2026-10-04の`releaseRuntimeClasspath`で解決された127モジュールの一覧と出典は、[THIRD_PARTY_NOTICES.txt](app/src/main/assets/licenses/THIRD_PARTY_NOTICES.txt)に記録しています。推移的依存も含む一覧であり、R8後の全クラスの残存を意味しません。
 
 | ライブラリ / データ | ライセンス / 出典 |
 | --- | --- |
 | AndroidX / Compose / Material icons / Room / DataStore | [Apache-2.0](https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt) |
-| Kotlin / Kotlinx Coroutines / Serialization / JetBrains annotations | [Apache-2.0およびKotlin内の個別表記](https://github.com/JetBrains/kotlin/blob/v2.2.20/license/README.md) |
+| Kotlin / Kotlinx Coroutines / Serialization / JetBrains annotations | [Apache-2.0およびKotlin内の個別表記](https://github.com/JetBrains/kotlin/blob/v2.2.21/license/README.md) |
 | Coil 3.3.0 | [Apache-2.0](https://github.com/coil-kt/coil/blob/3.3.0/LICENSE.txt) |
 | OkHttp 4.12.0 / Okio 3.15.0 | [Apache-2.0](https://github.com/square/okhttp/blob/parent-4.12.0/LICENSE.txt) / [Okio](https://github.com/square/okio/blob/parent-3.15.0/LICENSE.txt) |
 | Accompanist / Guava listenablefuture / JSpecify | [Apache-2.0](https://github.com/google/accompanist/blob/v0.37.3/LICENSE) / [Guava](https://github.com/google/guava/blob/master/LICENSE) / [JSpecify](https://github.com/jspecify/jspecify/blob/v1.0.0/LICENSE) |
+| Lucide Android 2.2.1 / Lucide・Featherのアイコン | [MIT（Androidライブラリ）](app/src/main/assets/licenses/Compose-Icons-MIT.txt) / [ISCおよびFeather MIT](app/src/main/assets/licenses/Lucide-LICENSE.txt) |
+| Google Play services / Google ID（Credential Managerの推移的依存） | [Android SDK License](https://developer.android.com/studio/terms.html) |
 | DataStoreが再パッケージしたProtocol Buffers | [BSD-3-Clause](app/src/main/assets/licenses/BSD-3-Clause-Protobuf.txt) |
 | Kotlin time内のThreeTen backport | [BSD-3-Clause](app/src/main/assets/licenses/BSD-3-Clause-ThreeTen.txt) |
 | Kotlin JVM math内のBoost由来コード | [BSL-1.0](app/src/main/assets/licenses/Kotlin-boost_LICENSE.txt) |

@@ -1,5 +1,8 @@
 package com.orbit.browser.ui.splitview
 
+import com.orbit.browser.R
+import com.orbit.browser.ui.localization.rememberOrbitStrings
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -17,6 +20,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SplitLayout(ratio: Float, onRatioChange: (Float) -> Unit,
     left: @Composable () -> Unit, right: @Composable () -> Unit) {
+    val strings = rememberOrbitStrings()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val availableWidth = (maxWidth - 24.dp).coerceAtLeast(1.dp)
         val widthPx = with(LocalDensity.current) { availableWidth.toPx() }
@@ -30,7 +34,7 @@ fun SplitLayout(ratio: Float, onRatioChange: (Float) -> Unit,
         val maximum by rememberUpdatedState(maximumRatio)
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(displayedRatio)) { left() }
-            Box(Modifier.width(24.dp).fillMaxHeight().semantics { contentDescription = "Resize split view" }
+            Box(Modifier.width(24.dp).fillMaxHeight().semantics { contentDescription = strings(R.string.ui_resize_split_view) }
                 .pointerInput(widthPx) {
                     detectHorizontalDragGestures { change, amount ->
                         change.consume(); currentChange((currentRatio + amount / widthPx).coerceIn(minimum, maximum))

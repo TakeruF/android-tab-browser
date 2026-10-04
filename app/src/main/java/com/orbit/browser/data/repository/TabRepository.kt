@@ -62,7 +62,10 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
     }
     suspend fun updatePage(id: String, url: String, title: String, favicon: String?) {
         workspace.ready.await()
-        dao.updatePage(id, url, title.ifBlank { url }, favicon)
+        db.withTransaction {
+            dao.updatePage(id, url, title.ifBlank { url }, favicon)
+            if (favicon != null) dao.updateBookmarkFavicon(url, favicon)
+        }
     }
     suspend fun togglePin(id: String) {
         workspace.ready.await()

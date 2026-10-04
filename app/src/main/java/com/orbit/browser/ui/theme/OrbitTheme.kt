@@ -50,11 +50,11 @@ private val DarkColors = darkColorScheme(
 
 // Space colors are persisted user choices. Adjust only their displayed foreground,
 // keeping the original hue for the sidebar background and color picker.
-internal fun readableSpaceColor(color: Color, foreground: Color, backgrounds: List<Color>): Color {
+internal fun readableSpaceColor(color: Color, foreground: Color, backgrounds: List<Color>, minimumContrast: Float = 4.5f): Color {
     fun readable(candidate: Color) = backgrounds.all { background ->
         val a = candidate.luminance()
         val b = background.luminance()
-        (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f) >= 4.5f
+        (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f) >= minimumContrast
     }
     if (readable(color)) return color
     var low = 0f
@@ -81,8 +81,24 @@ internal fun OrbitSystemBars(dark: Boolean = MaterialTheme.colorScheme.backgroun
 }
 
 @Composable
-fun OrbitTheme(mode: ThemeMode, content: @Composable () -> Unit) {
+fun OrbitTheme(mode: ThemeMode, accentColor: Long = 0xFF426B5A, content: @Composable () -> Unit) {
     val dark = mode == ThemeMode.DARK || mode == ThemeMode.SYSTEM && isSystemInDarkTheme()
     OrbitSystemBars(dark)
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
+    MaterialTheme(colorScheme = accentColorScheme(dark, accentColor), content = content)
+}
+
+// Keep user colors intact in storage; adapt their displayed roles for contrast.
+internal fun accentColorScheme(dark: Boolean, accentColor: Long): ColorScheme {
+    val base = if (dark) DarkColors else LightColors
+    if (accentColor == 0xFF426B5A) return base.copy(secondary = base.primary, onSecondary = base.onPrimary,
+        secondaryContainer = base.primaryContainer, onSecondaryContainer = base.onPrimaryContainer)
+    val seed = Color(accentColor or 0xFF000000)
+    val primary = readableSpaceColor(seed, base.onSurface, listOf(base.surface, base.surfaceContainerLow, base.background), minimumContrast = 5f)
+    val container = lerp(base.surface, seed, if (dark) 0.25f else 0.16f)
+    val onContainer = readableSpaceColor(base.onSurface, if (dark) Color.White else Color.Black, listOf(container), minimumContrast = 5f)
+    val onPrimary = if (primary.luminance() > 0.179f) Color.Black else Color.White
+    return base.copy(primary = primary, onPrimary = onPrimary, primaryContainer = container,
+        onPrimaryContainer = onContainer, surfaceTint = primary,
+        secondary = primary, onSecondary = onPrimary, secondaryContainer = container, onSecondaryContainer = onContainer,
+        inversePrimary = readableSpaceColor(seed, base.inverseOnSurface, listOf(base.inverseSurface)))
 }

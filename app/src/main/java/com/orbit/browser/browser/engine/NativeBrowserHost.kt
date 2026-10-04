@@ -1,5 +1,8 @@
 package com.orbit.browser.browser.engine
 
+import com.orbit.browser.R
+import com.orbit.browser.ui.localization.OrbitStrings
+
 import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, FullscreenHost {
+    private val strings = OrbitStrings(activity)
     private var fileResult: ((List<String>?) -> Unit)? = null
     private var permissionResult: ((Set<SitePermission>) -> Unit)? = null
     private var requestedPermissions = emptySet<SitePermission>()
@@ -48,25 +52,25 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { fileLauncher.launch(intent) }.onFailure {
-            fileResult = null; result(null); showMessage("No file picker is available")
+            fileResult = null; result(null); showMessage(strings(R.string.ui_no_file_picker_is_available))
         }
     }
     override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) {
         // A second site request cannot replace a permission dialog already on screen.
         if (permissionResult != null) { result(emptySet()); return }
         permissionResult = result; requestedPermissions = permissions
-        val labels = permissions.joinToString(", ") { it.name.lowercase() }
+        val labels = permissions.joinToString(", ") { strings(when (it) { SitePermission.CAMERA -> R.string.ui_camera; SitePermission.MICROPHONE -> R.string.ui_microphone; SitePermission.LOCATION -> R.string.ui_location }) }
         consentDialog = AlertDialog.Builder(activity)
-            .setTitle("Allow site access?")
-            .setMessage("$origin wants to use your $labels. Access lasts for this request.")
-            .setPositiveButton("Allow") { _, _ ->
+            .setTitle(strings(R.string.ui_allow_site_access))
+            .setMessage(strings(R.string.ui_1_s_wants_to_use_your_2_s_access_lasts_for_this_request, origin, labels))
+            .setPositiveButton(strings(R.string.ui_allow)) { _, _ ->
                 consentDialog = null
                 val needed = permissions.flatMap(::permissionNames).filter {
                     ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED
                 }.distinct().toTypedArray()
                 if (needed.isEmpty()) finishPermission(permissions) else permissionLauncher.launch(needed)
             }
-            .setNegativeButton("Block") { _, _ -> finishPermission(emptySet()) }
+            .setNegativeButton(strings(R.string.ui_block)) { _, _ -> finishPermission(emptySet()) }
             .setOnCancelListener { finishPermission(emptySet()) }.show()
     }
     private fun permissionNames(kind: SitePermission): List<String> = when (kind) {
@@ -79,19 +83,19 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         consentDialog = null; callback?.invoke(granted)
     }
     override fun download(request: DownloadRequest) {
-        AlertDialog.Builder(activity).setTitle("Download file?")
+        AlertDialog.Builder(activity).setTitle(strings(R.string.ui_download_file))
             .setMessage("${request.suggestedName}\n\n${Uri.parse(request.url).host}")
-            .setPositiveButton("Download") { _, _ ->
-                runCatching { downloads.enqueue(request) }.onSuccess { showMessage("Download started") }
-                    .onFailure { showMessage("Download failed: ${it.message}") }
-            }.setNegativeButton("Cancel", null).show()
+            .setPositiveButton(strings(R.string.ui_download)) { _, _ ->
+                runCatching { downloads.enqueue(request) }.onSuccess { showMessage(strings(R.string.ui_download_started)) }
+                    .onFailure { showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty())) }
+            }.setNegativeButton(strings(R.string.ui_cancel), null).show()
     }
     override fun openExternal(url: String) {
-        AlertDialog.Builder(activity).setTitle("Open another app?").setMessage(url)
-            .setPositiveButton("Open") { _, _ ->
+        AlertDialog.Builder(activity).setTitle(strings(R.string.ui_open_another_app)).setMessage(url)
+            .setPositiveButton(strings(R.string.ui_open)) { _, _ ->
                 runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                    .onFailure { showMessage("No app can open this link") }
-            }.setNegativeButton("Cancel", null).show()
+                    .onFailure { showMessage(strings(R.string.ui_no_app_can_open_this_link)) }
+            }.setNegativeButton(strings(R.string.ui_cancel), null).show()
     }
     override fun showMessage(message: String) { Toast.makeText(activity, message, Toast.LENGTH_SHORT).show() }
     override fun showFullscreen(view: View, exit: () -> Unit) {

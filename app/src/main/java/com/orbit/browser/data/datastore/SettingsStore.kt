@@ -9,10 +9,10 @@ import java.io.IOException
 
 private val Context.browserDataStore by preferencesDataStore("browser_settings")
 
-class SettingsStore(context: Context) {
-    private val store = context.applicationContext.browserDataStore
+class SettingsStore(context: Context, private val store: androidx.datastore.core.DataStore<Preferences> = context.applicationContext.browserDataStore) {
     private object Keys {
         val theme = stringPreferencesKey("theme")
+        val accent = longPreferencesKey("accent_color")
         val width = floatPreferencesKey("sidebar_width")
         val collapsed = booleanPreferencesKey("sidebar_collapsed")
         val engine = stringPreferencesKey("default_search_engine")
@@ -20,6 +20,7 @@ class SettingsStore(context: Context) {
         val restore = booleanPreferencesKey("restore_tabs")
         val desktop = booleanPreferencesKey("desktop_default")
         val newLinks = booleanPreferencesKey("open_links_new_tab")
+        val additionalEnginesSeeded = booleanPreferencesKey("additional_engines_seeded_v1")
         val regionalEngineSeeded = booleanPreferencesKey("regional_engine_seeded")
         val automaticRegion = booleanPreferencesKey("automatic_search_region")
         val regionCountry = stringPreferencesKey("search_region_country")
@@ -41,7 +42,10 @@ class SettingsStore(context: Context) {
         automaticSearchRegion = p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
         searchRegionCheckedAt = p[Keys.regionCheckedAt] ?: 0,
+        accentColor = p[Keys.accent] ?: 0xFF426B5A,
     ) }
+    suspend fun additionalEnginesSeeded(): Boolean = store.data.first()[Keys.additionalEnginesSeeded] ?: false
+    suspend fun markAdditionalEnginesSeeded() { store.edit { it[Keys.additionalEnginesSeeded] = true } }
     suspend fun regionalEngineSeeded(): Boolean = store.data.first()[Keys.regionalEngineSeeded] ?: false
     suspend fun markRegionalEngineSeeded() { store.edit { it[Keys.regionalEngineSeeded] = true } }
     suspend fun update(change: (BrowserSettings) -> BrowserSettings) {
@@ -53,8 +57,10 @@ class SettingsStore(context: Context) {
                 p[Keys.restore] ?: true, p[Keys.desktop] ?: false, p[Keys.newLinks] ?: false,
                 enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
                 p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
-                p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0)
+                p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
+                p[Keys.accent] ?: 0xFF426B5A)
             val next = change(current)
+            p[Keys.accent] = next.accentColor
             p[Keys.theme] = next.theme.name; p[Keys.width] = next.sidebarWidth.coerceIn(220f, 380f)
             p[Keys.collapsed] = next.sidebarCollapsed; p[Keys.engine] = next.defaultSearchEngineId
             p[Keys.space] = next.selectedSpaceId; p[Keys.restore] = next.restoreTabs

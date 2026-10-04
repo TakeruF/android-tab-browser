@@ -59,6 +59,7 @@ fun Modifier.sidebarDragHost(state: SidebarDragState, onStart: () -> Unit, onDro
     return onGloballyPositioned { origin = it.boundsInRoot().topLeft }.pointerInput(state) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
+            if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
             val source = state.sources.values.filter { it.third.contains(origin + down.position) }
                 .minByOrNull { it.third.width * it.third.height }
             if (source != null) {
@@ -110,8 +111,38 @@ fun SidebarAutoScroll(drag: SidebarDragState, list: LazyListState, viewport: Rec
                 y > viewport.bottom - edge -> ((y - viewport.bottom + edge) / edge).coerceIn(0f, 1f) * 18f
                 else -> 0f
             }
-            if (delta != 0f) { list.scrollBy(delta); drag.move(drag.point) }
-            delay(16)
+            val canScroll = if (delta < 0f) list.canScrollBackward else list.canScrollForward
+            if (delta != 0f && canScroll) {
+                list.scrollBy(delta)
+                drag.move(drag.point)
+                withFrameNanos { }
+            } else delay(16)
+        }
+    }
+}
+
+/** Secondary clicks open actions without selecting the row or starting a drag. */
+@Composable
+fun Modifier.sidebarContextMenu(onOpen: () -> Unit): Modifier {
+    val open by rememberUpdatedState(onOpen)
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (down.type == PointerType.Mouse && currentEvent.buttons.isSecondaryPressed) {
+                down.consume()
+                var canceled = false
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) canceled = true
+                    if (!change.pressed) {
+                        if (!canceled && change.changedToUp()) open()
+                        change.consume()
+                        break
+                    }
+                    change.consume()
+                }
+            }
         }
     }
 }
