@@ -1,10 +1,10 @@
-# Passkeys in Orbit
+# Passkeys in Nagi
 
-Orbit enables the native WebAuthn implementation in supported Android System WebView versions. Pages can use `navigator.credentials.create()` and `navigator.credentials.get()` for passkeys. This is an engine integration; a completed registration and sign-in with a real credential provider has not yet been verified.
+Nagi enables the native WebAuthn implementation in supported Android System WebView versions. Pages can use `navigator.credentials.create()` and `navigator.credentials.get()` for passkeys. This is an engine integration; a completed registration and sign-in with a real credential provider has not yet been verified.
 
-`WebViewBrowserEngine` checks `WebViewFeature.WEB_AUTHENTICATION` before setting `WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER`. This keeps the website origin and relying-party checks in WebView and delegates authentication to the device credential UI. Unsupported WebView versions keep their default behavior. No JavaScript credential bridge, origin rewriting, certificate bypass or private-key storage is added to Orbit.
+`WebViewBrowserEngine` checks `WebViewFeature.WEB_AUTHENTICATION` before setting `WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER`. This keeps the website origin and relying-party checks in WebView and delegates authentication to the device credential UI. Unsupported WebView versions keep their default behavior. No JavaScript credential bridge, origin rewriting, certificate bypass or private-key storage is added to Nagi.
 
-Dependencies: AndroidX WebKit 1.14.0, Credential Manager 1.6.0 and its Google Play services adapter. The manifest declares `android.permission.CREDENTIAL_MANAGER_SET_ORIGIN`, required for browser calls on behalf of websites. Website credentials do not belong to Orbit's app identity; the browser mode is intentional, rather than the app mode that uses Digital Asset Links for app-owned sites.
+Dependencies: AndroidX WebKit 1.14.0, Credential Manager 1.6.0 and its Google Play services adapter. The manifest declares `android.permission.CREDENTIAL_MANAGER_SET_ORIGIN`, required for browser calls on behalf of websites. Website credentials do not belong to Nagi's app identity; the browser mode is intentional, rather than the app mode that uses Digital Asset Links for app-owned sites.
 
 ## Provider approval and release requirements
 
@@ -14,8 +14,8 @@ Before real-provider release validation, request browser approval using the fina
 
 Known request details:
 
-- App: Orbit
-- Android package: `com.orbit.browser`
+- App: Nagi
+- Android package: `com.takeruf.nagi`
 - Purpose: a general Android tablet web browser handling passkey registration and authentication for the HTTPS website displayed in WebView
 - Integration: AndroidX WebKit native browser mode and Android Credential Manager; the WebView validates the website origin and relying-party ID
 - Production signing-certificate SHA-256 and distribution details: still required

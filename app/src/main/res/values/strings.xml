@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name" translatable="false">Nagi</string>
     <string name="ui_new_tab">"New tab"</string>
     <string name="ui_search">"Search"</string>
     <string name="ui_history">"History"</string>
@@ -98,7 +99,7 @@
     <string name="ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23">"History, tabs and bookmarks are stored locally. Sites ask before accessing your camera, microphone or location. Third-party cookies are blocked."</string>
     <string name="ui_clear_browsing_history_a2d6ed">"Clear browsing history"</string>
     <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"Private browsing and content blocking are planned for a later release."</string>
-    <string name="ui_orbit_0_1_0_made_for_a_little_more_room">"Orbit 0.1.0  ·  Made for a little more room."</string>
+    <string name="ui_nagi_0_1_0_made_for_a_little_more_room">"Nagi 0.1.0  ·  Made for a little more room."</string>
     <string name="ui_clear_browsing_history_199567">"Clear browsing history?"</string>
     <string name="ui_this_removes_saved_visits_from_this_device">"This removes saved visits from this device."</string>
     <string name="ui_clear_history">"Clear history"</string>
@@ -190,7 +191,7 @@
     <string name="ui_camera">"Camera"</string>
     <string name="ui_microphone">"Microphone"</string>
     <string name="ui_location">"Location"</string>
-    <string name="ui_downloaded_with_orbit">"Downloaded with Orbit"</string>
+    <string name="ui_downloaded_with_nagi">"Downloaded with Nagi"</string>
     <string name="ui_this_address_type_is_not_supported">"This address type is not supported"</string>
     <string name="ui_the_site_s_certificate_could_not_be_verified">"The site\'s certificate could not be verified."</string>
     <string name="ui_blank_script_generated_popups_are_not_supported_in_this_mvp">"Blank script-generated popups are not supported in this MVP"</string>

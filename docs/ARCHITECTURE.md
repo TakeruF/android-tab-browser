@@ -23,10 +23,10 @@ flowchart TD
 
 ```text
 app/src/main/java/com/orbit/browser/
-├── MainActivity.kt / OrbitApplication.kt
+├── MainActivity.kt / NagiApplication.kt
 ├── domain/model/          Space, BrowserTab, SearchEngine, HistoryEntry, Bookmark, Settings
 ├── data/
-│   ├── room/              Entities, BrowserDao, OrbitDatabase, mappings
+│   ├── room/              Entities, BrowserDao, NagiDatabase, mappings
 │   ├── datastore/         SettingsStore
 │   └── repository/        Workspace, Tab, Space, Library, SearchEngine repositories
 ├── browser/
@@ -35,7 +35,7 @@ app/src/main/java/com/orbit/browser/
 │   ├── search/            InputResolver, seeds, SuggestionProvider
 │   └── downloads/         DownloadService, Content-Disposition filename policy
 └── ui/
-    ├── OrbitApp.kt        navigation composition and activity-scoped sessions
+    ├── NagiApp.kt        navigation composition and activity-scoped sessions
     ├── browser/           ViewModel, panes, new-tab page, shortcuts, surface adapter
     ├── sidebar/           Spaces, favorites, pinned/ordinary/archived tabs, drag targets
     ├── commandbar/        IME-aware input and categorized candidates

@@ -5,10 +5,10 @@ plugins {
     id("com.google.devtools.ksp")
 }
 android {
-    namespace = "com.orbit.browser"
+    namespace = "com.takeruf.nagi"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.orbit.browser"
+        applicationId = "com.takeruf.nagi"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

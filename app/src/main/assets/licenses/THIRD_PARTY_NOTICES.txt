@@ -1,4 +1,4 @@
-Orbit 0.1.0 — Third-party notices
+Nagi 0.1.0 — Third-party notices
 Dependency snapshot: releaseRuntimeClasspath, 2026-10-04
 
 AndroidX / Jetpack Compose / Material icons
@@ -61,7 +61,7 @@ Provided under the Android Software Development Kit License:
 https://developer.android.com/studio/terms.html
 https://developers.google.com/android/guides/overview
 Google Play services are provided by Google LLC; these libraries are not covered
-by Orbit's MIT license or the AndroidX Apache-2.0 license.
+by Nagi's MIT license or the AndroidX Apache-2.0 license.
 
 Apache-2.0 license text: APACHE-2.0.txt.
 The following resolved modules include transitives; dependency resolution does not

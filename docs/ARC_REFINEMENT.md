@@ -48,7 +48,7 @@ Favoritesはローカルの共有ショートカットで、移動前のWebView�
 
 ## 検証結果
 
-API 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で確認。
+API 36のPixel Tabletエミュレーター `Nagi_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で確認。
 
 | 確認 | 結果 |
 | --- | --- |
@@ -69,8 +69,8 @@ API 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 32
 ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease \
   :app:testDebugUnitTest :app:lintDebug
 adb -s emulator-5554 shell am instrument -w -r \
-  -e class com.orbit.browser.SidebarDragTest,com.orbit.browser.BrowserUiTest,com.orbit.browser.CjkInputTest,com.orbit.browser.WebViewEngineTest \
-  com.orbit.browser.test/androidx.test.runner.AndroidJUnitRunner
+  -e class com.takeruf.nagi.SidebarDragTest,com.takeruf.nagi.BrowserUiTest,com.takeruf.nagi.CjkInputTest,com.takeruf.nagi.WebViewEngineTest \
+  com.takeruf.nagi.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`。ログ: `app/build/reports/tests/testDebugUnitTest/`、`app/build/reports/lint-results-debug.html`。端末の最終テスト出力は`OK (16 tests)`を確認しました。

@@ -1,8 +1,8 @@
-# Orbit
+# Nagi
 
 Androidタブレット向けのサイドバー中心のワークスペースブラウザ。Kotlin / Jetpack Compose / Material 3 / WebView / Room / DataStoreで構成しています。
 
-![Orbitのライトテーマ](docs/screenshots/ui-home.png)
+![Nagiのライトテーマ](docs/screenshots/ui-home.png)
 
 ## 主な機能
 
@@ -36,7 +36,7 @@ ADB接続したタブレット／エミュレーターにインストール:
 
 ```sh
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.orbit.browser/.MainActivity
+adb shell am start -n com.takeruf.nagi/.MainActivity
 ```
 
 複数端末を接続している場合は`adb -s <serial>`で対象を指定してください。
@@ -124,4 +124,4 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
 
 ## ライセンス
 
-Orbit本体は[MIT License](LICENSE)です。依存ライブラリの出典・ライセンスは[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)にまとめ、原文と著作権表記をAPKの`assets/licenses/`にも同梱しています。
+Nagi本体は[MIT License](LICENSE)です。依存ライブラリの出典・ライセンスは[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)にまとめ、原文と著作権表記をAPKの`assets/licenses/`にも同梱しています。

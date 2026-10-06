@@ -1,6 +1,6 @@
 # Third-party licenses
 
-Orbit本体のソースコード・ドキュメントには[MIT License](LICENSE)を適用します。依存ライブラリ・ツールには、それぞれのライセンスが適用されます。
+Nagi本体のソースコード・ドキュメントには[MIT License](LICENSE)を適用します。依存ライブラリ・ツールには、それぞれのライセンスが適用されます。
 
 ## APKに含まれるライブラリ
 
@@ -37,6 +37,6 @@ Orbit本体のソースコード・ドキュメントには[MIT License](LICENSE
 
 `./gradlew -I scripts/license-inventory.gradle :app:licenseInventory`で解決済みモジュール一覧を`app/build/reports/licenses/release-runtime-modules.txt`へ出力できます。依存関係ツリーは`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`で確認できます。
 
-各リリースのPOM・LICENSE・NOTICEを照合して一覧と同梱原文を更新してください。再パッケージされた依存やデータファイルのライセンスも確認します。本体のLICENSEを変更した場合は同梱の`Orbit-MIT.txt`にも反映します。
+各リリースのPOM・LICENSE・NOTICEを照合して一覧と同梱原文を更新してください。再パッケージされた依存やデータファイルのライセンスも確認します。本体のLICENSEを変更した場合は同梱の`Nagi-MIT.txt`にも反映します。
 
-本リポジトリの画面画像はOrbitの検証時のキャプチャです。参照した外部製品・サービスの資料は[ARC_REFINEMENT.md](docs/ARC_REFINEMENT.md)に出典を記載しています。
+本リポジトリの画面画像はNagiの検証時のキャプチャです。参照した外部製品・サービスの資料は[ARC_REFINEMENT.md](docs/ARC_REFINEMENT.md)に出典を記載しています。

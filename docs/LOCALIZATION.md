@@ -4,7 +4,7 @@
 
 日本語・英語・韓国語・中国語（簡体字）に対応。ホーム、サイドバー、メニュー、設定、検索候補、ページ内検索、履歴・ブックマーク、権限確認、ダウンロード確認、アプリの検証エラー、読み上げ用の説明を翻訳しています。ページのコンテンツやユーザーが付けた名前は変更しません。標準のPersonal／Workと空タブは表示時に翻訳し、保存データを端末の言語で書き換えません。
 
-端末の言語に応じて自動選択します。対応しない言語では英語を使用します。Android 13以降は端末のアプリ情報にある「言語」からOrbitの言語を個別に選べます。Android 8–12では端末の言語設定に従います。仕組みは[Android公式のアプリ別言語設定](https://developer.android.com/guide/topics/resources/app-languages)に沿った`android:localeConfig`とAndroid標準リソースです。
+端末の言語に応じて自動選択します。対応しない言語では英語を使用します。Android 13以降は端末のアプリ情報にある「言語」からNagiの言語を個別に選べます。Android 8–12では端末の言語設定に従います。仕組みは[Android公式のアプリ別言語設定](https://developer.android.com/guide/topics/resources/app-languages)に沿った`android:localeConfig`とAndroid標準リソースです。
 
 文言は`app/src/main/res/values/strings.xml`に英語を定義し、`values-ja`・`values-ko`・`values-zh`に翻訳を配置しています。各言語219件。`%1$s`などの引数番号は翻訳でも維持してください。Composeでは現在のConfigurationに応じたリソースを使います。共有の入力検証・検索候補生成には表示時の翻訳を渡し、翻訳したコマンド名と英語名の両方で検索できます。
 
