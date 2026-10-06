@@ -169,7 +169,6 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         BrowserCommand.FIND -> { showFind = true; navigate("browser") }
         BrowserCommand.SETTINGS -> navigate("settings")
         BrowserCommand.HISTORY -> navigate("history")
-        BrowserCommand.BOOKMARKS -> navigate("bookmarks")
         BrowserCommand.DESKTOP -> focusedEngine?.let { it.setDesktopMode(!it.state.value.desktopMode) }
     } }
     val shortcutHandler by rememberUpdatedState<(Shortcut) -> Boolean>({ shortcut ->
@@ -361,8 +360,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         snackbar.showSnackbar(strings(R.string.ui_site_data_cleared))
                                     } },
                                     updateSection = { com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) }) { navigate("browser") } }
-                                composable("history") { LibraryScreen(true, state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
-                                composable("bookmarks") { LibraryScreen(false, state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
+                                composable("history") { LibraryScreen(state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
                             }
                             if (route == "browser" && state.activeTab != null) {
                                 BoxWithConstraints(Modifier.fillMaxSize()) {

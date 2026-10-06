@@ -34,9 +34,7 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 onCloseTab = {
                     val remaining = if (isRight) left else right
                     if (remaining != null) vm.closeSplitTab(tab.id, remaining.id, onCloseSplit)
-                },
-                onBookmark = { val page = engine.state.value; vm.bookmark(tab.copy(url = page.url, title = page.title, faviconUrl = page.faviconUrl), false) },
-                onFavorite = { val page = engine.state.value; vm.bookmark(tab.copy(url = page.url, title = page.title, faviconUrl = page.faviconUrl), true) })
+                })
         }
     }
     Box(Modifier.fillMaxSize()) {

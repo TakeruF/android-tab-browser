@@ -3,7 +3,6 @@
     <string name="ui_new_tab">"새 탭"</string>
     <string name="ui_search">"검색"</string>
     <string name="ui_history">"방문 기록"</string>
-    <string name="ui_bookmarks">"북마크"</string>
     <string name="ui_settings">"설정"</string>
     <string name="ui_space">"스페이스"</string>
     <string name="ui_spaces">"스페이스"</string>
@@ -48,7 +47,6 @@
     <string name="ui_unpin_tab">"탭 고정 해제"</string>
     <string name="ui_pin_tab">"탭 고정"</string>
     <string name="ui_add_to_favorites">"즐겨찾기에 추가"</string>
-    <string name="ui_save_bookmark">"북마크 저장"</string>
     <string name="ui_open_in_right_pane">"오른쪽 창에서 열기"</string>
     <string name="ui_close_tab">"탭 닫기"</string>
     <string name="ui_make_it_yours">"나만의 브라우저"</string>
@@ -95,7 +93,7 @@
     <string name="ui_privacy">"개인정보 보호"</string>
     <string name="ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40">"지역 자동 선택은 api.country.is로 접속 국가를 확인합니다. IP 주소는 전송되지만 검색 및 방문 기록은 전송되지 않습니다. 확인할 수 없으면 이동통신망, SIM, 기기 지역을 차례로 사용합니다. VPN에 따라 결과가 달라질 수 있습니다. ‘지역별 검색 엔진 자동 선택’을 끄면 조회가 중단됩니다."</string>
     <string name="ui_your_workspace_stays_on_this_device">"작업 공간은 이 기기에 저장됩니다."</string>
-    <string name="ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23">"방문 기록, 탭, 북마크는 기기에 저장됩니다. 사이트가 카메라, 마이크, 위치에 접근하기 전에 허락을 요청합니다. 타사 쿠키는 차단됩니다."</string>
+    <string name="ui_local_storage_privacy">"방문 기록, 탭, 즐겨찾기는 기기에 저장됩니다. 사이트가 카메라, 마이크, 위치에 접근하기 전에 허락을 요청합니다. 타사 쿠키는 차단됩니다."</string>
     <string name="ui_clear_browsing_history_a2d6ed">"방문 기록 지우기"</string>
     <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"비공개 탐색과 콘텐츠 차단은 향후 업데이트에서 제공될 예정입니다."</string>
     <string name="ui_nagi_0_1_0_made_for_a_little_more_room">"Nagi 0.1.0  ·  더 넓은 작업 공간을 위해."</string>
@@ -114,9 +112,7 @@
     <string name="ui_six_hexadecimal_digits_for_example_3568c0">"16진수 6자리를 입력하세요. 예: #3568C0"</string>
     <string name="ui_resize_split_view">"분할 보기 너비 조절"</string>
     <string name="ui_your_browsing_history_will_appear_here">"방문 기록이 여기에 표시됩니다."</string>
-    <string name="ui_save_pages_from_the_page_menu_favorites_live_in_your_sidebar">"페이지 메뉴에서 저장하세요. 즐겨찾기는 사이드바에 표시됩니다."</string>
     <string name="ui_search_history">"방문 기록 검색"</string>
-    <string name="ui_search_bookmarks">"북마크 검색"</string>
     <string name="ui_page_menu">"페이지 메뉴"</string>
     <string name="ui_unpin_from_sidebar">"사이드바 고정 해제"</string>
     <string name="ui_pin_to_sidebar">"사이드바에 고정"</string>
@@ -153,8 +149,6 @@
     <string name="ui_preferences">"환경설정"</string>
     <string name="ui_open_history">"방문 기록 열기"</string>
     <string name="ui_recent_visits">"최근 방문"</string>
-    <string name="ui_open_bookmarks">"북마크 열기"</string>
-    <string name="ui_saved_pages">"저장한 페이지"</string>
     <string name="ui_toggle_desktop_site">"데스크톱 사이트 전환"</string>
     <string name="ui_user_agent">"사용자 에이전트"</string>
     <string name="ui_website">"웹사이트"</string>
@@ -170,7 +164,6 @@
     <string name="ui_use_a_valid_https_search_url">"올바른 HTTPS 검색 URL을 입력하세요"</string>
     <string name="ui_icon_url_is_invalid">"아이콘 URL이 올바르지 않습니다"</string>
     <string name="ui_keep_at_least_one_search_engine">"검색 엔진을 하나 이상 남겨 두세요"</string>
-    <string name="ui_keep_up_to_12_favorites">"즐겨찾기는 최대 12개입니다"</string>
     <string name="ui_space_name_is_required">"스페이스 이름을 입력하세요"</string>
     <string name="ui_keep_at_least_one_space">"스페이스를 하나 이상 남겨 두세요"</string>
     <string name="ui_space_no_longer_exists">"스페이스가 더 이상 존재하지 않습니다"</string>
@@ -253,7 +246,7 @@
     <string name="ui_make_ai_default_named">%1$s을(를) AI 기본으로 설정</string>
     <string name="ui_site_controls">사이트 제어</string>
     <string name="ui_clear_site_data">쿠키 및 사이트 데이터 삭제</string>
-    <string name="ui_clear_site_data_description">모든 Space의 사이트 로그인, 쿠키, 사이트 저장소 및 페이지 캐시를 삭제합니다. 탭, 북마크, 방문 기록은 유지합니다.</string>
+    <string name="ui_clear_site_data_description">모든 Space의 사이트 로그인, 쿠키, 사이트 저장소 및 페이지 캐시를 삭제합니다. 탭, 즐겨찾기, 방문 기록은 유지합니다.</string>
     <string name="ui_site_data_cleared">쿠키 및 사이트 데이터를 삭제했습니다</string>
     <string name="ui_loading_timeout">페이지 로딩이 오래 걸립니다. 다시 시도하거나 연결을 확인하세요.</string>
     <string name="ui_open_link_new_tab">새 탭에서 링크 열기</string>

@@ -24,7 +24,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun LibraryScreen(history: Boolean, state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
+fun LibraryScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
     val strings = rememberNagiStrings()
     var query by remember { mutableStateOf("") }
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
@@ -32,23 +32,17 @@ fun LibraryScreen(history: Boolean, state: BrowserUiState, vm: BrowserViewModel,
     Column(Modifier.fillMaxSize().padding(28.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_browser), onClick = onBack)
-            Text(if (history) strings(R.string.ui_history) else strings(R.string.ui_bookmarks), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
+            Text(strings(R.string.ui_history), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
         }
-        OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text(if (history) strings(R.string.ui_search_history) else strings(R.string.ui_search_bookmarks)) },
+        OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text(strings(R.string.ui_search_history)) },
             shape = NagiShapes.Rounded,
             leadingIcon = { Icon(NagiIcons.Search, null) }, modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
-        if (history) {
-            val entries = state.workspace.history.filter { it.url.contains(query, true) || it.title.contains(query, true) }
-            if (entries.isEmpty()) EmptyLibrary(strings(R.string.ui_your_browsing_history_will_appear_here))
-            LazyColumn { items(entries, key = { it.id }) { entry ->
-                LibraryRow(entry.title, entry.url, entry.faviconUrl, formatter.format(Date(entry.visitedAt)),
-                    { onOpen(entry.url) }, { vm.deleteHistory(entry.id) })
-            } }
-        } else {
-            val entries = state.workspace.bookmarks.filter { !it.isFavorite && (it.url.contains(query, true) || it.title.contains(query, true)) }
-            if (entries.isEmpty()) EmptyLibrary(strings(R.string.ui_save_pages_from_the_page_menu_favorites_live_in_your_sidebar))
-            LazyColumn { items(entries, key = { it.id }) { entry -> LibraryRow(entry.title, entry.url, entry.faviconUrl, "", { onOpen(entry.url) }, { vm.removeBookmark(entry.id) }) } }
-        }
+        val entries = state.workspace.history.filter { it.url.contains(query, true) || it.title.contains(query, true) }
+        if (entries.isEmpty()) EmptyLibrary(strings(R.string.ui_your_browsing_history_will_appear_here))
+        LazyColumn { items(entries, key = { it.id }) { entry ->
+            LibraryRow(entry.title, entry.url, entry.faviconUrl, formatter.format(Date(entry.visitedAt)),
+                { onOpen(entry.url) }, { vm.deleteHistory(entry.id) })
+        } }
     }
 }
 @Composable

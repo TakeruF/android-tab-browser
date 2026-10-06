@@ -192,7 +192,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(strings(R.string.ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40), style = MaterialTheme.typography.bodySmall)
                 Text(strings(R.string.ui_your_workspace_stays_on_this_device), style = MaterialTheme.typography.titleSmall)
-                Text(strings(R.string.ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23),
+                Text(strings(R.string.ui_local_storage_privacy),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(shape = NagiShapes.Rounded, onClick = { uriHandler.openUri(strings(R.string.ui_privacy_policy_url)) }) { Text(strings(R.string.ui_privacy_policy)) }
                 TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }

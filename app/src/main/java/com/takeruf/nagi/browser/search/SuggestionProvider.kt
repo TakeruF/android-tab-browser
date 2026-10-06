@@ -7,7 +7,7 @@ enum class BrowserCommand(val label: String, val hint: String) {
     NEW_TAB("New tab", "Ctrl T"), SPLIT("New split view", "Two panes"),
     CLOSE_SPLIT("Close split view", "One pane"), RESTORE_TAB("Restore closed tab", "Ctrl Shift T"),
     TOGGLE_SIDEBAR("Toggle sidebar", "More room"), FIND("Find in page", "Ctrl F"),
-    SETTINGS("Open settings", "Preferences"), HISTORY("Open history", "Recent visits"), BOOKMARKS("Bookmarks", "Saved pages"),
+    SETTINGS("Open settings", "Preferences"), HISTORY("Open history", "Recent visits"),
     DESKTOP("Toggle desktop site", "User agent"),
 }
 sealed interface SuggestionAction {

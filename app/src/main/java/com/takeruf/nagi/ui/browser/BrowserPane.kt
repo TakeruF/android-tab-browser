@@ -34,8 +34,7 @@ import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, focused: Boolean,
     split: Boolean, showFind: Boolean, onCloseFind: () -> Unit, onFind: () -> Unit, onFocus: () -> Unit,
     onOmnibox: () -> Unit, onOpen: (String) -> Unit,
-    onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit,
-    onBookmark: () -> Unit = {}, onFavorite: () -> Unit = {}) {
+    onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -95,10 +94,6 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 Box {
                     ToolButton(NagiIcons.Ellipsis, strings(R.string.ui_page_menu)) { onFocus(); pageMenu = true }
                     NagiOverflowMenu(pageMenu, { pageMenu = false }) {
-                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Bookmark, null) }, text = { Text(strings(R.string.ui_save_bookmark)) }, enabled = canShareLink,
-                            onClick = { onBookmark(); pageMenu = false })
-                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Star, null) }, text = { Text(strings(R.string.ui_add_to_favorites)) }, enabled = canShareLink,
-                            onClick = { onFavorite(); pageMenu = false })
                         if (!inlineLinkActions) {
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Link, null) }, text = { Text(strings(R.string.ui_copy_link)) }, enabled = canShareLink, onClick = { pageMenu = false; copyLink() })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Share, null) }, text = { Text(strings(R.string.ui_share_link)) }, enabled = canShareLink, onClick = { pageMenu = false; shareLink() })

@@ -91,7 +91,7 @@ Full description:
 
 Nagi is a workspace browser built for Android tablets. Organize your browsing in a sidebar, separate tasks with Spaces, and keep two pages side by side with adjustable split browsing.
 
-Keep frequently used pages in Favorites or pinned tabs. Save bookmarks, find pages in your history, and use the Command Bar to open URLs, search, or switch tabs and Spaces. Choose your search engines, including a user-initiated Ask ChatGPT action that opens ChatGPT's website.
+Keep frequently used pages in Favorites or pinned tabs. Find pages in your history, and use the Command Bar to open URLs, search, or switch tabs and Spaces. Choose your search engines, including a user-initiated Ask ChatGPT action that opens ChatGPT's website.
 
 Nagi supports touch, mouse, trackpad, hardware-keyboard shortcuts, and English, Japanese, Korean, and Simplified Chinese interfaces. Choose light, dark, or system appearance and adjust the theme color. Upload selected files through Android's document picker, download files, find text on pages, and use desktop mode when needed.
 
@@ -112,7 +112,7 @@ Support: support@takeruf.com
 
 NagiはAndroidタブレット向けのワークスペースブラウザです。サイドバーでタブを整理し、Spaceで作業を切り替え、サイズを調整できるSplit表示で2つのページを並べて閲覧できます。
 
-よく使うページはお気に入りや固定タブに保存。ブックマークや履歴からページを開き、コマンドバーでURL入力、検索、タブやSpaceの切り替えを行えます。検索エンジンを選択でき、「ChatGPTに聞く」は入力した質問をChatGPTのウェブサイトで開きます。
+よく使うページはお気に入りや固定タブに保存。履歴からページを開き、コマンドバーでURL入力、検索、タブやSpaceの切り替えを行えます。検索エンジンを選択でき、「ChatGPTに聞く」は入力した質問をChatGPTのウェブサイトで開きます。
 
 タッチ、マウス、トラックパッド、外付けキーボードのショートカットに対応。日本語、英語、韓国語、簡体字中国語で利用できます。ライト・ダーク・システムテーマとテーマカラーを選択でき、ファイル選択によるアップロード、ダウンロード、ページ内検索、デスクトップ表示も利用できます。
 
@@ -133,7 +133,7 @@ Nagiは初期リリースです。Cookieとサイトへのログイン状態はS
 
 Nagi 是为 Android 平板打造的工作空间浏览器。用侧边栏整理标签页，通过 Space 切换任务，使用可调整大小的双窗格并排浏览两个网页。
 
-将常用页面保存为收藏或固定标签页，通过书签和历史记录打开页面。使用命令栏输入网址、搜索、切换标签页与 Space。可选择搜索引擎；“询问 ChatGPT”会将您输入的问题在 ChatGPT 网站中打开。
+将常用页面保存为收藏或固定标签页，通过历史记录打开页面。使用命令栏输入网址、搜索、切换标签页与 Space。可选择搜索引擎；“询问 ChatGPT”会将您输入的问题在 ChatGPT 网站中打开。
 
 支持触控、鼠标、触控板及外接键盘快捷键，提供英语、日语、韩语和简体中文界面。可选择浅色、深色或跟随系统的主题并调整主题色。通过 Android 文档选择器上传选定文件，下载文件，在网页中查找文字，或使用桌面模式。
 
@@ -154,7 +154,7 @@ Nagi 处于早期发布阶段。不同 Space 共享 Cookie 和网站登录状态
 
 Nagi는 Android 태블릿용 워크스페이스 브라우저입니다. 사이드바에서 탭을 정리하고 Space로 작업을 전환하며, 크기를 조절할 수 있는 분할 화면에서 두 페이지를 나란히 볼 수 있습니다.
 
-자주 사용하는 페이지를 즐겨찾기나 고정 탭으로 보관하세요. 북마크와 방문 기록에서 페이지를 열고 명령 모음으로 URL 입력, 검색, 탭과 Space 전환을 할 수 있습니다. 검색 엔진을 선택할 수 있으며 “ChatGPT에 질문”은 입력한 질문을 ChatGPT 웹사이트에서 엽니다.
+자주 사용하는 페이지를 즐겨찾기나 고정 탭으로 보관하세요. 방문 기록에서 페이지를 열고 명령 모음으로 URL 입력, 검색, 탭과 Space 전환을 할 수 있습니다. 검색 엔진을 선택할 수 있으며 “ChatGPT에 질문”은 입력한 질문을 ChatGPT 웹사이트에서 엽니다.
 
 터치, 마우스, 트랙패드, 외장 키보드 단축키를 지원합니다. 영어, 일본어, 한국어, 중국어 간체 인터페이스를 제공하며 밝게, 어둡게, 시스템 테마와 테마 색상을 선택할 수 있습니다. Android 문서 선택기를 통해 선택한 파일을 업로드하고 파일 다운로드, 페이지 내 검색, 데스크톱 모드를 사용할 수 있습니다.
 

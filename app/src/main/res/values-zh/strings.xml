@@ -3,7 +3,6 @@
     <string name="ui_new_tab">"新标签页"</string>
     <string name="ui_search">"搜索"</string>
     <string name="ui_history">"历史记录"</string>
-    <string name="ui_bookmarks">"书签"</string>
     <string name="ui_settings">"设置"</string>
     <string name="ui_space">"空间"</string>
     <string name="ui_spaces">"空间"</string>
@@ -20,7 +19,7 @@
     <string name="ui_collapse_sidebar">"折叠侧边栏"</string>
     <string name="ui_search_or_enter_url">"搜索或输入网址"</string>
     <string name="ui_new_tab_home">"新标签页主页"</string>
-    <string name="ui_search_anything">"搜索内容"</string>
+    <string name="ui_search_anything">"搜索任何内容"</string>
     <string name="ui_drop_to_favorite">"拖放以添加到收藏"</string>
     <string name="ui_drag_a_tab_here_to_favorite">"将标签页拖到此处以收藏"</string>
     <string name="ui_sidebar_tabs">"侧边栏标签页"</string>
@@ -48,7 +47,6 @@
     <string name="ui_unpin_tab">"取消固定标签页"</string>
     <string name="ui_pin_tab">"固定标签页"</string>
     <string name="ui_add_to_favorites">"添加到收藏"</string>
-    <string name="ui_save_bookmark">"保存书签"</string>
     <string name="ui_open_in_right_pane">"在右侧窗格打开"</string>
     <string name="ui_close_tab">"关闭标签页"</string>
     <string name="ui_make_it_yours">"打造你的浏览器"</string>
@@ -86,7 +84,7 @@
     <string name="ui_restore_a_closed_tab">"恢复关闭的标签页"</string>
     <string name="ui_restore">"恢复"</string>
     <string name="ui_archive_inactive_tabs">"归档不活跃的标签页"</string>
-    <string name="ui_checked_on_launch_or_when_you_choose_archive_now_pinned_b64b52e0">"启动时或选择“立即归档”时检查。固定标签页和当前标签页将保留。"</string>
+    <string name="ui_checked_on_launch_or_when_you_choose_archive_now_pinned_b64b52e0">"启动时或手动选择“立即归档”时会自动检查。固定标签页和当前标签页不会被归档。"</string>
     <string name="ui_never">"从不"</string>
     <string name="ui_24_hours">"24 小时"</string>
     <string name="ui_7_days">"7 天"</string>
@@ -95,9 +93,9 @@
     <string name="ui_privacy">"隐私"</string>
     <string name="ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40">"地区自动选择通过 api.country.is 获取连接所在国家。该服务会收到 IP 地址，但不会收到搜索或浏览记录。无法获取时，依次使用移动网络、SIM 卡和设备地区。VPN 可能影响结果。关闭“按地区自动选择搜索引擎”即可停止查询。"</string>
     <string name="ui_your_workspace_stays_on_this_device">"工作空间仅保存在此设备上。"</string>
-    <string name="ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23">"历史记录、标签页和书签保存在本地。网站使用摄像头、麦克风或位置前会请求许可。第三方 Cookie 已屏蔽。"</string>
+    <string name="ui_local_storage_privacy">"历史记录、标签页和收藏保存在本地。网站使用摄像头、麦克风或位置前会请求许可。第三方 Cookie 已屏蔽。"</string>
     <string name="ui_clear_browsing_history_a2d6ed">"清除浏览记录"</string>
-    <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"隐私浏览和内容拦截计划在后续版本提供。"</string>
+    <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"隐私浏览和内容拦截将在后续版本中推出。"</string>
     <string name="ui_nagi_0_1_0_made_for_a_little_more_room">"Nagi 0.1.0  ·  为你留出更多空间。"</string>
     <string name="ui_clear_browsing_history_199567">"清除浏览记录？"</string>
     <string name="ui_this_removes_saved_visits_from_this_device">"这将删除保存在此设备上的浏览记录。"</string>
@@ -114,9 +112,7 @@
     <string name="ui_six_hexadecimal_digits_for_example_3568c0">"输入六位十六进制数字，例如 #3568C0"</string>
     <string name="ui_resize_split_view">"调整分屏宽度"</string>
     <string name="ui_your_browsing_history_will_appear_here">"浏览记录将在此处显示。"</string>
-    <string name="ui_save_pages_from_the_page_menu_favorites_live_in_your_sidebar">"从页面菜单保存网页，收藏会显示在侧边栏。"</string>
     <string name="ui_search_history">"搜索历史记录"</string>
-    <string name="ui_search_bookmarks">"搜索书签"</string>
     <string name="ui_page_menu">"页面菜单"</string>
     <string name="ui_unpin_from_sidebar">"取消侧边栏固定"</string>
     <string name="ui_pin_to_sidebar">"固定到侧边栏"</string>
@@ -153,8 +149,6 @@
     <string name="ui_preferences">"偏好设置"</string>
     <string name="ui_open_history">"打开历史记录"</string>
     <string name="ui_recent_visits">"最近访问"</string>
-    <string name="ui_open_bookmarks">"打开书签"</string>
-    <string name="ui_saved_pages">"已保存的网页"</string>
     <string name="ui_toggle_desktop_site">"切换桌面版网站"</string>
     <string name="ui_user_agent">"用户代理"</string>
     <string name="ui_website">"网站"</string>
@@ -170,7 +164,6 @@
     <string name="ui_use_a_valid_https_search_url">"请输入有效的 HTTPS 搜索网址"</string>
     <string name="ui_icon_url_is_invalid">"图标网址无效"</string>
     <string name="ui_keep_at_least_one_search_engine">"请至少保留一个搜索引擎"</string>
-    <string name="ui_keep_up_to_12_favorites">"最多可添加 12 个收藏"</string>
     <string name="ui_space_name_is_required">"请输入空间名称"</string>
     <string name="ui_keep_at_least_one_space">"请至少保留一个空间"</string>
     <string name="ui_space_no_longer_exists">"空间已不存在"</string>
@@ -226,7 +219,7 @@
     <string name="ui_back_to_settings">"返回设置"</string>
     <string name="ui_ask_chatgpt_about_1_s">向 ChatGPT 提问：“%1$s”</string>
     <string name="ui_common_search_engines">"常用搜索引擎"</string>
-    <string name="ui_common_search_engines_description">选择搜索时显示的引擎。“搜索默认”用于网页搜索，“AI 默认”用于向 AI 提问。两个默认引擎始终包含在内，出行时也会保留您选择的组合。</string>
+    <string name="ui_common_search_engines_description">选择搜索时显示的引擎。“搜索默认”用于网页搜索，“AI 默认”用于向 AI 提问。两个默认引擎始终包含在内，出行时也会保留你选择的组合。</string>
     <string name="ui_available_search_engines">"可选搜索引擎"</string>
     <string name="ui_chatgpt_web_handoff">"在 ChatGPT 网站中打开输入的内容"</string>
     <string name="ui_search_navigation_hint">"↑ ↓ 选择   ↵ 打开   ·   在设置中选择常用引擎"</string>
@@ -251,9 +244,9 @@
     <string name="ui_make_ai_default">设为 AI 默认</string>
     <string name="ui_make_search_default">设为搜索默认</string>
     <string name="ui_make_ai_default_named">将 %1$s 设为 AI 默认</string>
-    <string name="ui_site_controls">网站控制</string>
+    <string name="ui_site_controls">网站设置</string>
     <string name="ui_clear_site_data">清除 Cookie 和网站数据</string>
-    <string name="ui_clear_site_data_description">这会退出所有空间中的网站登录，并清除 Cookie、网站存储和页面缓存。保留标签页、书签和历史记录。</string>
+    <string name="ui_clear_site_data_description">这会退出所有空间中的网站登录，并清除 Cookie、网站存储和页面缓存。保留标签页、收藏和历史记录。</string>
     <string name="ui_site_data_cleared">已清除 Cookie 和网站数据</string>
     <string name="ui_loading_timeout">页面加载时间过长。请重试或检查网络连接。</string>
     <string name="ui_open_link_new_tab">在新标签页中打开链接</string>
@@ -273,7 +266,7 @@
     <string name="ui_check_updates">检查更新</string>
     <string name="ui_download_update">下载更新</string>
     <string name="ui_install_update">安装更新</string>
-    <string name="ui_update_install_description">Android 会要求允许 Nagi 安装应用并确认更新。保留浏览数据。</string>
+    <string name="ui_update_install_description">Android 会提示你允许来自 Nagi 的应用安装，并确认安装更新。你的浏览数据会保留。</string>
     <string name="ui_update_install_failed">无法打开已验证的更新。请重新下载后重试。</string>
     <string name="ui_update_banner">更新至 %1$s</string>
     <string name="ui_clear_data">清除数据</string>
@@ -288,12 +281,12 @@
     <string name="ui_upload_file">上传文件</string>
     <string name="ui_take_photo">拍摄照片</string>
     <string name="ui_choose_files">选择文件</string>
-    <string name="ui_camera_unavailable">无法打开相机应用。</string>
-    <string name="ui_download_saved">已保存到 Downloads</string>
-    <string name="ui_generated_download_failed">无法保存生成的文件。大小上限为32 MB。</string>
+    <string name="ui_camera_unavailable">没有可用的相机应用。</string>
+    <string name="ui_download_saved">已保存到“下载”文件夹</string>
+    <string name="ui_generated_download_failed">无法保存生成的文件。大小上限为 32 MB。</string>
     <string name="ui_page_drag">拖放链接和图片</string>
     <string name="ui_page_drag_description">长按网页链接或图片即可拖动。将链接放到窗格地址栏即可打开。右键可打开操作菜单，关闭此设置后也可通过长按打开菜单。</string>
-    <string name="ui_sleep_tabs_description">当打开的网页超过6个时，可休眠闲置10分钟的安全后台标签页。正在显示、编辑表单或使用媒体的页面保持运行。休眠页面打开时会重新加载，部分页面状态可能丢失。</string>
+    <string name="ui_sleep_tabs_description">同时运行的网页超过 6 个时，闲置至少 10 分钟且符合休眠条件的后台标签页会自动休眠。正在显示、表单内容已修改或正在播放媒体的页面不会休眠。休眠的标签页再次打开时会重新加载，部分页面状态可能丢失。</string>
     <string name="ui_sleep_tabs">休眠后台标签页</string>
     <string name="ui_tab_suspended">已休眠的标签页</string>
     <string name="ui_release_to_split_tabs">松开以并排显示标签页</string>

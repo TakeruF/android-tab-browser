@@ -42,7 +42,7 @@ app/src/main/java/com/takeruf/nagi/
     ├── commandbar/        IME-aware input and categorized candidates
     ├── splitview/         resizable two-pane layout
     ├── settings/          preferences and search-engine editor
-    ├── library/           history / ordinary bookmarks
+    ├── library/           history
     ├── components/        icons / touch targets
     └── theme/             independent light / dark palette
 ```
@@ -69,7 +69,7 @@ DataStore persists theme, sidebarWidth, sidebarCollapsed, defaultSearchEngineId,
 
 ## Navigation
 
-Navigation starts at `browser` and includes `settings`, `history`, and `bookmarks`. The sidebar is shared; the session controller is retained outside NavHost. Command Bar, Space editing, and search-engine editing use dialogs. Navigation does not destroy every WebView.
+Navigation starts at `browser` and includes `settings` and `history`. The sidebar is shared; the session controller is retained outside NavHost. Command Bar, Space editing, and search-engine editing use dialogs. Navigation does not destroy every WebView.
 
 ## Engine lifecycle
 
@@ -92,7 +92,7 @@ Cross-engine history-snapshot compatibility and cookie migration are outside thi
 1. Gradle / domain / schema / settings / URL and keyword resolution. Compile.
 2. Repository invariants / closed-tab and launch restoration. Compile.
 3. BrowserEngine / live-session pool / native capability host. Compile.
-4. Sidebar / browsing panes / editable engines / history and bookmarks / navigation. Assemble.
+4. Sidebar / browsing panes / editable engines / history / navigation. Assemble.
 5. Split / command suggestions / shortcuts / drag and archive-on-launch. Assemble and integration tests.
 6. CJK composition regression tests / lint / tablet rendering / release compile.
 

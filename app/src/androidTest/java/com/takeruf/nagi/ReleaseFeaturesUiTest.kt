@@ -40,18 +40,20 @@ class ReleaseFeaturesUiTest {
         bitmap.recycle()
     }
 
-    @Test fun bookmarkCanBeSavedOpenedAndRemovedFromLibrary() {
+    @Test fun removedLibraryActionsAreAbsentFromMenusAndCommands() {
+        compose.onNodeWithContentDescription("Bookmarks").assertDoesNotExist()
         compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("Save bookmark").performClick()
-        compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().any { it.url == "${server.origin}/one" && !it.isFavorite } } }
-        compose.onNodeWithContentDescription("Bookmarks").performClick()
-        compose.onNodeWithText("Search bookmarks").assertExists()
-        screenshot("release-bookmarks")
-        compose.onNodeWithTag("library-row:${server.origin}/one").performClick()
-        compose.waitUntil { runBlocking { container.workspace.dao.tabs(spaceId).count { it.url == "${server.origin}/one" && it.closedAt == null } == 2 } }
-        compose.onNodeWithContentDescription("Bookmarks").performClick()
-        compose.onNode(hasContentDescription("Remove Fixture One") and hasAnyAncestor(hasTestTag("library-row:${server.origin}/one"))).performClick()
-        compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().none { it.url == "${server.origin}/one" && !it.isFavorite } } }
+        compose.onNodeWithText("Save bookmark").assertDoesNotExist()
+        compose.onNodeWithText("Add to favorites").assertDoesNotExist()
+        compose.onNodeWithText("Find in page").assertIsDisplayed()
+        screenshot("page-menu-without-library-actions")
+        compose.onNodeWithText("Find in page").performClick()
+        compose.onNodeWithContentDescription("Close find").performClick()
+        compose.onNodeWithTag("url-drop-$tabId").performClick()
+        compose.onNode(hasSetTextAction()).performTextReplacement(">")
+        compose.onNodeWithText("Bookmarks").assertDoesNotExist()
+        compose.onNodeWithText("Open history").assertIsDisplayed()
+        screenshot("commands-without-bookmarks")
     }
 
     @Test fun passwordAutofillSettingsOpenAndroidServicePicker() {

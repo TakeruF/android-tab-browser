@@ -2,7 +2,7 @@
 
 ## Interface languages
 
-Nagi supports English, Japanese, Korean, and Simplified Chinese. Translations cover the home screen, sidebar, menus, settings, suggestions, find in page, history/bookmarks, permission/download prompts, validation errors, and accessibility descriptions. Website content and user-defined names are unchanged. Built-in Personal/Work names and empty tabs are translated at display time without rewriting stored data.
+Nagi supports English, Japanese, Korean, and Simplified Chinese. Translations cover the home screen, sidebar, menus, settings, suggestions, find in page, history, permission/download prompts, validation errors, and accessibility descriptions. Website content and user-defined names are unchanged. Built-in Personal/Work names and empty tabs are translated at display time without rewriting stored data.
 
 The device language determines the default; unsupported languages fall back to English. Android 13+ allows per-app language selection, while Android 8–12 follows the device setting. The implementation uses `android:localeConfig` and standard Android resources, following [Android's per-app language guide](https://developer.android.com/guide/topics/resources/app-languages).
 

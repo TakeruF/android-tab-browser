@@ -79,7 +79,6 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     fun renameSpace(id: String, name: String) = action { container.spaces.rename(id, name) }
     fun deleteSpace(id: String) = action { container.spaces.delete(id) }
     fun selectSpace(id: String) = action { container.spaces.select(id) }
-    fun bookmark(tab: BrowserTab, favorite: Boolean) = action { container.library.addBookmark(tab, favorite) }
     fun removeBookmark(id: String) = action { container.library.removeBookmark(id) }
     fun clearHistory() = action { container.library.clearHistory() }
     fun deleteHistory(id: Long) = action { container.library.deleteHistory(id) }

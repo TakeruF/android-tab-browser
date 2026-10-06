@@ -3,7 +3,6 @@
     <string name="ui_new_tab">"新しいタブ"</string>
     <string name="ui_search">"検索"</string>
     <string name="ui_history">"履歴"</string>
-    <string name="ui_bookmarks">"ブックマーク"</string>
     <string name="ui_settings">"設定"</string>
     <string name="ui_space">"スペース"</string>
     <string name="ui_spaces">"スペース"</string>
@@ -48,7 +47,6 @@
     <string name="ui_unpin_tab">"タブの固定を解除"</string>
     <string name="ui_pin_tab">"タブを固定"</string>
     <string name="ui_add_to_favorites">"お気に入りに追加"</string>
-    <string name="ui_save_bookmark">"ブックマークに保存"</string>
     <string name="ui_open_in_right_pane">"右側のペインで開く"</string>
     <string name="ui_close_tab">"タブを閉じる"</string>
     <string name="ui_make_it_yours">"自分に合った設定に"</string>
@@ -95,7 +93,7 @@
     <string name="ui_privacy">"プライバシー"</string>
     <string name="ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40">"地域の自動選択ではapi.country.isで接続元の国を確認します。IPアドレスは送信されますが、検索や閲覧の履歴は送信しません。取得できない場合は携帯回線、SIM、端末の地域を順に使用します。VPNで判定が変わることがあります。「地域に応じた検索エンジン」を無効にすると確認を停止します。"</string>
     <string name="ui_your_workspace_stays_on_this_device">"ワークスペースはこの端末に保存されます。"</string>
-    <string name="ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23">"履歴、タブ、ブックマークは端末に保存されます。サイトがカメラ、マイク、位置情報を使う前に許可を確認します。サードパーティCookieはブロックします。"</string>
+    <string name="ui_local_storage_privacy">"履歴、タブ、お気に入りは端末に保存されます。サイトがカメラ、マイク、位置情報を使う前に許可を確認します。サードパーティCookieはブロックします。"</string>
     <string name="ui_clear_browsing_history_a2d6ed">"閲覧履歴を削除"</string>
     <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"プライベートブラウズとコンテンツブロックは今後の更新で対応予定です。"</string>
     <string name="ui_nagi_0_1_0_made_for_a_little_more_room">"Nagi 0.1.0  ·  もっと広い作業スペースを。"</string>
@@ -114,9 +112,7 @@
     <string name="ui_six_hexadecimal_digits_for_example_3568c0">"16進数6桁で入力してください（例：#3568C0）"</string>
     <string name="ui_resize_split_view">"分割表示の幅を調整"</string>
     <string name="ui_your_browsing_history_will_appear_here">"閲覧履歴がここに表示されます。"</string>
-    <string name="ui_save_pages_from_the_page_menu_favorites_live_in_your_sidebar">"ページメニューから保存できます。お気に入りはサイドバーに表示されます。"</string>
     <string name="ui_search_history">"履歴を検索"</string>
-    <string name="ui_search_bookmarks">"ブックマークを検索"</string>
     <string name="ui_page_menu">"ページメニュー"</string>
     <string name="ui_unpin_from_sidebar">"サイドバーの固定を解除"</string>
     <string name="ui_pin_to_sidebar">"サイドバーに固定"</string>
@@ -153,8 +149,6 @@
     <string name="ui_preferences">"設定"</string>
     <string name="ui_open_history">"履歴を開く"</string>
     <string name="ui_recent_visits">"最近開いたページ"</string>
-    <string name="ui_open_bookmarks">"ブックマークを開く"</string>
-    <string name="ui_saved_pages">"保存したページ"</string>
     <string name="ui_toggle_desktop_site">"PC版サイトを切り替え"</string>
     <string name="ui_user_agent">"ユーザーエージェント"</string>
     <string name="ui_website">"ウェブサイト"</string>
@@ -170,7 +164,6 @@
     <string name="ui_use_a_valid_https_search_url">"有効なHTTPSの検索URLを指定してください"</string>
     <string name="ui_icon_url_is_invalid">"アイコンURLが正しくありません"</string>
     <string name="ui_keep_at_least_one_search_engine">"検索エンジンを1つ以上残してください"</string>
-    <string name="ui_keep_up_to_12_favorites">"お気に入りは12個までです"</string>
     <string name="ui_space_name_is_required">"スペース名を入力してください"</string>
     <string name="ui_keep_at_least_one_space">"スペースを1つ以上残してください"</string>
     <string name="ui_space_no_longer_exists">"スペースが見つかりません"</string>
@@ -253,7 +246,7 @@
     <string name="ui_make_ai_default_named">%1$sをAIデフォルトにする</string>
     <string name="ui_site_controls">サイトの操作</string>
     <string name="ui_clear_site_data">Cookie・サイトデータを消去</string>
-    <string name="ui_clear_site_data_description">全Spaceのサイトログイン、Cookie、サイトストレージ、ページキャッシュを消去します。タブ・ブックマーク・履歴は保持します。</string>
+    <string name="ui_clear_site_data_description">全Spaceのサイトログイン、Cookie、サイトストレージ、ページキャッシュを消去します。タブ・お気に入り・履歴は保持します。</string>
     <string name="ui_site_data_cleared">Cookie・サイトデータを消去しました</string>
     <string name="ui_loading_timeout">読み込みに時間がかかっています。再試行するか接続を確認してください。</string>
     <string name="ui_open_link_new_tab">リンクを新規タブで開く</string>

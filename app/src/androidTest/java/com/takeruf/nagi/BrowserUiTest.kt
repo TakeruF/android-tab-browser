@@ -55,16 +55,14 @@ class BrowserUiTest {
             up()
         }
         compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().any { it.isFavorite && it.title == "Fixture One" } } }
-        compose.onNodeWithContentDescription("Bookmarks").assertExists()
+        compose.onNodeWithContentDescription("Bookmarks").assertDoesNotExist()
         // Moving a tab to Favorites closes its ordinary-tab entry. Reopen the shortcut
         // before exercising the page menu and the close/restore keyboard flow.
         compose.onNodeWithContentDescription("Favorite Fixture One").performClick()
         awaitTitle("Fixture One")
         compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("Add to favorites").assertExists()
-        compose.onNodeWithText("Save bookmark").performClick()
-        compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().any { !it.isFavorite && it.title == "Fixture One" } } }
-        compose.onNodeWithContentDescription("Page menu").performClick()
+        compose.onNodeWithText("Add to favorites").assertDoesNotExist()
+        compose.onNodeWithText("Save bookmark").assertDoesNotExist()
         compose.onNodeWithText("Find in page").performClick()
         compose.onNodeWithContentDescription("Close find").performClick()
         shortcut(AndroidKeyEvent.KEYCODE_W)
@@ -93,7 +91,8 @@ class BrowserUiTest {
     }
     @Test fun settingsAllowCustomKeywordSearchAndSurviveActivityRecreation() {
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("customize-search-engines").performScrollTo().performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
+        compose.onNodeWithTag("customize-search-engines").performClick()
         compose.onNodeWithText("Add search engine").performScrollTo().performClick()
         compose.onNodeWithText("Name").performTextInput("Fixture Search")
         compose.onNodeWithText("Keyword").performTextInput("fixture")
