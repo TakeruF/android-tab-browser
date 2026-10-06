@@ -221,4 +221,11 @@
     <string name="ui_download_failed_1_s">"下载失败：%1$s"</string>
     <string name="ui_emoji">表情符号</string>
     <string name="ui_custom_emoji">自定义表情符号</string>
+    <string name="ui_search_more_lucide">在 Lucide 上查找更多图标</string>
+    <string name="ui_lucide_code_name">按 Lucide 代码名称选择</string>
+    <string name="ui_icon_code_name">图标代码名称</string>
+    <string name="ui_lucide_code_not_found">未找到与此代码名称匹配的图标。</string>
+    <string name="ui_lucide_exact_code_hint">输入完整代码名称，例如 user-round。大小写和连字符必须一致。</string>
+    <string name="ui_icon_preview">图标预览</string>
+    <string name="ui_use_icon">使用此图标</string>
 </resources>

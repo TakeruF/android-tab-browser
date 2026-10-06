@@ -2,6 +2,11 @@ package com.takeruf.nagi.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -84,24 +89,34 @@ internal fun NagiSystemBars(dark: Boolean = MaterialTheme.colorScheme.background
 fun NagiTheme(mode: ThemeMode, themeColor: Long = 0xFF426B5A, content: @Composable () -> Unit) {
     val dark = mode == ThemeMode.DARK || mode == ThemeMode.SYSTEM && isSystemInDarkTheme()
     NagiSystemBars(dark)
-    MaterialTheme(colorScheme = themeColorScheme(dark, themeColor), content = content)
+    // Retarget from the current color on rapid switches. Compose respects animator duration scale.
+    val seed by animateColorAsState(Color(themeColor or 0xFF000000),
+        animationSpec = tween(250, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)), label = "space-theme")
+    MaterialTheme(colorScheme = themeColorScheme(dark, seed.toArgb().toLong()), shapes = NagiShapes.Material, content = content)
 }
 
 // Keep user colors intact in storage; adapt their displayed roles for contrast.
 internal fun themeColorScheme(dark: Boolean, themeColor: Long): ColorScheme {
     val original = if (dark) DarkColors else LightColors
     val seed = Color(themeColor or 0xFF000000)
-    // Tint all browser chrome with the chosen hue, keeping neutral text readable.
-    fun tint(color: Color, amount: Float = 0.09f) = lerp(color, seed, amount)
+    // Remove the default palette's green before applying the selected color.
+    // Preserve each role's brightness so light/dark surfaces retain their depth.
+    fun tint(color: Color, amount: Float = if (dark) 0.22f else 0.14f): Color {
+        val gray = color.red * 0.2126f + color.green * 0.7152f + color.blue * 0.0722f
+        return lerp(Color(gray, gray, gray), seed, amount)
+    }
     val base = original.copy(
-        background = tint(original.background), surface = tint(original.surface, 0.05f),
+        background = tint(original.background), surface = tint(original.surface, 0.10f),
         surfaceVariant = tint(original.surfaceVariant), surfaceDim = tint(original.surfaceDim),
-        surfaceBright = tint(original.surfaceBright, 0.05f),
-        surfaceContainerLowest = tint(original.surfaceContainerLowest, 0.03f),
-        surfaceContainerLow = tint(original.surfaceContainerLow, 0.06f),
+        surfaceBright = tint(original.surfaceBright, 0.10f),
+        surfaceContainerLowest = tint(original.surfaceContainerLowest, 0.06f),
+        surfaceContainerLow = tint(original.surfaceContainerLow, 0.14f),
         surfaceContainer = tint(original.surfaceContainer), surfaceContainerHigh = tint(original.surfaceContainerHigh),
         surfaceContainerHighest = tint(original.surfaceContainerHighest),
         outline = tint(original.outline), outlineVariant = tint(original.outlineVariant),
+        onBackground = tint(original.onBackground, 0f), onSurface = tint(original.onSurface, 0f),
+        onSurfaceVariant = tint(original.onSurfaceVariant, 0f),
+        inverseSurface = tint(original.inverseSurface), inverseOnSurface = tint(original.inverseOnSurface, 0f),
     )
     val primary = readableSpaceColor(seed, base.onSurface,
         listOf(base.surface, base.surfaceContainerLow, base.background), minimumContrast = 5f)

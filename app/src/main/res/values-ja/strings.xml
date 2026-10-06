@@ -221,4 +221,11 @@
     <string name="ui_download_failed_1_s">"ダウンロードに失敗しました：%1$s"</string>
     <string name="ui_emoji">絵文字</string>
     <string name="ui_custom_emoji">好きな絵文字</string>
+    <string name="ui_search_more_lucide">Lucideで他のアイコンを探す</string>
+    <string name="ui_lucide_code_name">Lucideのコード名で選ぶ</string>
+    <string name="ui_icon_code_name">アイコンのコード名</string>
+    <string name="ui_lucide_code_not_found">このコード名のアイコンは見つかりません。</string>
+    <string name="ui_lucide_exact_code_hint">user-roundなどのコード名を完全一致で入力してください。大文字・小文字とハイフンも一致させてください。</string>
+    <string name="ui_icon_preview">アイコンのプレビュー</string>
+    <string name="ui_use_icon">このアイコンを使う</string>
 </resources>

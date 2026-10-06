@@ -222,4 +222,11 @@
     <string name="ui_download_failed_1_s">"Download failed: %1$s"</string>
     <string name="ui_emoji">Emoji</string>
     <string name="ui_custom_emoji">Custom emoji</string>
+    <string name="ui_search_more_lucide">Search for more on Lucide</string>
+    <string name="ui_lucide_code_name">Choose by Lucide code name</string>
+    <string name="ui_icon_code_name">Icon code name</string>
+    <string name="ui_lucide_code_not_found">No icon matches this code name.</string>
+    <string name="ui_lucide_exact_code_hint">Enter the exact code name, for example user-round. Case and hyphens must match.</string>
+    <string name="ui_icon_preview">Icon preview</string>
+    <string name="ui_use_icon">Use icon</string>
 </resources>
