@@ -320,10 +320,14 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                     val foreground = readableSpaceColor(Color(space.color), palette.onSurface,
                         listOf(sidebarTop, sidebarBottom, palette.surfaceContainerHighest, palette.primaryContainer))
                     Box(Modifier.size(48.dp).sidebarTarget(drag, "space-${space.id}", SidebarDestination(SidebarSection.SPACE, space.id))
-                        .clip(NagiShapes.Rounded).background(if (highlighted) palette.primaryContainer else if (active) palette.surfaceContainerHighest else Color.Transparent)
-                        .then(if (active || highlighted) Modifier.border(1.dp, if (highlighted) palette.primary else foreground, NagiShapes.Rounded) else Modifier)
+                        .clip(NagiShapes.Rounded)
                         .clickable { vm.selectSpace(space.id); onNavigate("browser") }.semantics { contentDescription = strings(R.string.ui_switch_to_1_s, strings.spaceName(space)); selected = active }, contentAlignment = Alignment.Center) {
-                        SpaceIcon(space.icon, foreground, size = 16.dp)
+                        Box(Modifier.size(36.dp).clip(NagiShapes.Rounded)
+                            .background(if (highlighted) palette.primaryContainer else if (active) palette.surfaceContainerHighest else Color.Transparent)
+                            .then(if (active || highlighted) Modifier.border(1.dp, if (highlighted) palette.primary else foreground, NagiShapes.Rounded) else Modifier),
+                            contentAlignment = Alignment.Center) {
+                            SpaceIcon(space.icon, foreground, size = 16.dp)
+                        }
                     }
                 }
                 IconButton(onClick = { createSpace = true }, modifier = Modifier.size(48.dp)) {

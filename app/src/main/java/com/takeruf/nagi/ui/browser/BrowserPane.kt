@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.takeruf.nagi.browser.engine.BrowserEngine
 import com.takeruf.nagi.domain.model.BrowserTab
 import com.takeruf.nagi.ui.components.ToolButton
+import com.takeruf.nagi.ui.components.AddressActionButton
 import com.takeruf.nagi.ui.components.NagiOverflowMenu
 import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 
@@ -77,11 +78,11 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                         Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/"),
                             Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (inlineLinkActions) {
-                            IconButton(onClick = copyLink, enabled = canShareLink, modifier = Modifier.size(48.dp).testTag("address-copy-url:${tab.id}")) {
+                            AddressActionButton(onClick = copyLink, enabled = canShareLink, modifier = Modifier.testTag("address-copy-url:${tab.id}")) {
                                 Icon(if (linkCopied) NagiIcons.Check else NagiIcons.Link,
                                     strings(if (linkCopied) R.string.ui_link_copied else R.string.ui_copy_link), Modifier.size(16.dp))
                             }
-                            IconButton(onClick = shareLink, enabled = canShareLink, modifier = Modifier.size(48.dp)) {
+                            AddressActionButton(onClick = shareLink, enabled = canShareLink) {
                                 Icon(NagiIcons.Share, strings(R.string.ui_share_link), Modifier.size(16.dp))
                             }
                         }

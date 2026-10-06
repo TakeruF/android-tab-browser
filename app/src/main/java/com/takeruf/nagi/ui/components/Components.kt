@@ -30,6 +30,16 @@ internal fun faviconSource(path: String?, siteUrl: String?): Any? {
 }
 
 @Composable
+fun AddressActionButton(modifier: Modifier = Modifier, enabled: Boolean = true,
+    onClick: () -> Unit, content: @Composable () -> Unit) {
+    // Keep paired actions compact in both address bars.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        IconButton(onClick = onClick, enabled = enabled,
+            modifier = modifier.width(32.dp).height(48.dp), content = content)
+    }
+}
+
+@Composable
 fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
         Icon(icon, contentDescription = label, modifier = Modifier.size(21.dp))

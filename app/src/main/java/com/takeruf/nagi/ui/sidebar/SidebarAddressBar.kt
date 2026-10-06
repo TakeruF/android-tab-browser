@@ -51,18 +51,18 @@ fun SidebarAddressBar(url: String, title: String, onOmnibox: () -> Unit) {
                 TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                     tooltip = { PlainTooltip { Text(strings(if (copied) R.string.ui_link_copied else R.string.ui_copy_link)) } },
                     state = rememberTooltipState()) {
-                    IconButton(onClick = copy, modifier = Modifier.size(48.dp).testTag("sidebar-copy-url")) {
+                    AddressActionButton(onClick = copy, modifier = Modifier.testTag("sidebar-copy-url")) {
                         Icon(if (copied) NagiIcons.Check else NagiIcons.Link,
                             strings(if (copied) R.string.ui_link_copied else R.string.ui_copy_link), Modifier.size(16.dp))
                     }
                 }
-                IconButton(onClick = {
+                AddressActionButton(onClick = {
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, url)
                         putExtra(Intent.EXTRA_SUBJECT, title)
                     }, strings(R.string.ui_share_link)))
-                }, modifier = Modifier.size(48.dp).testTag("sidebar-share-url")) {
+                }, modifier = Modifier.testTag("sidebar-share-url")) {
                     Icon(NagiIcons.Share, strings(R.string.ui_share_link), Modifier.size(16.dp))
                 }
             } else if (!hasPage) {
