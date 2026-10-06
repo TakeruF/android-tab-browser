@@ -16,13 +16,19 @@ data class BrowserUiState(val workspace: WorkspaceSnapshot = WorkspaceSnapshot()
     val favorites get() = workspace.bookmarks.filter { it.isFavorite }
 }
 
-/** Persistent workspace state and actions only. No View, Activity or WebView reference. */
+private data class SpacePreview(val id: String, val name: String, val icon: String, val color: Long)
+
+/** Workspace state and transient appearance previews. No View, Activity or WebView reference. */
 class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     private val initialized = MutableStateFlow(false)
     private val startupError = MutableStateFlow<String?>(null)
+    private val spacePreview = MutableStateFlow<SpacePreview?>(null)
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val state = combine(container.workspace.snapshot, container.settings.settings, initialized, startupError) { workspace, settings, ready, error ->
-        BrowserUiState(workspace, settings, ready, error)
+    val state = combine(container.workspace.snapshot, container.settings.settings, initialized, startupError, spacePreview) { workspace, settings, ready, error, preview ->
+        val displayed = if (preview == null) workspace else workspace.copy(spaces = workspace.spaces.map { space ->
+            if (space.id == preview.id) space.copy(name = preview.name, icon = preview.icon, color = preview.color) else space
+        })
+        BrowserUiState(displayed, settings, ready, error)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BrowserUiState())
     init { viewModelScope.launch {
         try { container.workspace.ready.await(); initialized.value = true }
@@ -37,13 +43,33 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     suspend fun createTab(url: String = "about:blank", select: Boolean = true): String? = state.value.currentSpace?.let { container.tabs.create(it.id, url, select) }
     fun selectTab(id: String) = action { container.tabs.select(id) }
     fun closeTab(id: String) = action { container.tabs.close(id) }
+    fun closeTabOnBack(id: String) = action { container.tabs.close(id, selectNext = true) }
     fun restoreClosed() = action { if (container.tabs.restoreClosed() == null) messages.emit("No closed tabs to restore") }
     fun togglePin(id: String) = action { container.tabs.togglePin(id) }
     fun accessTab(id: String) = action { container.tabs.recordAccess(id) }
     fun reorder(id: String, target: String) = action { container.tabs.reorder(id, target) }
     fun moveTab(id: String, spaceId: String) = action { container.tabs.moveToSpace(id, spaceId) }
     fun createSpace(name: String, icon: String = "◉", color: Long? = null) = action { container.spaces.create(name, icon, color) }
-    fun editSpace(id: String, name: String, icon: String, color: Long) = action { container.spaces.edit(id, name, icon, color) }
+    fun previewSpace(id: String, name: String, icon: String, color: Long) {
+        spacePreview.value = SpacePreview(id, name, icon, color)
+    }
+    fun cancelSpacePreview(id: String) {
+        if (spacePreview.value?.id == id) spacePreview.value = null
+    }
+    fun editSpace(id: String, name: String, icon: String, color: Long) = action {
+        val preview = spacePreview.value
+        try {
+            container.spaces.edit(id, name, icon, color)
+            // Keep the preview until Room publishes the saved appearance, avoiding an old-color flash.
+            container.workspace.snapshot.first { snapshot ->
+                snapshot.spaces.none { it.id == id } || snapshot.spaces.any {
+                    it.id == id && it.name == name.trim() && it.icon == icon && it.color == color
+                }
+            }
+        } finally {
+            if (spacePreview.value == preview) cancelSpacePreview(id)
+        }
+    }
     fun renameSpace(id: String, name: String) = action { container.spaces.rename(id, name) }
     fun deleteSpace(id: String) = action { container.spaces.delete(id) }
     fun selectSpace(id: String) = action { container.spaces.select(id) }
@@ -54,6 +80,7 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     fun updateSettings(change: (BrowserSettings) -> BrowserSettings) = action { container.settings.update(change) }
     fun saveEngine(engine: SearchEngine) = action { container.engines.save(engine) }
     fun deleteEngine(id: String) = action { container.engines.delete(id) }
+    fun defaultAiEngine(id: String) = action { container.engines.setDefaultAi(id) }
     fun defaultEngine(id: String) = action { container.engines.setDefault(id) }
     fun automaticSearchRegion(enabled: Boolean) = action {
         container.settings.update { it.copy(automaticSearchRegion = enabled) }
@@ -67,6 +94,15 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     }
     fun reorderFavorite(id: String, target: String?, after: Boolean) = action { container.tabs.reorderFavorite(id, target, after) }
     fun archiveNow() = action { container.tabs.archiveNow() }
+    /** Same order and opening behavior as the sidebar, including shared Favorites. */
+    fun selectNumberedTab(number: Int): Boolean {
+        val target = state.value.numberedTabTarget(number) ?: return false
+        when (target) {
+            is NumberedTabTarget.Favorite -> newTab(target.url)
+            is NumberedTabTarget.Tab -> selectTab(target.id)
+        }
+        return true
+    }
     fun cycleTab(forward: Boolean) {
         val tabs = state.value.visibleTabs
         if (tabs.isEmpty()) return

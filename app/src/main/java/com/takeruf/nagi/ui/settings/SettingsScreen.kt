@@ -1,16 +1,19 @@
 package com.takeruf.nagi.ui.settings
 
+import androidx.compose.ui.draw.clip
+import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import com.takeruf.nagi.ui.components.NagiIcons
 import androidx.compose.runtime.*
@@ -18,44 +21,73 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.browser.search.InputResolver
+import com.takeruf.nagi.browser.search.AiSearchEngines
+import com.takeruf.nagi.browser.search.CommonSearchEngines
+import com.takeruf.nagi.browser.search.SearchEngineOrder
 import com.takeruf.nagi.domain.model.*
 import com.takeruf.nagi.ui.browser.*
 import com.takeruf.nagi.ui.components.ToolButton
+import com.takeruf.nagi.ui.components.NagiOverflowMenu
+import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 import com.takeruf.nagi.ui.theme.NagiSystemBars
 import java.util.UUID
 
 @Composable
 fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
-    var editing by remember { mutableStateOf<SearchEngine?>(null) }
-    var adding by remember { mutableStateOf(false) }
-    var themeColorEditor by remember { mutableStateOf(false) }
+    var customizingEngines by rememberSaveable { mutableStateOf(false) }
+    val settingsListState = rememberLazyListState()
+    BackHandler(enabled = customizingEngines) { customizingEngines = false }
+    if (customizingEngines) {
+        SearchEnginesScreen(state, vm, onBack = { customizingEngines = false })
+        return
+    }
     var clearHistory by remember { mutableStateOf(false) }
     val prefs = state.settings
     Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_browser), onClick = onBack)
                 Column(Modifier.padding(start = 12.dp)) {
-                    Text(strings(R.string.ui_make_it_yours), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-                    Text(strings(R.string.ui_a_browser_that_fits_your_workspace), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings(R.string.ui_settings), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                 }
             }
-        LazyColumn(Modifier.weight(1f).testTag("settings-list"), contentPadding = PaddingValues(32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        LazyColumn(Modifier.weight(1f).testTag("settings-list"), state = settingsListState, contentPadding = PaddingValues(32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { SettingsSection(strings(R.string.ui_general), NagiIcons.Globe) {
             var defaultsMenu by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings(R.string.ui_default_search_engine), Modifier.weight(1f))
                 Box {
-                    TextButton(onClick = { defaultsMenu = true }) {
-                        Text(state.workspace.searchEngines.firstOrNull { it.id == prefs.defaultSearchEngineId }?.name ?: strings(R.string.ui_select))
+                    TextButton(shape = NagiShapes.Rounded, onClick = { defaultsMenu = true }) {
+                        Text(state.workspace.searchEngines.firstOrNull { it.id == prefs.defaultSearchEngineId }?.let { strings.engineName(it, inSettings = true) } ?: strings(R.string.ui_select))
                         Icon(NagiIcons.ChevronDown, null)
                     }
-                    DropdownMenu(defaultsMenu, { defaultsMenu = false }) {
-                        state.workspace.searchEngines.forEach { engine -> DropdownMenuItem(text = { Text(engine.name) },
+                    NagiOverflowMenu(defaultsMenu, { defaultsMenu = false }) {
+                        SearchEngineOrder.sorted(state.workspace.searchEngines.filter { it.id !in AiSearchEngines.ids }, CommonSearchEngines.ids(prefs)) { it.id }
+                            .forEach { engine -> NagiOverflowMenuItem(text = { Text(strings.engineName(engine, inSettings = true)) }, leadingIcon = { Icon(NagiIcons.Search, null) },
                             onClick = { vm.defaultEngine(engine.id); defaultsMenu = false }) }
+                    }
+                }
+            }
+            var aiDefaultsMenu by remember { mutableStateOf(false) }
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(strings(R.string.ui_default_ai_engine), Modifier.weight(1f))
+                Box {
+                    TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("default-ai-engine"), onClick = { aiDefaultsMenu = true }) {
+                        Text(strings.engineName(AiSearchEngines.default(prefs, state.workspace.searchEngines), inSettings = true))
+                        Icon(NagiIcons.ChevronDown, null)
+                    }
+                    NagiOverflowMenu(aiDefaultsMenu, { aiDefaultsMenu = false }) {
+                        AiSearchEngines.available(state.workspace.searchEngines).forEach { engine ->
+                            NagiOverflowMenuItem(text = { Text(strings.engineName(engine, inSettings = true)) },
+                                leadingIcon = { Icon(NagiIcons.Search, null) },
+                                onClick = { vm.defaultAiEngine(engine.id); aiDefaultsMenu = false })
+                        }
                     }
                 }
             }
@@ -63,52 +95,26 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
             if (prefs.automaticSearchRegion) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(prefs.searchRegionCountry?.let { "$it · ${strings.translate(prefs.searchRegionSource.orEmpty())}" } ?: if (prefs.searchRegionSource == "Unavailable") strings(R.string.ui_region_unavailable_current_engine_kept) else strings(R.string.ui_detecting_region),
                     Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = vm::refreshSearchRegion) { Text(strings(R.string.ui_check_again)) }
+                TextButton(shape = NagiShapes.Rounded, onClick = vm::refreshSearchRegion) { Text(strings(R.string.ui_check_again)) }
             }
             SettingToggle(strings(R.string.ui_open_links_in_new_tab), strings(R.string.ui_page_links_you_tap_open_as_a_new_tab), prefs.openLinksInNewTab) { value -> vm.updateSettings { it.copy(openLinksInNewTab = value) } }
             SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(R.string.ui_keep_your_spaces_and_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
             SettingToggle(strings(R.string.ui_desktop_site_by_default), strings(R.string.ui_use_a_desktop_user_agent_for_newly_created_sessions), prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
         } }
-        item { SettingsSection(strings(R.string.ui_search_engines), NagiIcons.Search) {
-            state.workspace.searchEngines.forEach { engine ->
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(engine.name, style = MaterialTheme.typography.titleSmall)
-                            if (engine.id == prefs.defaultSearchEngineId) Text(strings(R.string.ui_default), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
-                        }
-                        Text("${engine.keyword}  ·  ${engine.urlTemplate}", style = MaterialTheme.typography.bodySmall, maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    ToolButton(NagiIcons.CircleCheck, strings(R.string.ui_make_1_s_default, engine.name), engine.id != prefs.defaultSearchEngineId) { vm.defaultEngine(engine.id) }
-                    ToolButton(NagiIcons.Pencil, strings(R.string.ui_edit_1_s, engine.name)) { editing = engine }
-                    ToolButton(NagiIcons.Trash2, strings(R.string.ui_delete_1_s_48c860, engine.name), state.workspace.searchEngines.size > 1) { vm.deleteEngine(engine.id) }
+        item { SettingsSection(strings(R.string.ui_common_search_engines), NagiIcons.Search) {
+            Row(Modifier.fillMaxWidth().testTag("customize-search-engines").clip(NagiShapes.Rounded).clickable { customizingEngines = true }
+                .padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(strings(R.string.ui_customize_search_engines))
+                    Text(strings(R.string.ui_common_search_engines_description), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Icon(NagiIcons.ArrowForward, null, Modifier.size(20.dp))
             }
-            TextButton(onClick = { adding = true }, modifier = Modifier.padding(8.dp)) { Icon(NagiIcons.Plus, null); Text(strings(R.string.ui_add_search_engine), Modifier.padding(start = 8.dp)) }
         } }
         item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette) {
             FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
-            }
-            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(strings(R.string.ui_theme_color))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(strings(R.string.ui_forest) to 0xFF426B5A, strings(R.string.ui_blue) to 0xFF3568C0, strings(R.string.ui_purple) to 0xFF8059B1,
-                        strings(R.string.ui_rose) to 0xFFB4496B, strings(R.string.ui_orange) to 0xFFC76D26, strings(R.string.ui_slate) to 0xFF64748B).forEach { (name, color) ->
-                        FilterChip(selected = prefs.themeColor == color,
-                            onClick = { vm.updateSettings { it.copy(themeColor = color) } },
-                            label = { Text(name) }, leadingIcon = {
-                                Surface(Modifier.size(18.dp), shape = CircleShape, color = Color(color),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {}
-                            })
-                    }
-                }
-                TextButton(onClick = { themeColorEditor = true }) {
-                    Icon(NagiIcons.Palette, null, Modifier.size(18.dp))
-                    Text(strings(R.string.ui_custom_color_1_s, "%06X".format(prefs.themeColor and 0xFFFFFF)), Modifier.padding(start = 8.dp))
-                }
             }
             var width by remember(prefs.sidebarWidth) { mutableFloatStateOf(prefs.sidebarWidth) }
             Column(Modifier.padding(16.dp)) {
@@ -130,7 +136,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
                     Text(strings(R.string.ui_restore_a_closed_tab))
                     Text("Ctrl Shift T", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                TextButton(onClick = { vm.restoreClosed() }) { Text(strings(R.string.ui_restore)) }
+                TextButton(shape = NagiShapes.Rounded, onClick = { vm.restoreClosed() }) { Text(strings(R.string.ui_restore)) }
             }
             Column(Modifier.padding(16.dp)) {
                 Text(strings(R.string.ui_archive_inactive_tabs))
@@ -142,7 +148,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
                             ArchivePeriod.NEVER -> strings(R.string.ui_never); ArchivePeriod.DAY -> strings(R.string.ui_24_hours); ArchivePeriod.WEEK -> strings(R.string.ui_7_days); ArchivePeriod.MONTH -> strings(R.string.ui_30_days)
                         }) }) }
                 }
-                TextButton(enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
+                TextButton(shape = NagiShapes.Rounded, enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
             }
         } }
         item { SettingsSection(strings(R.string.ui_privacy), NagiIcons.ShieldCheck) {
@@ -151,21 +157,144 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
                 Text(strings(R.string.ui_your_workspace_stays_on_this_device), style = MaterialTheme.typography.titleSmall)
                 Text(strings(R.string.ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }
+                TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }
                 Text(strings(R.string.ui_private_browsing_and_content_blocking_are_planned_for_a_later_release), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } }
         item { Text(strings(R.string.ui_nagi_0_1_0_made_for_a_little_more_room), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
-    if (themeColorEditor) ThemeColorEditor(prefs.themeColor, onDismiss = { themeColorEditor = false }) { color ->
-        vm.updateSettings { it.copy(themeColor = color) }; themeColorEditor = false
+    if (clearHistory) AlertDialog(onDismissRequest = { clearHistory = false }, title = { NagiSystemBars(); Text(strings(R.string.ui_clear_browsing_history_199567)) },
+        text = { Text(strings(R.string.ui_this_removes_saved_visits_from_this_device)) }, confirmButton = { TextButton(shape = NagiShapes.Rounded, onClick = { vm.clearHistory(); clearHistory = false }) { Text(strings(R.string.ui_clear_history)) } },
+        dismissButton = { TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = false }) { Text(strings(R.string.ui_cancel)) } })
+}
+
+@Composable
+private fun SearchEnginesScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit) {
+    val strings = rememberNagiStrings()
+    val prefs = state.settings
+    val commonIds = CommonSearchEngines.ids(prefs)
+    val enginesById = state.workspace.searchEngines.associateBy { it.id }
+    val orderedIds = SearchEngineOrder.sorted(
+        state.workspace.searchEngines.map { it.id }.plus(CommonSearchEngines.CHATGPT).distinct(), commonIds
+    ) { it }
+    var editing by remember { mutableStateOf<SearchEngine?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_settings), onClick = onBack)
+            Column(Modifier.padding(start = 12.dp)) {
+                Text(strings(R.string.ui_customize_search_engines), style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold)
+                Text(strings(R.string.ui_manage_search_engines), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        LazyColumn(Modifier.weight(1f).testTag("search-engines-list"), contentPadding = PaddingValues(32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        item { SettingsSection(strings(R.string.ui_common_search_engines), NagiIcons.Search) {
+            Text(strings(R.string.ui_common_search_engines_description), Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            orderedIds.filter { it in commonIds || it == CommonSearchEngines.CHATGPT }.forEach { id ->
+                if (id == CommonSearchEngines.CHATGPT) {
+                    CommonSearchEngineToggle(id, "ChatGPT", "${AiSearchEngines.chatGpt.keyword}  ·  ${AiSearchEngines.chatGpt.urlTemplate}",
+                        selected = id in commonIds, isDefault = id == AiSearchEngines.defaultId(prefs), isAi = true) { enabled ->
+                        vm.updateSettings { CommonSearchEngines.select(it, id, enabled) }
+                    }
+                } else enginesById[id]?.let { engine ->
+                    CommonSearchEngineToggle(
+                        id = engine.id,
+                        title = strings.engineName(engine, inSettings = true),
+                        subtitle = "${engine.keyword}  ·  ${engine.urlTemplate}",
+                        selected = true,
+                        isDefault = engine.id in setOf(prefs.defaultSearchEngineId, AiSearchEngines.defaultId(prefs)),
+                        isAi = engine.id in AiSearchEngines.ids,
+                    ) { enabled -> vm.updateSettings { CommonSearchEngines.select(it, engine.id, enabled) } }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        } }
+        item { SettingsSection(strings(R.string.ui_available_search_engines), NagiIcons.Search) {
+            orderedIds.forEach { id ->
+                val engine = if (id == CommonSearchEngines.CHATGPT) AiSearchEngines.chatGpt else enginesById[id]
+                engine?.let {
+                    val isAi = id in AiSearchEngines.ids
+                    val isDefault = id == if (isAi) AiSearchEngines.defaultId(prefs) else prefs.defaultSearchEngineId
+                    val name = strings.engineName(engine, inSettings = true)
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = id in commonIds, enabled = !isDefault,
+                            onCheckedChange = { enabled -> vm.updateSettings { CommonSearchEngines.select(it, id, enabled) } },
+                            modifier = Modifier.testTag("common-engine:$id").semantics {
+                                contentDescription = strings(R.string.ui_include_common_engine, name)
+                            })
+                        Column(Modifier.weight(1f)) {
+                            SearchEngineTitle(name, isAi, isDefault)
+                            Text("${engine.keyword}  ·  ${engine.urlTemplate}", style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(shape = NagiShapes.Rounded, enabled = !isDefault,
+                            modifier = Modifier.testTag("make-default:$id").semantics {
+                                contentDescription = strings(if (isAi) R.string.ui_make_ai_default_named else R.string.ui_make_1_s_default, name)
+                            }, onClick = {
+                                if (isAi) vm.defaultAiEngine(id) else vm.defaultEngine(id)
+                            }) {
+                            Text(strings(if (isAi) R.string.ui_make_ai_default else R.string.ui_make_search_default))
+                        }
+                        if (id != CommonSearchEngines.CHATGPT) {
+                            ToolButton(NagiIcons.Pencil, strings(R.string.ui_edit_1_s, name)) { editing = engine }
+                            ToolButton(NagiIcons.Trash2, strings(R.string.ui_delete_1_s_48c860, name), state.workspace.searchEngines.size > 1) { vm.deleteEngine(id) }
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            TextButton(shape = NagiShapes.Rounded, onClick = { adding = true }, modifier = Modifier.padding(8.dp)) { Icon(NagiIcons.Plus, null); Text(strings(R.string.ui_add_search_engine), Modifier.padding(start = 8.dp)) }
+        } }
+        }
     }
     if (adding || editing != null) SearchEngineEditor(editing, state.workspace.searchEngines,
         onDismiss = { adding = false; editing = null }, onSave = { vm.saveEngine(it); adding = false; editing = null })
-    if (clearHistory) AlertDialog(onDismissRequest = { clearHistory = false }, title = { NagiSystemBars(); Text(strings(R.string.ui_clear_browsing_history_199567)) },
-        text = { Text(strings(R.string.ui_this_removes_saved_visits_from_this_device)) }, confirmButton = { TextButton(onClick = { vm.clearHistory(); clearHistory = false }) { Text(strings(R.string.ui_clear_history)) } },
-        dismissButton = { TextButton(onClick = { clearHistory = false }) { Text(strings(R.string.ui_cancel)) } })
+}
+
+@Composable
+private fun CommonSearchEngineToggle(
+    id: String,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    isDefault: Boolean = false,
+    isAi: Boolean = false,
+    onChange: (Boolean) -> Unit,
+) {
+    val strings = rememberNagiStrings()
+    Row(Modifier.fillMaxWidth().testTag("selected-common-engine:$id")
+        .toggleable(value = selected, enabled = !isDefault, role = Role.Switch, onValueChange = onChange)
+        .padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 20.dp)) {
+            SearchEngineTitle(title, isAi, isDefault)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = selected, onCheckedChange = null, enabled = !isDefault)
+    }
+}
+
+@Composable
+private fun SearchEngineTitle(title: String, isAi: Boolean, isDefault: Boolean) {
+    val strings = rememberNagiStrings()
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        if (isAi || isDefault) {
+            Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+                Text(strings(when {
+                    isAi && isDefault -> R.string.ui_ai_default_badge
+                    isAi -> R.string.ui_ai_engine_badge
+                    else -> R.string.ui_search_default_badge
+                }), Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
 }
 
 @Composable
@@ -176,14 +305,14 @@ private fun SettingsSection(title: String, icon: ImageVector, content: @Composab
             Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
-        Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
+        Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.onSurface,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) { Column(content = content) }
     }
 }
 @Composable
 private fun SettingToggle(title: String, subtitle: String, value: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { onChange(!value) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clip(NagiShapes.Rounded).clickable { onChange(!value) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 20.dp)) {
             Text(title)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -200,35 +329,17 @@ private fun SearchEngineEditor(engine: SearchEngine?, engines: List<SearchEngine
     var template by remember { mutableStateOf(engine?.urlTemplate ?: "https://example.com/search?q={query}") }
     var icon by remember { mutableStateOf(engine?.iconUrl ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = onDismiss, title = { NagiSystemBars(); Text(if (engine == null) strings(R.string.ui_add_search_engine) else strings(R.string.ui_edit_search_engine)) },
+    AlertDialog(onDismissRequest = onDismiss, title = { NagiSystemBars(); Text(if (engine == null) strings(R.string.ui_add_search_engine) else strings(R.string.ui_edit_1_s, strings.engineName(engine, inSettings = true))) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text(strings(R.string.ui_name)) }, singleLine = true)
             OutlinedTextField(keyword, { keyword = it }, label = { Text(strings(R.string.ui_keyword)) }, singleLine = true)
             OutlinedTextField(template, { template = it }, label = { Text(strings(R.string.ui_search_url_template)) }, supportingText = { Text(strings(R.string.ui_use_query_where_the_search_text_belongs)) })
             OutlinedTextField(icon, { icon = it }, label = { Text(strings(R.string.ui_icon_url_optional)) }, singleLine = true)
             error?.let { Text(strings.translate(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        } }, confirmButton = { TextButton(onClick = {
+        } }, confirmButton = { TextButton(shape = NagiShapes.Rounded, onClick = {
             val value = SearchEngine(engine?.id ?: UUID.randomUUID().toString(), name.trim(), keyword.trim().lowercase(), template.trim(), icon.trim().ifBlank { null })
             error = InputResolver.validateEngine(value) ?: if (engines.any { it.id != value.id && it.keyword == value.keyword }) "That keyword is already in use" else null
             if (error == null) onSave(value)
-        }) { Text(strings(R.string.ui_save)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(strings(R.string.ui_cancel)) } })
+        }) { Text(strings(R.string.ui_save)) } }, dismissButton = { TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text(strings(R.string.ui_cancel)) } })
 }
 
-@Composable
-private fun ThemeColorEditor(current: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
-    val strings = rememberNagiStrings()
-    var hex by remember { mutableStateOf("%06X".format(current and 0xFFFFFF)) }
-    val valid = hex.removePrefix("#").matches(Regex("[0-9a-fA-F]{6}"))
-    AlertDialog(onDismissRequest = onDismiss, title = { NagiSystemBars(); Text(strings(R.string.ui_custom_theme_color)) },
-        text = {
-            OutlinedTextField(hex, { hex = it }, label = { Text(strings(R.string.ui_hex_color)) }, singleLine = true,
-                isError = !valid, supportingText = { Text(strings(R.string.ui_six_hexadecimal_digits_for_example_3568c0)) },
-                leadingIcon = {
-                    if (valid) Surface(Modifier.size(24.dp), shape = CircleShape,
-                        color = Color(0xFF000000 or hex.removePrefix("#").toLong(16)),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {}
-                })
-        }, confirmButton = { TextButton(enabled = valid, onClick = {
-            onSave(0xFF000000 or hex.removePrefix("#").toLong(16))
-        }) { Text(strings(R.string.ui_save)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(strings(R.string.ui_cancel)) } })
-}

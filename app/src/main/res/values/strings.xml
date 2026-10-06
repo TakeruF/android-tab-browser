@@ -222,6 +222,22 @@
     <string name="ui_download_failed_1_s">"Download failed: %1$s"</string>
     <string name="ui_emoji">Emoji</string>
     <string name="ui_custom_emoji">Custom emoji</string>
+    <string name="ui_customize_search_engines">"Customize search engines"</string>
+    <string name="ui_manage_search_engines">"Add, edit or remove search engines and keywords"</string>
+    <string name="ui_back_to_settings">"Back to settings"</string>
+    <string name="ui_ask_chatgpt_about_1_s">Ask ChatGPT about “%1$s”</string>
+    <string name="ui_common_search_engines">"Common search engines"</string>
+    <string name="ui_common_search_engines_description">Choose engines shown when you search. Search default is used for web searches; AI default is used to ask AI. Both defaults are always included. Your choices stay the same when you travel.</string>
+    <string name="ui_available_search_engines">"Available search engines"</string>
+    <string name="ui_chatgpt_web_handoff">"Open your query on the ChatGPT website"</string>
+    <string name="ui_search_navigation_hint">"↑ ↓ Navigate   ↵ Open   ·   Choose common engines in Settings"</string>
+    <string name="ui_include_common_engine">"Include %1$s in common search engines"</string>
+    <string name="ui_qwen">Qwen</string>
+    <string name="ui_qwen_china_mainland">Qwen (China Mainland)</string>
+    <string name="ui_ask_engine_about_query">Ask %1$s about “%2$s”</string>
+    <string name="ui_copy_link">Copy link</string>
+    <string name="ui_share_link">Share link</string>
+    <string name="ui_link_copied">Link copied</string>
     <string name="ui_search_more_lucide">Search for more on Lucide</string>
     <string name="ui_lucide_code_name">Choose by Lucide code name</string>
     <string name="ui_icon_code_name">Icon code name</string>
@@ -229,4 +245,12 @@
     <string name="ui_lucide_exact_code_hint">Enter the exact code name, for example user-round. Case and hyphens must match.</string>
     <string name="ui_icon_preview">Icon preview</string>
     <string name="ui_use_icon">Use icon</string>
+    <string name="ui_default_ai_engine">"Default AI engine"</string>
+    <string name="ui_ai_default_badge">AI default</string>
+    <string name="ui_ai_engine_badge">AI</string>
+    <string name="ui_search_default_badge">Search default</string>
+    <string name="ui_make_ai_default">Set AI default</string>
+    <string name="ui_make_search_default">Set search default</string>
+    <string name="ui_make_ai_default_named">Make %1$s the AI default</string>
+    <string name="ui_site_controls">Site controls</string>
 </resources>

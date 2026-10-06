@@ -33,6 +33,24 @@ class InputResolverTest {
         assertEquals("https://xn--r8jz45g.jp:8443/path?q=a%20b", InputResolver.normalizeUrl("例え.jp:8443/path?q=a%20b"))
         assertEquals("https://[::1]:8080/test", InputResolver.normalizeUrl("[::1]:8080/test"))
     }
+    @Test fun opensUrlsWithLiteralBracesWithoutChangingEscapesOrDelimiters() {
+        mapOf(
+            "https://qwen.ai/?q={query}" to "https://qwen.ai/?q=%7Bquery%7D",
+            "qwen.ai/?q={query}" to "https://qwen.ai/?q=%7Bquery%7D",
+            "https://example.com/{page}?q={query}&next=a%2Fb#part{1}" to
+                "https://example.com/%7Bpage%7D?q=%7Bquery%7D&next=a%2Fb#part%7B1%7D",
+            "https://qwen.ai/?q=%7Bquery%7D" to "https://qwen.ai/?q=%7Bquery%7D"
+        ).forEach { (input, expected) ->
+            assertEquals(input, ResolvedInput.Navigate(expected), InputResolver.resolve(input, engines, "google"))
+        }
+        assertNull(InputResolver.normalizeUrl("https://{host}.com/?q=test"))
+    }
+    @Test fun literalBraceUrlProducesAnOpenSuggestion() {
+        val results = SuggestionProvider.suggestions("https://qwen.ai/?q={query}",
+            WorkspaceSnapshot(searchEngines = engines), BrowserSettings())
+        assertEquals("navigate", results.first().id)
+        assertEquals(SuggestionAction.Navigate("https://qwen.ai/?q=%7Bquery%7D"), results.first().action)
+    }
     @Test fun refusesMalformedAddressesInsteadOfSilentlyDroppingPorts() {
         listOf("https://google.com:abc", "https://google.com:70000", "https://google.com:",
             "https://user:password@example.com", "999.168.1.1", "-bad.com", "google..com").forEach {

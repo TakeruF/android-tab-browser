@@ -11,14 +11,15 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
     private val dao = workspace.dao
     private val db = workspace.database
 
-    suspend fun create(spaceId: String, url: String = "about:blank", select: Boolean = true): String {
+    suspend fun create(spaceId: String, url: String = "about:blank", select: Boolean = true, parentTabId: String? = null): String {
         workspace.ready.await()
         return db.withTransaction {
             val space = dao.spaces().firstOrNull { it.id == spaceId } ?: error("Space no longer exists")
             val id = UUID.randomUUID().toString()
             val position = (dao.tabs(spaceId).maxOfOrNull { it.position } ?: -1) + 1
             dao.putTab(BrowserTab(id, spaceId, url, if (url == "about:blank") "New tab" else url,
-                position = position).entity())
+                position = position, parentTabId = (parentTabId ?: space.activeTabId.takeIf { select })
+                    ?.takeIf { parent -> dao.tab(parent)?.let { it.spaceId == spaceId && it.closedAt == null } == true }).entity())
             if (select) dao.putSpace(space.copy(activeTabId = id))
             id
         }
@@ -35,15 +36,16 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
         }
         if (spaceId != null) settings.update { it.copy(selectedSpaceId = spaceId) }
     }
-    suspend fun close(id: String) {
+    suspend fun close(id: String, selectNext: Boolean = false) {
         workspace.ready.await()
         db.withTransaction {
-            val tab = dao.tab(id) ?: return@withTransaction
+            val tab = dao.tab(id)?.takeIf { it.closedAt == null } ?: return@withTransaction
             dao.putTab(tab.copy(closedAt = System.currentTimeMillis()))
             val space = dao.spaces().firstOrNull { it.id == tab.spaceId } ?: return@withTransaction
-            if (space.activeTabId == id) {
+            if (space.activeTabId == id || selectNext) {
                 val remaining = dao.tabs(tab.spaceId).filter { it.closedAt == null && it.archivedAt == null }
-                val next = remaining.minByOrNull { kotlin.math.abs(it.position - tab.position) }
+                val next = remaining.firstOrNull { it.id == tab.parentTabId }
+                    ?: remaining.minByOrNull { kotlin.math.abs(it.position - tab.position) }
                 val nextId = next?.id ?: create(tab.spaceId, select = false)
                 dao.putSpace(space.copy(activeTabId = nextId))
             }

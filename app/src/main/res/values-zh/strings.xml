@@ -221,6 +221,22 @@
     <string name="ui_download_failed_1_s">"下载失败：%1$s"</string>
     <string name="ui_emoji">表情符号</string>
     <string name="ui_custom_emoji">自定义表情符号</string>
+    <string name="ui_customize_search_engines">"自定义搜索引擎"</string>
+    <string name="ui_manage_search_engines">"添加、编辑或删除搜索引擎和关键词"</string>
+    <string name="ui_back_to_settings">"返回设置"</string>
+    <string name="ui_ask_chatgpt_about_1_s">向 ChatGPT 提问：“%1$s”</string>
+    <string name="ui_common_search_engines">"常用搜索引擎"</string>
+    <string name="ui_common_search_engines_description">选择搜索时显示的引擎。“搜索默认”用于网页搜索，“AI 默认”用于向 AI 提问。两个默认引擎始终包含在内，出行时也会保留您选择的组合。</string>
+    <string name="ui_available_search_engines">"可选搜索引擎"</string>
+    <string name="ui_chatgpt_web_handoff">"在 ChatGPT 网站中打开输入的内容"</string>
+    <string name="ui_search_navigation_hint">"↑ ↓ 选择   ↵ 打开   ·   在设置中选择常用引擎"</string>
+    <string name="ui_include_common_engine">"将 %1$s 加入常用搜索引擎"</string>
+    <string name="ui_qwen">千问</string>
+    <string name="ui_qwen_china_mainland">千问（中国大陆）</string>
+    <string name="ui_ask_engine_about_query">向 %1$s 提问：“%2$s”</string>
+    <string name="ui_copy_link">复制链接</string>
+    <string name="ui_share_link">分享链接</string>
+    <string name="ui_link_copied">已复制链接</string>
     <string name="ui_search_more_lucide">在 Lucide 上查找更多图标</string>
     <string name="ui_lucide_code_name">按 Lucide 代码名称选择</string>
     <string name="ui_icon_code_name">图标代码名称</string>
@@ -228,4 +244,12 @@
     <string name="ui_lucide_exact_code_hint">输入完整代码名称，例如 user-round。大小写和连字符必须一致。</string>
     <string name="ui_icon_preview">图标预览</string>
     <string name="ui_use_icon">使用此图标</string>
+    <string name="ui_default_ai_engine">"默认 AI 引擎"</string>
+    <string name="ui_ai_default_badge">AI 默认</string>
+    <string name="ui_ai_engine_badge">AI</string>
+    <string name="ui_search_default_badge">搜索默认</string>
+    <string name="ui_make_ai_default">设为 AI 默认</string>
+    <string name="ui_make_search_default">设为搜索默认</string>
+    <string name="ui_make_ai_default_named">将 %1$s 设为 AI 默认</string>
+    <string name="ui_site_controls">网站控制</string>
 </resources>

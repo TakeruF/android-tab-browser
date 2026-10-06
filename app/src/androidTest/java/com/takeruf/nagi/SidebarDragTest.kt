@@ -2,8 +2,11 @@ package com.takeruf.nagi
 
 import android.graphics.Bitmap
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.luminance
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.takeruf.nagi.domain.model.BrowserSettings
 import com.takeruf.nagi.domain.model.ThemeMode
@@ -72,6 +75,263 @@ class SidebarDragTest {
             if (cancel) cancel() else up()
         }
     }
+    @Test fun dragTabsToEitherHalfSplitsReplacesAndSwapsWithoutMovingTabs() {
+        val originalLeft = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        drag(compose.onNodeWithTag("sidebar-tab-$beta"), compose.onNodeWithTag("split-drop-right"), cancel = true)
+        compose.onNodeWithTag("browser-pane-right-$beta").assertDoesNotExist()
+        drag(compose.onNodeWithTag("sidebar-tab-$beta"), compose.onNodeWithTag("split-drop-right"))
+        compose.onNodeWithTag("browser-pane-left-$originalLeft").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        saveScreen("tab-drop-right-split")
+        drag(compose.onNodeWithTag("sidebar-tab-$alpha"), compose.onNodeWithTag("split-drop-left"))
+        compose.waitUntil { compose.onAllNodesWithTag("browser-pane-left-$alpha").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        // Dropping the current right tab on the left swaps both panes.
+        drag(compose.onNodeWithTag("sidebar-tab-$beta"), compose.onNodeWithTag("split-drop-left"))
+        compose.waitUntil { compose.onAllNodesWithTag("browser-pane-left-$beta").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("browser-pane-right-$alpha").assertIsDisplayed()
+        // A mouse drag can replace the right pane without a long press.
+        val source = compose.onNodeWithTag("sidebar-tab-$gamma").fetchSemanticsNode().boundsInRoot
+        val target = compose.onNodeWithTag("split-drop-right").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("sidebar-tab-$gamma").performMouseInput {
+            moveTo(center); press()
+            val end = target.center - source.topLeft
+            for (i in 1..16) moveTo(center + (end - center) * (i / 16f), delayMillis = 20)
+            release()
+        }
+        compose.waitUntil { compose.onAllNodesWithTag("browser-pane-right-$gamma").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("browser-pane-left-$beta").assertIsDisplayed()
+        assertEquals(spaceId, runBlocking { container.workspace.dao.tab(gamma)!!.spaceId })
+        assertFalse(runBlocking { container.workspace.dao.tab(gamma)!!.isPinned })
+        saveScreen("tab-drop-mouse-split")
+    }
+
+    @Test fun splitSidebarGroupsPagesInPaneOrderAndFocusesWithoutReplacingThem() {
+        val left = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        drag(compose.onNodeWithTag("sidebar-tab-$beta"), compose.onNodeWithTag("split-drop-right"))
+        compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
+        val leftBounds = compose.onNodeWithTag("sidebar-tab-$left").fetchSemanticsNode().boundsInRoot
+        val rightBounds = compose.onNodeWithTag("sidebar-tab-$beta").fetchSemanticsNode().boundsInRoot
+        assertEquals(leftBounds.top, rightBounds.top, 1f)
+        assertEquals(leftBounds.width, rightBounds.width, 1f)
+        assertTrue(leftBounds.right < rightBounds.left)
+        compose.onNode(isSelectable() and hasAnyAncestor(hasTestTag("sidebar-tab-$beta")), useUnmergedTree = true).assertIsSelected().performClick()
+        compose.onNodeWithTag("browser-pane-left-$left").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        compose.onNode(isSelectable() and hasAnyAncestor(hasTestTag("sidebar-tab-$left")), useUnmergedTree = true).performClick().assertIsSelected()
+        compose.onNode(isSelectable() and hasAnyAncestor(hasTestTag("sidebar-tab-$beta")), useUnmergedTree = true).assertIsNotSelected()
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        // The group follows the left tab's section even when only the right tab is pinned.
+        runBlocking { container.tabs.togglePin(beta) }
+        compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
+        compose.onAllNodesWithTag("sidebar-tab-$beta").assertCountEquals(1)
+        saveScreen("split-sidebar-light")
+        runBlocking { container.settings.update { it.copy(theme = ThemeMode.DARK, sidebarWidth = 220f) } }
+        compose.waitUntil(5_000) {
+            compose.onNodeWithTag("sidebar").captureToImage().toPixelMap()[5, 100].luminance() < 0.2f &&
+                compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.width < 450f
+        }
+        compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-tab-$left").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-tab-$beta").assertIsDisplayed()
+        saveScreen("split-sidebar-dark-narrow")
+        runBlocking { container.tabs.close(beta) }
+        compose.waitUntil { compose.onAllNodesWithTag("sidebar-split-group").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("sidebar-tab-$left").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-left-$left").assertIsDisplayed()
+    }
+
+    @Test fun dropOnLeftStartsSplitWithOriginalPageOnRight() {
+        val originalLeft = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        drag(compose.onNodeWithTag("sidebar-tab-$alpha"), compose.onNodeWithTag("split-drop-left"))
+        compose.waitUntil { compose.onAllNodesWithTag("browser-pane-left-$alpha").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("browser-pane-right-$originalLeft").assertIsDisplayed()
+        saveScreen("tab-drop-left-split")
+    }
+
+    private fun selectedSpace() = runBlocking { container.settings.settings.first().selectedSpaceId }
+    private fun swipeSpace(node: SemanticsNodeInteraction, forward: Boolean, canceled: Boolean = false) {
+        node.performTouchInput {
+            val start = Offset(width * (if (forward) 0.8f else 0.2f), height / 2f)
+            val end = Offset(width * (if (forward) 0.2f else 0.8f), height / 2f)
+            down(start)
+            for (i in 1..10) moveTo(start + (end - start) * (i / 10f), delayMillis = 20)
+            if (canceled) cancel() else up()
+        }
+    }
+    @Test fun tappingSpaceSlidesContentAndCanBeReversedBeforeSettling() {
+        val previous = runBlocking { container.workspace.dao.spaces().let { it[it.indexOfFirst { space -> space.id == spaceId } - 1] } }
+        val before = tab("Project notes").fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithContentDescription("Switch to ${previous.name}").performClick()
+            compose.waitUntil { selectedSpace() == previous.id }
+            compose.mainClock.advanceTimeBy(80)
+            val during = tab("Project notes").fetchSemanticsNode().boundsInRoot
+            assertTrue("A tap should slide the outgoing Space", during.left > before.left + 20f)
+            compose.onNodeWithContentDescription("Switch to Research").performClick()
+            compose.waitUntil { selectedSpace() == spaceId }
+        } finally { compose.mainClock.autoAdvance = true }
+        compose.waitForIdle()
+        assertEquals(before.left, tab("Project notes").fetchSemanticsNode().boundsInRoot.left, 1f)
+        assertEquals(spaceId, selectedSpace())
+    }
+
+    @Test fun spaceContentTracksFingerWhileFavoritesStayFixedAndCancelReturns() {
+        val sidebar = compose.onNodeWithTag("sidebar")
+        compose.waitForIdle()
+        fun backgroundPixel(): Int = sidebar.captureToImage().asAndroidBitmap().let {
+            it.getPixel(4, it.height / 2)
+        }
+        val colorBefore = backgroundPixel()
+        val before = tab("Project notes").fetchSemanticsNode().boundsInRoot
+        val favorites = compose.onNodeWithTag("favorites-grid").fetchSemanticsNode().boundsInRoot
+        sidebar.performTouchInput {
+            val start = Offset(width * 0.3f, height * 0.65f)
+            down(start)
+            moveTo(start + Offset(width * 0.3f, 0f), delayMillis = 100)
+        }
+        compose.waitForIdle()
+        val during = tab("Project notes").fetchSemanticsNode().boundsInRoot
+        assertTrue("Space tabs must follow the finger before release", during.left > before.left + 20f)
+        assertEquals("Shared favorites must stay stationary", favorites,
+            compose.onNodeWithTag("favorites-grid").fetchSemanticsNode().boundsInRoot)
+        assertNotEquals("The gradient must blend toward the adjacent Space before release", colorBefore, backgroundPixel())
+        assertEquals("Dragging does not persist a selection", spaceId, selectedSpace())
+        saveScreen("sidebar-space-mid-swipe")
+        sidebar.performTouchInput { cancel() }
+        compose.waitForIdle()
+        assertEquals(spaceId, selectedSpace())
+        assertEquals(before.left, tab("Project notes").fetchSemanticsNode().boundsInRoot.left, 1f)
+        assertEquals("Cancelled swipe restores the original gradient", colorBefore, backgroundPixel())
+    }
+
+    @Test fun horizontalSwipeSwitchesSpacesWithoutCreatingTabsAndPersists() {
+        val previous = runBlocking { container.workspace.dao.spaces().let { it[it.indexOfFirst { space -> space.id == spaceId } - 1].id } }
+        val count = runBlocking { container.workspace.dao.tabs(spaceId).size }
+        swipeSpace(compose.onNodeWithTag("new-tab-button"), forward = false)
+        compose.waitUntil { selectedSpace() == previous }
+        compose.onNodeWithTag("new-tab-button").assertIsDisplayed()
+        swipeSpace(compose.onNodeWithTag("new-tab-button"), forward = true)
+        compose.waitUntil { selectedSpace() == spaceId }
+        assertEquals(count, runBlocking { container.workspace.dao.tabs(spaceId).size })
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil { compose.onAllNodesWithContentDescription("Tab Project notes").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(spaceId, selectedSpace())
+        saveScreen("sidebar-space-swipe")
+    }
+    @Test fun quickRowSwipeWorksButCancelVerticalMotionAndEndpointDoNotSwitch() {
+        swipeSpace(tab("Project notes"), forward = false, canceled = true)
+        compose.waitForIdle()
+        assertEquals(spaceId, selectedSpace())
+        tab("Reading list").performTouchInput {
+            down(Offset(width * 0.45f, height / 2f))
+            moveBy(Offset(0f, -80f), delayMillis = 100)
+            up()
+        }
+        compose.waitForIdle()
+        assertEquals(spaceId, selectedSpace())
+        swipeSpace(tab("Project notes"), forward = true)
+        compose.waitForIdle()
+        assertEquals(spaceId, selectedSpace()) // Last Space has no next neighbor.
+        swipeSpace(tab("Project notes"), forward = false)
+        compose.waitUntil { selectedSpace() != spaceId }
+        assertEquals(spaceId, runBlocking { container.workspace.dao.tab(gamma)!!.spaceId })
+    }
+    @Test fun collapsedSidebarAlsoSwitchesSpaces() {
+        runBlocking { container.settings.update { it.copy(sidebarCollapsed = true) } }
+        compose.waitUntil { compose.onAllNodesWithContentDescription("Expand sidebar").fetchSemanticsNodes().isNotEmpty() }
+        swipeSpace(compose.onNodeWithTag("sidebar"), forward = false)
+        compose.waitUntil { selectedSpace() != spaceId }
+        swipeSpace(compose.onNodeWithTag("sidebar"), forward = true)
+        compose.waitUntil { selectedSpace() == spaceId }
+    }
+
+    @Test fun favoritesFillAvailableWidthAndReflowWithSidebarWidth() {
+        fun favorite(name: String) = compose.onNodeWithContentDescription("Favorite $name")
+        runBlocking { container.library.removeBookmark("drag-fixture-2") }
+        compose.waitUntil { compose.onAllNodesWithContentDescription("Favorite GitHub").fetchSemanticsNodes().isEmpty() }
+        val grid = compose.onNodeWithTag("favorites-grid").fetchSemanticsNode().boundsInRoot
+        val first = favorite("Gmail").fetchSemanticsNode().boundsInRoot
+        val second = favorite("ChatGPT").fetchSemanticsNode().boundsInRoot
+        assertEquals(grid.left, first.left, 1f)
+        assertEquals(grid.right, second.right, 1f)
+        assertEquals(first.width, second.width, 1f)
+        saveScreen("favorites-two-fill")
+        runBlocking {
+            for (index in 2..4) container.workspace.dao.putBookmark(Bookmark("drag-fixture-$index",
+                "https://example.com/$index", "Grid $index", isFavorite = true, createdAt = index.toLong()).entity())
+        }
+        compose.waitUntil { compose.onAllNodesWithContentDescription("Favorite Grid 4").fetchSemanticsNodes().isNotEmpty() }
+        for ((width, columns) in listOf(220f to 2, 264f to 3, 380f to 4)) {
+            runBlocking { container.settings.update { it.copy(sidebarWidth = width) } }
+            compose.waitForIdle()
+            val rows = listOf("Gmail", "ChatGPT", "Grid 2", "Grid 3", "Grid 4").map {
+                favorite(it).fetchSemanticsNode().boundsInRoot
+            }
+            for (index in 0 until columns) assertEquals(rows[0].top, rows[index].top, 1f)
+            assertTrue(rows[columns].top > rows[0].bottom)
+            for (row in rows) assertEquals(rows[0].width, row.width, 1f)
+            saveScreen("favorites-${columns}-columns")
+        }
+    }
+
+    @Test fun favoriteMouseDragPreviewsSlotsTracksGrabPointAndPersists() {
+        fun favorite(name: String) = compose.onNodeWithContentDescription("Favorite $name")
+        val sidebar = compose.onNodeWithTag("sidebar")
+        val host = sidebar.fetchSemanticsNode().boundsInRoot
+        val first = favorite("Gmail").fetchSemanticsNode().boundsInRoot
+        val last = favorite("GitHub").fetchSemanticsNode().boundsInRoot
+        val grab = first.topLeft + Offset(first.width * 0.3f, first.height * 0.4f)
+        val end = last.center
+        sidebar.performMouseInput {
+            moveTo(grab - host.topLeft); press()
+            moveTo(end - host.topLeft)
+        }
+        compose.waitForIdle()
+        val preview = compose.onNodeWithTag("favorite-drag-preview").fetchSemanticsNode().boundsInRoot
+        assertEquals(first.width, preview.width, 1f)
+        assertEquals(first.height, preview.height, 1f)
+        assertEquals(end.x - (grab.x - first.left), preview.left, 1f)
+        assertEquals(first.left, favorite("ChatGPT").fetchSemanticsNode().boundsInRoot.left, 1f)
+        assertEquals(listOf("drag-fixture-0", "drag-fixture-1", "drag-fixture-2"),
+            runBlocking { container.workspace.dao.observeBookmarks().first().filter { it.isFavorite }.map { it.id } })
+        saveScreen("favorites-live-reorder")
+        sidebar.performMouseInput { release() }
+        compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().filter { it.isFavorite }.map { it.id } } ==
+            listOf("drag-fixture-1", "drag-fixture-2", "drag-fixture-0") }
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil { compose.onAllNodesWithContentDescription("Favorite Gmail").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        assertTrue(favorite("ChatGPT").fetchSemanticsNode().boundsInRoot.left < favorite("Gmail").fetchSemanticsNode().boundsInRoot.left)
+    }
+
+    @Test fun favoriteTouchDragAcrossRowsCancelRestoresOriginalOrder() {
+        runBlocking {
+            for (index in 3..4) container.workspace.dao.putBookmark(Bookmark("drag-fixture-$index",
+                "https://example.com/$index", "Grid $index", isFavorite = true, createdAt = index.toLong()).entity())
+        }
+        compose.waitUntil { compose.onAllNodesWithContentDescription("Favorite Grid 4").fetchSemanticsNodes().isNotEmpty() }
+        val sidebar = compose.onNodeWithTag("sidebar")
+        val host = sidebar.fetchSemanticsNode().boundsInRoot
+        val first = compose.onNodeWithContentDescription("Favorite Gmail").fetchSemanticsNode().boundsInRoot
+        val last = compose.onNodeWithContentDescription("Favorite Grid 4").fetchSemanticsNode().boundsInRoot
+        sidebar.performTouchInput {
+            down(first.center - host.topLeft); advanceEventTime(650)
+            moveTo(last.center - host.topLeft, delayMillis = 100)
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("favorite-drag-preview").assertIsDisplayed()
+        assertEquals(first.left, compose.onNodeWithContentDescription("Favorite ChatGPT").fetchSemanticsNode().boundsInRoot.left, 1f)
+        saveScreen("favorites-cross-row-preview")
+        sidebar.performTouchInput { cancel() }
+        compose.waitForIdle()
+        assertEquals(first, compose.onNodeWithContentDescription("Favorite Gmail").fetchSemanticsNode().boundsInRoot)
+        compose.onNodeWithTag("favorite-drag-preview").assertDoesNotExist()
+        assertEquals((0..4).map { "drag-fixture-$it" },
+            runBlocking { container.workspace.dao.observeBookmarks().first().filter { it.isFavorite }.map { it.id } })
+    }
+
     @Test fun wholeRowDragReordersPinsUnpinsAndCancelDoesNotMove() {
         drag(tab("Design references"), tab("Project notes"), after = true)
         compose.waitUntil { runBlocking { container.workspace.dao.tabs(spaceId).last().id == alpha } }
@@ -110,12 +370,15 @@ class SidebarDragTest {
         reading.performMouseInput { exit() }
         compose.onNodeWithContentDescription("Actions for Reading list").assertDoesNotExist()
         reading.performMouseInput { moveTo(center); press(MouseButton.Secondary); release(MouseButton.Secondary) }
-        compose.onNodeWithText("Pin tab").assertIsDisplayed()
+        compose.onNodeWithText("Pin tab").assertDoesNotExist()
+        compose.onNodeWithText("Add to favorites").assertDoesNotExist()
+        compose.onNodeWithText("Save bookmark").assertDoesNotExist()
+        compose.onNodeWithText("Open in right pane").assertIsDisplayed()
         assertEquals(active, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
         assertNull(runBlocking { container.workspace.dao.tab(beta)!!.closedAt })
         saveScreen("sidebar-context-menu")
-        compose.onNodeWithText("Pin tab").performClick()
-        compose.waitUntil { runBlocking { container.workspace.dao.tab(beta)!!.isPinned } }
+        compose.onNodeWithText("Open in right pane").performClick()
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
         compose.onNodeWithContentDescription("Favorite Gmail").performMouseInput {
             moveTo(center); press(MouseButton.Secondary); release(MouseButton.Secondary)
         }
@@ -125,7 +388,7 @@ class SidebarDragTest {
     @Test fun customEmojiAndNewTabHomeSurviveRecreation() {
         compose.onNodeWithContentDescription("Space actions").performClick()
         compose.onNodeWithText("Edit Space").performClick()
-        compose.onNodeWithText("Emoji or custom icon").performTextReplacement("🧑‍💻")
+        compose.onNodeWithText("Custom emoji").performTextReplacement("🧑‍💻")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon == "🧑‍💻" } }
         compose.onNode(hasText("New tab") and hasContentDescription("Tab New tab").not()).performClick()

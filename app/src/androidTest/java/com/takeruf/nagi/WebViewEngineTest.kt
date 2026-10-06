@@ -67,10 +67,10 @@ class WebViewEngineTest {
         await { it.title == "Fixture One" && !it.isLoading }
         main { engine.evaluateJavascript("""
             var timer=setInterval(()=>{if(window.idbReady){clearInterval(timer);
-            document.title=localStorage.getItem('orbit')+'|'+document.cookie+'|indexeddb';}},20);
+            document.title=localStorage.getItem('nagi')+'|'+document.cookie+'|indexeddb';}},20);
         """) }
         val stored = await { it.title.contains("indexeddb") }
-        assertTrue(stored.title.contains("stored")); assertTrue(stored.title.contains("orbit=cookie"))
+        assertTrue(stored.title.contains("stored")); assertTrue(stored.title.contains("nagi=cookie"))
         main { engine.findInPage("needle") }; await { it.findMatches > 0 }
         main { engine.loadUrl("${server.origin}/two") }; await { it.title == "Fixture Two" && !it.isLoading }
         assertTrue(engine.state.value.canGoBack)
@@ -97,8 +97,8 @@ class WebViewEngineTest {
         main { engine.loadUrl("${server.origin}/one") }; await { it.title == "Fixture One" && !it.isLoading }
         main { engine.loadUrl("${server.origin}/download") }
         runBlocking { withTimeout(15_000) { while (downloads.isEmpty()) delay(25) } }
-        assertEquals("orbit.txt", downloads.first().suggestedName)
-        assertTrue(downloads.first().cookies?.contains("orbit=cookie") == true)
+        assertEquals("nagi.txt", downloads.first().suggestedName)
+        assertTrue(downloads.first().cookies?.contains("nagi=cookie") == true)
         await { it.url == "${server.origin}/one" && !it.isLoading }
         assertEquals("Fixture One", engine.state.value.title)
     }

@@ -58,7 +58,7 @@ class FaviconUiTest {
     @Test fun favoritesFetchIconsRecoverMissingFilesAndKeepCustomIconsAfterReload() {
         compose.waitUntil(15_000) { hasColor("Favorite Remote icon", Color.MAGENTA) }
         compose.waitUntil(15_000) { hasColor("Favorite Missing icon", Color.MAGENTA) }
-        compose.onNodeWithText("U", useUnmergedTree = true).assertExists()
+        compose.waitUntil(15_000) { hasColor("Favorite Unavailable icon", Color.MAGENTA) }
         screenshot("favicon-fallback.png")
 
         compose.onNodeWithContentDescription("Favorite Remote icon").performClick()

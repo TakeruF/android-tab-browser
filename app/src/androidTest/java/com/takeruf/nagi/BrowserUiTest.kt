@@ -41,17 +41,30 @@ class BrowserUiTest {
     private fun awaitTitle(title: String) {
         compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tabs(spaceId).any { it.title == title && it.closedAt == null } } }
     }
-    @Test fun browsingHistoryFavoritesBookmarksAndClosedTabRestore() {
+    @Test fun browsingHistoryFavoritesAndClosedTabRestore() {
         omnibox("${server.origin}/one")
         awaitTitle("Fixture One")
-        compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("Add to favorites").performClick()
+        val source = compose.onNodeWithContentDescription("Tab Fixture One")
+        val bounds = source.fetchSemanticsNode().boundsInRoot
+        val target = compose.onNodeWithTag("favorites-grid").fetchSemanticsNode().boundsInRoot
+        source.performTouchInput {
+            val start = center
+            val end = target.center - bounds.topLeft
+            down(start); advanceEventTime(650)
+            for (i in 1..16) moveTo(start + (end - start) * (i / 16f), delayMillis = 20)
+            up()
+        }
         compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().any { it.isFavorite && it.title == "Fixture One" } } }
+        compose.onNodeWithContentDescription("Bookmarks").assertDoesNotExist()
+        // Moving a tab to Favorites closes its ordinary-tab entry. Reopen the shortcut
+        // before exercising the page menu and the close/restore keyboard flow.
+        compose.onNodeWithContentDescription("Favorite Fixture One").performClick()
+        awaitTitle("Fixture One")
         compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("Save bookmark").performClick()
-        compose.onNodeWithContentDescription("Bookmarks").performClick()
-        compose.onAllNodesWithText("Fixture One").assertAny(hasText("Fixture One"))
-        compose.onNodeWithContentDescription("Back to browser").performClick()
+        compose.onNodeWithText("Add to favorites").assertDoesNotExist()
+        compose.onNodeWithText("Save bookmark").assertDoesNotExist()
+        compose.onNodeWithText("Find in page").performClick()
+        compose.onNodeWithContentDescription("Close find").performClick()
         shortcut(AndroidKeyEvent.KEYCODE_W)
         compose.waitUntil { runBlocking { container.workspace.dao.tabs(spaceId).any { it.title == "Fixture One" && it.closedAt != null } } }
         shortcut(AndroidKeyEvent.KEYCODE_T, shift = true)
@@ -68,7 +81,7 @@ class BrowserUiTest {
         compose.onNode(hasSetTextAction()).performTextReplacement(">split")
         compose.onNodeWithText("New split view").performClick()
         compose.onNodeWithContentDescription("Resize split view").assertExists().performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Choose tab").assertExists()
+        compose.onNodeWithText("Choose tab").assertDoesNotExist()
         compose.onAllNodesWithContentDescription("Page menu")[0].performClick()
         compose.onNodeWithText("Swap panes").performClick()
         compose.onNodeWithContentDescription("Resize split view").assertExists()

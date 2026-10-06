@@ -7,7 +7,8 @@ import java.net.ServerSocket
 import java.util.concurrent.Executors
 
 /** Device-local HTTP fixture. Integration tests never depend on a public website. */
-class FixtureServer : AutoCloseable {
+class FixtureServer(private val rootIconAvailable: Boolean = true, private val homeIconMarkup: String = "",
+    private val useIcoContainer: Boolean = false) : AutoCloseable {
     private val socket = ServerSocket(0)
     private val executor = Executors.newSingleThreadExecutor()
     val origin = "http://127.0.0.1:${socket.localPort}"
@@ -22,20 +23,36 @@ class FixtureServer : AutoCloseable {
                     if (line.isNullOrEmpty()) break
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
                 }
-                if (path == "/favicon.ico" || path == "/custom-icon.png") {
+                if (path == "/favicon.ico" && !rootIconAvailable) {
+                    client.getOutputStream().write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+                    return@use
+                }
+                if (path == "/custom-icon.svg") {
+                    val bytes = "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='64' height='64' fill='#00ffff'/></svg>".toByteArray()
+                    client.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                    client.getOutputStream().write(bytes)
+                    return@use
+                }
+                if (path == "/favicon.ico" || path == "/custom-icon.png" || path == "/apple-touch-icon.png") {
                     val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
                     bitmap.eraseColor(if (path == "/favicon.ico") Color.MAGENTA else Color.CYAN)
-                    val bytes = ByteArrayOutputStream().use { out ->
+                    val png = ByteArrayOutputStream().use { out ->
                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
                     }
+                    val bytes = if (path == "/favicon.ico" && useIcoContainer) {
+                        java.nio.ByteBuffer.allocate(22 + png.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                            .putShort(0).putShort(1).putShort(1)
+                            .put(32).put(32).put(0).put(0).putShort(1).putShort(32)
+                            .putInt(png.size).putInt(22).put(png).array()
+                    } else png
                     bitmap.recycle()
-                    client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                    client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: ${if (path == "/favicon.ico" && useIcoContainer) "image/x-icon" else "image/png"}\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
                     client.getOutputStream().write(bytes)
                     return@use
                 }
                 if (path.startsWith("/download")) {
                     val data = "Nagi download fixture".toByteArray()
-                    client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=orbit.txt\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                    client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=nagi.txt\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n").toByteArray())
                     client.getOutputStream().write(data)
                     return@use
                 }
@@ -54,7 +71,7 @@ class FixtureServer : AutoCloseable {
                     <html><head><title>Fixture Two</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body><h1>Second page</h1><p>Nagi split view fixture.</p></body></html>
                 """ else """
-                    <html><head><title>Fixture One</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                    <html><head><title>Fixture One</title>$homeIconMarkup<meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body style="font:24px sans-serif;padding:30px;background:#f5f8f4;color:#244435">
                     <h1>Nagi browser fixture</h1><p>JavaScript, storage and navigation.</p>
                     <a id="next" href="/two">Open second page</a><br><br>
@@ -62,8 +79,8 @@ class FixtureServer : AutoCloseable {
                     <input type="file" id="upload"><p>Find this needle in the page.</p>
                     <button id="fullscreen" onclick="document.body.requestFullscreen()">Fullscreen</button>
                     <textarea id="editor" aria-label="CJK editor" style="width:90%;height:100px"></textarea>
-                    <script>localStorage.setItem('orbit','stored');document.cookie='orbit=cookie;path=/';
-                    let db=indexedDB.open('orbit-fixture');db.onsuccess=()=>window.idbReady=true;</script>
+                    <script>localStorage.setItem('nagi','stored');document.cookie='nagi=cookie;path=/';
+                    let db=indexedDB.open('nagi-fixture');db.onsuccess=()=>window.idbReady=true;</script>
                     </body></html>
                 """
                 val bytes = body.toByteArray()

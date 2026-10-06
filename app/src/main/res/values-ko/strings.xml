@@ -221,6 +221,22 @@
     <string name="ui_download_failed_1_s">"다운로드 실패: %1$s"</string>
     <string name="ui_emoji">이모지</string>
     <string name="ui_custom_emoji">사용자 이모지</string>
+    <string name="ui_customize_search_engines">"검색 엔진 맞춤 설정"</string>
+    <string name="ui_manage_search_engines">"검색 엔진과 키워드 추가, 편집 및 삭제"</string>
+    <string name="ui_back_to_settings">"설정으로 돌아가기"</string>
+    <string name="ui_ask_chatgpt_about_1_s">ChatGPT에 “%1$s” 질문하기</string>
+    <string name="ui_common_search_engines">"자주 쓰는 검색 엔진"</string>
+    <string name="ui_common_search_engines_description">검색할 때 표시할 엔진을 선택하세요. 검색 기본 엔진은 웹 검색에, AI 기본 엔진은 AI 질문에 사용됩니다. 두 기본 엔진은 항상 포함되며, 선택한 조합은 여행 중에도 유지됩니다.</string>
+    <string name="ui_available_search_engines">"선택 가능한 검색 엔진"</string>
+    <string name="ui_chatgpt_web_handoff">"입력한 내용을 ChatGPT 웹사이트에서 열기"</string>
+    <string name="ui_search_navigation_hint">"↑ ↓ 선택   ↵ 열기   ·   설정에서 자주 쓰는 엔진 선택"</string>
+    <string name="ui_include_common_engine">"%1$s을 자주 쓰는 검색 엔진에 포함"</string>
+    <string name="ui_qwen">Qwen</string>
+    <string name="ui_qwen_china_mainland">Qwen (중국 본토)</string>
+    <string name="ui_ask_engine_about_query">%1$s에 “%2$s” 질문하기</string>
+    <string name="ui_copy_link">링크 복사</string>
+    <string name="ui_share_link">링크 공유</string>
+    <string name="ui_link_copied">링크를 복사했습니다</string>
     <string name="ui_search_more_lucide">Lucide에서 더 많은 아이콘 찾기</string>
     <string name="ui_lucide_code_name">Lucide 코드 이름으로 선택</string>
     <string name="ui_icon_code_name">아이콘 코드 이름</string>
@@ -228,4 +244,12 @@
     <string name="ui_lucide_exact_code_hint">user-round 같은 정확한 코드 이름을 입력하세요. 대소문자와 하이픈도 일치해야 합니다.</string>
     <string name="ui_icon_preview">아이콘 미리보기</string>
     <string name="ui_use_icon">이 아이콘 사용</string>
+    <string name="ui_default_ai_engine">"기본 AI 엔진"</string>
+    <string name="ui_ai_default_badge">AI 기본</string>
+    <string name="ui_ai_engine_badge">AI</string>
+    <string name="ui_search_default_badge">검색 기본</string>
+    <string name="ui_make_ai_default">AI 기본으로 설정</string>
+    <string name="ui_make_search_default">검색 기본으로 설정</string>
+    <string name="ui_make_ai_default_named">%1$s을(를) AI 기본으로 설정</string>
+    <string name="ui_site_controls">사이트 제어</string>
 </resources>

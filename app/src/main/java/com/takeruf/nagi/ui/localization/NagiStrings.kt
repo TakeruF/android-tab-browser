@@ -9,6 +9,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.takeruf.nagi.R
 import com.takeruf.nagi.domain.model.BrowserTab
 import com.takeruf.nagi.domain.model.Space
+import com.takeruf.nagi.domain.model.SearchEngine
+import com.takeruf.nagi.browser.search.SearchEngineNames
 
 /** Capture in composition so callbacks and semantics use the same localized resources. */
 @Composable
@@ -20,6 +22,7 @@ fun rememberNagiStrings(): NagiStrings {
 
 class NagiStrings(private val context: Context) {
     operator fun invoke(@StringRes id: Int, vararg args: Any): String = if (args.isEmpty()) context.getString(id) else context.getString(id, *args)
+    fun engineName(engine: SearchEngine, inSettings: Boolean = false): String = SearchEngineNames.display(engine, inSettings, ::translate)
     fun tabTitle(tab: BrowserTab): String = if (tab.url == "about:blank") invoke(R.string.ui_new_tab) else tab.title
     fun spaceName(space: Space): String = when {
         space.id == "personal" && space.name == "Personal" -> invoke(R.string.ui_personal)
@@ -28,8 +31,12 @@ class NagiStrings(private val context: Context) {
     }
     // Domain validation messages and command labels remain platform-independent.
     fun translate(english: String): String = when (english) {
+        "Qwen" -> invoke(R.string.ui_qwen)
+        "Qwen (China Mainland)" -> invoke(R.string.ui_qwen_china_mainland)
         "New tab" -> invoke(R.string.ui_new_tab)
         "Search" -> invoke(R.string.ui_search)
+        "Ask %1\$s about “%2\$s”" -> invoke(R.string.ui_ask_engine_about_query)
+        "Ask ChatGPT about “%1\$s”" -> invoke(R.string.ui_ask_chatgpt_about_1_s)
         "History" -> invoke(R.string.ui_history)
         "Bookmarks" -> invoke(R.string.ui_bookmarks)
         "Settings" -> invoke(R.string.ui_settings)

@@ -54,7 +54,7 @@
     <string name="ui_make_it_yours">"自分に合った設定に"</string>
     <string name="ui_a_browser_that_fits_your_workspace">"あなたの使い方に合うブラウザー。"</string>
     <string name="ui_general">"一般"</string>
-    <string name="ui_default_search_engine">"標準の検索エンジン"</string>
+    <string name="ui_default_search_engine">"デフォルト検索エンジン"</string>
     <string name="ui_select">"選択"</string>
     <string name="ui_automatic_search_by_region">"地域に応じた検索エンジン"</string>
     <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"中国本土では百度、その他の地域ではGoogle。手動で選択すると無効になります。"</string>
@@ -221,6 +221,22 @@
     <string name="ui_download_failed_1_s">"ダウンロードに失敗しました：%1$s"</string>
     <string name="ui_emoji">絵文字</string>
     <string name="ui_custom_emoji">好きな絵文字</string>
+    <string name="ui_customize_search_engines">"検索エンジンをカスタマイズ"</string>
+    <string name="ui_manage_search_engines">"検索エンジンとキーワードの追加・編集・削除"</string>
+    <string name="ui_back_to_settings">"設定に戻る"</string>
+    <string name="ui_ask_chatgpt_about_1_s">ChatGPTに「%1$s」を聞く</string>
+    <string name="ui_common_search_engines">"常用検索エンジン"</string>
+    <string name="ui_common_search_engines_description">検索時に表示するエンジンを選びます。「検索デフォルト」はウェブ検索、「AIデフォルト」はAIへの質問に使われます。両方のデフォルトは常に含まれ、選んだ組み合わせは移動先でも保持されます。</string>
+    <string name="ui_available_search_engines">"選択できる検索エンジン"</string>
+    <string name="ui_chatgpt_web_handoff">"入力した内容をChatGPTのウェブサイトで開く"</string>
+    <string name="ui_search_navigation_hint">"↑ ↓ 選択   ↵ 開く   ·   常用エンジンは設定で選択"</string>
+    <string name="ui_include_common_engine">"%1$sを常用検索エンジンに含める"</string>
+    <string name="ui_qwen">千问</string>
+    <string name="ui_qwen_china_mainland">千问（中国大陆）</string>
+    <string name="ui_ask_engine_about_query">%1$sに「%2$s」を聞く</string>
+    <string name="ui_copy_link">リンクをコピー</string>
+    <string name="ui_share_link">リンクを共有</string>
+    <string name="ui_link_copied">リンクをコピーしました</string>
     <string name="ui_search_more_lucide">Lucideで他のアイコンを探す</string>
     <string name="ui_lucide_code_name">Lucideのコード名で選ぶ</string>
     <string name="ui_icon_code_name">アイコンのコード名</string>
@@ -228,4 +244,12 @@
     <string name="ui_lucide_exact_code_hint">user-roundなどのコード名を完全一致で入力してください。大文字・小文字とハイフンも一致させてください。</string>
     <string name="ui_icon_preview">アイコンのプレビュー</string>
     <string name="ui_use_icon">このアイコンを使う</string>
+    <string name="ui_default_ai_engine">"デフォルトAIエンジン"</string>
+    <string name="ui_ai_default_badge">AIデフォルト</string>
+    <string name="ui_ai_engine_badge">AI</string>
+    <string name="ui_search_default_badge">検索デフォルト</string>
+    <string name="ui_make_ai_default">AIデフォルトにする</string>
+    <string name="ui_make_search_default">検索デフォルトにする</string>
+    <string name="ui_make_ai_default_named">%1$sをAIデフォルトにする</string>
+    <string name="ui_site_controls">サイトの操作</string>
 </resources>

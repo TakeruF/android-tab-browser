@@ -9,6 +9,8 @@ import com.composables.icons.lucide.R as LucideR
 
 /** One Lucide family for generic app controls; site favicons and Space emoji keep their identity. */
 object NagiIcons {
+    val SlidersHorizontal: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_sliders_horizontal)
     val Search: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_search)
     val Plus: ImageVector
@@ -41,6 +43,10 @@ object NagiIcons {
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_layers)
     val Zap: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_zap)
+    val Link: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_link)
+    val Share: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_share)
     val Lock: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_lock)
     val RotateCw: ImageVector

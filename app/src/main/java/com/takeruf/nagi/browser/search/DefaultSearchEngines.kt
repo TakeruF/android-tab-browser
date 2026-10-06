@@ -11,6 +11,8 @@ object DefaultSearchEngines {
         SearchEngine("so360", "360", "360", "https://www.so.com/s?q={query}"),
         SearchEngine("douyin", "抖音", "dy", "https://www.douyin.com/search/{query}"),
         SearchEngine("shenma", "神马", "sm", "https://m.sm.cn/s?q={query}"),
+        SearchEngine("qwen", "Qwen", "qwen", "https://www.qianwen.com/?q={query}"),
+        SearchEngine("perplexity", "Perplexity", "pplx", "https://www.perplexity.ai/search/?q={query}"),
         SearchEngine("bing", "Bing", "b", "https://www.bing.com/search?q={query}"),
         SearchEngine("ddg", "DuckDuckGo", "ddg", "https://duckduckgo.com/?q={query}"),
         SearchEngine("brave", "Brave Search", "brave", "https://search.brave.com/search?q={query}"),
@@ -19,5 +21,6 @@ object DefaultSearchEngines {
         SearchEngine("github", "GitHub", "gh", "https://github.com/search?q={query}"),
         SearchEngine("wikipedia", "Wikipedia", "wiki", "https://en.wikipedia.org/w/index.php?search={query}"),
     )
+    val aiIds = setOf("qwen", "perplexity")
     val additionalIds = setOf("sogou", "so360", "douyin", "shenma")
 }

@@ -12,7 +12,7 @@ data class SpaceEntity(@PrimaryKey val id: String, val name: String, val icon: S
     indices = [Index("spaceId"), Index("closedAt"), Index("lastAccessedAt")])
 data class TabEntity(@PrimaryKey val id: String, val spaceId: String, val url: String,
     val title: String, val faviconUrl: String?, val isPinned: Boolean, val position: Int,
-    val lastAccessedAt: Long, val closedAt: Long?, val archivedAt: Long?)
+    val lastAccessedAt: Long, val closedAt: Long?, val archivedAt: Long?, val parentTabId: String? = null)
 
 @Entity(tableName = "search_engines", indices = [Index(value = ["keyword"], unique = true)])
 data class SearchEngineEntity(@PrimaryKey val id: String, val name: String, val keyword: String,
@@ -30,8 +30,8 @@ data class BookmarkEntity(@PrimaryKey val id: String, val url: String, val title
 
 fun SpaceEntity.model() = Space(id, name, icon, color, position, activeTabId)
 fun Space.entity() = SpaceEntity(id, name, icon, color, position, activeTabId)
-fun TabEntity.model() = BrowserTab(id, spaceId, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt)
-fun BrowserTab.entity() = TabEntity(id, spaceId, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt)
+fun TabEntity.model() = BrowserTab(id, spaceId, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt, parentTabId)
+fun BrowserTab.entity() = TabEntity(id, spaceId, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt, parentTabId)
 fun SearchEngineEntity.model() = SearchEngine(id, name, keyword, urlTemplate, iconUrl)
 fun SearchEngine.entity() = SearchEngineEntity(id, name, keyword, urlTemplate, iconUrl)
 fun HistoryEntity.model() = HistoryEntry(id, url, title, faviconUrl, visitedAt)

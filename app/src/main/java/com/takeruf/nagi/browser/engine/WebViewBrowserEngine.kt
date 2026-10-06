@@ -16,7 +16,9 @@ import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
-import java.io.File
+import com.takeruf.nagi.browser.favicon.FaviconStore
+import com.takeruf.nagi.browser.favicon.faviconOrigin
+import org.json.JSONArray
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
 private class WebViewSnapshot(val bundle: Bundle) : EngineSnapshot
@@ -35,7 +37,10 @@ class WebViewBrowserEngine(
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
     private val mobileUa = WebSettings.getDefaultUserAgent(context)
-    private val faviconDirectory = File(context.filesDir, "favicons").apply { mkdirs() }
+    private val favicons = FaviconStore.get(context)
+    private var faviconJob: Job? = null
+    private var navigationGeneration = 0L
+    private var iconGeneration = 0L
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val popupViews = mutableSetOf<WebView>()
     private var destroyed = false
@@ -85,9 +90,12 @@ class WebViewBrowserEngine(
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                navigationGeneration++
+                faviconJob?.cancel()
                 failedNavigation = false
                 update { it.copy(url = url, isLoading = true, progress = 0, error = null,
-                    faviconUrl = if (it.url == url) it.faviconUrl else null) }
+                    faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
+                if (favicon != null) saveFavicon(url, favicon)
                 metadata()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
@@ -101,6 +109,7 @@ class WebViewBrowserEngine(
                     isLoading = false, progress = 100, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 documentPage = state.value
                 CookieManager.getInstance().flush(); metadata()
+                if (!failedNavigation) discoverFavicon(view, url)
                 if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -126,21 +135,7 @@ class WebViewBrowserEngine(
             }
             override fun onReceivedIcon(view: WebView, icon: Bitmap?) {
                 if (icon == null) return
-                val pageUrl = state.value.url
-                scope.launch {
-                    val path = withContext(Dispatchers.IO) {
-                        runCatching {
-                            val hash = java.security.MessageDigest.getInstance("SHA-256").digest(pageUrl.toByteArray())
-                                .joinToString("") { "%02x".format(it) }
-                            val file = File(faviconDirectory, "$hash.png")
-                            file.outputStream().use { check(icon.compress(Bitmap.CompressFormat.PNG, 100, it)) }
-                            file.absolutePath
-                        }.getOrNull()
-                    }
-                    if (state.value.url == pageUrl && path != null) {
-                        update { it.copy(faviconUrl = path) }; metadata()
-                    }
-                }
+                saveFavicon(state.value.url, icon)
             }
             override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 fileCallback?.onReceiveValue(null); fileCallback = callback
@@ -225,12 +220,49 @@ class WebViewBrowserEngine(
     }
     private fun update(change: (PageState) -> PageState) { if (!destroyed) mutableState.update(change) }
     private fun metadata() { eventChannel.trySend(EngineEvent.Metadata(state.value)) }
+    private fun saveFavicon(pageUrl: String, icon: Bitmap) {
+        val navigation = navigationGeneration
+        val revision = ++iconGeneration
+        scope.launch {
+            val path = favicons.save(pageUrl, icon)
+            if (navigation == navigationGeneration && revision == iconGeneration && state.value.url == pageUrl && path != null) {
+                update { it.copy(faviconUrl = path) }; metadata()
+            }
+        }
+    }
+    private fun discoverFavicon(view: WebView, pageUrl: String) {
+        if (faviconOrigin(pageUrl) == null) return
+        val navigation = navigationGeneration
+        val revision = iconGeneration
+        view.evaluateJavascript("""
+            JSON.stringify(Array.from(document.querySelectorAll('link[rel][href]'))
+              .filter(l => l.rel.toLowerCase().split(/\s+/).some(r =>
+                r === 'icon' || r === 'apple-touch-icon' || r === 'apple-touch-icon-precomposed'))
+              .map(l => l.href).slice(0, 8))
+        """.trimIndent()) { result ->
+            if (navigation != navigationGeneration || state.value.url != pageUrl || destroyed) return@evaluateJavascript
+            val links = runCatching {
+                val decoded = JSONArray("[$result]").getString(0)
+                val array = JSONArray(decoded)
+                (0 until array.length()).map { array.getString(it) }
+            }.getOrDefault(emptyList())
+            faviconJob?.cancel()
+            faviconJob = scope.launch {
+                val path = favicons.resolve(pageUrl, state.value.faviconUrl, links)
+                if (navigation == navigationGeneration && revision == iconGeneration && state.value.url == pageUrl && path != null) {
+                    update { it.copy(faviconUrl = path) }; metadata()
+                }
+            }
+        }
+    }
     override fun loadUrl(url: String) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://") && !url.startsWith("https://")) return
         downloadUrl = null
+        navigationGeneration++
+        faviconJob?.cancel()
         update { it.copy(url = url, isLoading = url != "about:blank", progress = 0,
-            error = null, faviconUrl = null) }; webView.loadUrl(url)
+            error = null, faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }; webView.loadUrl(url)
     }
     override fun reload() { if (!destroyed) { update { it.copy(isLoading = true, progress = 0, error = null) }; webView.reload() } }
     override fun goBack() { if (canGoBack()) { update { it.copy(isLoading = true) }; webView.goBack() } }

@@ -29,6 +29,20 @@ class RegionalSearchTest {
         workspace = WorkspaceRepository(db, settings); workspace.initialize()
     }
     @After fun close() { db.close() }
+    @Test fun separateDefaultsPersistAndDeletingAiFallsBack() = runBlocking {
+        val engines = SearchEngineRepository(workspace, settings)
+        engines.setDefault("bing")
+        engines.setDefaultAi("perplexity")
+        settings.update { it.copy(theme = com.takeruf.nagi.domain.model.ThemeMode.DARK) }
+        val reloaded = SettingsStore(RuntimeEnvironment.getApplication()).settings.first()
+        assertEquals("bing", reloaded.defaultSearchEngineId)
+        assertEquals("perplexity", reloaded.defaultAiEngineId)
+        assertTrue(CommonSearchEngines.ids(reloaded).containsAll(setOf("bing", "perplexity")))
+        engines.delete("perplexity")
+        assertEquals("chatgpt", settings.settings.first().defaultAiEngineId)
+        assertEquals("bing", settings.settings.first().defaultSearchEngineId)
+    }
+
     @Test fun onlyMainlandCountryUsesBaiduAndFallbackDoesNotGuessLanguage() {
         assertEquals("baidu", RegionalSearchPolicy.engine("CN"))
         listOf("HK", "MO", "TW", "JP", "US").forEach { assertEquals("google", RegionalSearchPolicy.engine(it)) }
@@ -44,12 +58,24 @@ class RegionalSearchTest {
         regional.refresh(); regional.refresh()
         assertEquals(1, calls); assertEquals("baidu", settings.settings.first().defaultSearchEngineId)
         assertEquals("IP", settings.settings.first().searchRegionSource)
+        assertEquals(setOf("baidu", "qwen"), CommonSearchEngines.ids(settings.settings.first()))
+        assertNull(settings.settings.first().commonSearchEngineIds)
+    }
+    @Test fun automaticRegionChangeUpdatesUncustomizedCommonDefaults() = runBlocking {
+        var country = "CN"
+        val regional = RegionalSearchDefaults(workspace, settings, { country }, { null })
+        regional.refresh(true)
+        assertEquals(setOf("baidu", "qwen"), CommonSearchEngines.ids(settings.settings.first()))
+        country = "JP"
+        regional.refresh(true)
+        assertEquals(setOf("google", "chatgpt"), CommonSearchEngines.ids(settings.settings.first()))
     }
     @Test fun outageUsesDeviceAndManualSelectionStopsFutureLookup() = runBlocking {
         var calls = 0
         val regional = RegionalSearchDefaults(workspace, settings, { calls++; throw java.io.IOException() }, { SearchRegion("CN", "Device region") })
         regional.refresh()
         assertEquals("baidu", settings.settings.first().defaultSearchEngineId)
+        assertEquals(setOf("baidu", "qwen"), CommonSearchEngines.ids(settings.settings.first()))
         SearchEngineRepository(workspace, settings).setDefault("ddg")
         regional.refresh(true)
         assertEquals(1, calls); assertEquals("ddg", settings.settings.first().defaultSearchEngineId)
@@ -74,5 +100,28 @@ class RegionalSearchTest {
         assertEquals(1, calls); assertEquals("google", settings.settings.first().defaultSearchEngineId)
         time += 3_600_001L; regional.refresh()
         assertEquals(2, calls)
+    }
+    @Test fun commonChoicesPersistAndStopRegionFromReplacingTravelersCombination() = runBlocking {
+        settings.update { CommonSearchEngines.select(it, "baidu", true) }
+        val reloaded = SettingsStore(RuntimeEnvironment.getApplication()).settings.first()
+        assertEquals(setOf("google", "baidu", "chatgpt"), reloaded.commonSearchEngineIds)
+        var calls = 0
+        RegionalSearchDefaults(workspace, settings, { calls++; "CN" }, { null }).refresh(true)
+        assertEquals(0, calls)
+        assertEquals("google", settings.settings.first().defaultSearchEngineId)
+        settings.update { it.copy(theme = com.takeruf.nagi.domain.model.ThemeMode.DARK) }
+        assertEquals(reloaded.commonSearchEngineIds, settings.settings.first().commonSearchEngineIds)
+    }
+    @Test fun changingDefaultKeepsCommonChoicesAndDeletingEngineCleansSelection() = runBlocking {
+        settings.update { CommonSearchEngines.select(it, "baidu", true) }
+        val repository = SearchEngineRepository(workspace, settings)
+        repository.setDefault("bing")
+        assertEquals(setOf("google", "baidu", "chatgpt", "bing"), CommonSearchEngines.ids(settings.settings.first()))
+        repository.delete("baidu")
+        assertFalse("baidu" in settings.settings.first().commonSearchEngineIds.orEmpty())
+        repository.delete("bing")
+        val saved = settings.settings.first()
+        assertFalse("bing" in saved.commonSearchEngineIds.orEmpty())
+        assertTrue(saved.defaultSearchEngineId in CommonSearchEngines.ids(saved))
     }
 }

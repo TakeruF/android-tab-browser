@@ -8,10 +8,10 @@ import java.io.File
 class FaviconSourceTest {
     @Test fun missingSavedIconUsesOnlyTheSitesOrigin() {
         assertEquals("https://example.com:8443/favicon.ico",
-            faviconSource("/missing/orbit-favicon.png", "https://user:password@example.com:8443/path?q=private#section"))
+            faviconSource("/missing/nagi-favicon.png", "https://user:password@example.com:8443/path?q=private#section"))
     }
     @Test fun savedIconTakesPriority() {
-        val file = File.createTempFile("orbit-icon", ".png")
+        val file = File.createTempFile("nagi-icon", ".png")
         try { assertEquals(file, faviconSource(file.absolutePath, "https://example.com")) }
         finally { file.delete() }
         assertEquals("https://example.com/custom.png", faviconSource("https://example.com/custom.png", "https://example.com"))

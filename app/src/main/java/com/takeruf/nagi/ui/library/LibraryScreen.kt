@@ -1,5 +1,7 @@
 package com.takeruf.nagi.ui.library
 
+import androidx.compose.ui.draw.clip
+import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
@@ -32,6 +34,7 @@ fun LibraryScreen(history: Boolean, state: BrowserUiState, vm: BrowserViewModel,
             Text(if (history) strings(R.string.ui_history) else strings(R.string.ui_bookmarks), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
         }
         OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text(if (history) strings(R.string.ui_search_history) else strings(R.string.ui_search_bookmarks)) },
+            shape = NagiShapes.Rounded,
             leadingIcon = { Icon(NagiIcons.Search, null) }, modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
         if (history) {
             val entries = state.workspace.history.filter { it.url.contains(query, true) || it.title.contains(query, true) }
@@ -53,7 +56,7 @@ private fun EmptyLibrary(text: String) {
 @Composable
 private fun LibraryRow(title: String, url: String, icon: String?, detail: String, onOpen: () -> Unit, onDelete: () -> Unit) {
     val strings = rememberNagiStrings()
-    Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(12.dp).heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically,
+    Row(Modifier.fillMaxWidth().clip(NagiShapes.Rounded).clickable(onClick = onOpen).padding(12.dp).heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Favicon(icon, siteUrl = url)
         Column(Modifier.weight(1f)) {

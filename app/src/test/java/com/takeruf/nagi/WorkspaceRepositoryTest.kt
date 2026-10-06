@@ -31,6 +31,35 @@ class WorkspaceRepositoryTest {
         spaces = SpaceRepository(workspace, settings, tabs); workspace.initialize()
     }
     @After fun close() { db.close() }
+    @Test fun versionOneDatabaseMigratesWithoutLosingTabs() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        val name = "back-migration-${System.nanoTime()}.db"
+        val file = context.getDatabasePath(name)
+        file.parentFile!!.mkdirs()
+        val schema = org.json.JSONObject(java.io.File("schemas/com.takeruf.nagi.data.room.NagiDatabase/1.json").readText()).getJSONObject("database")
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file, null).use { old ->
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val entity = entities.getJSONObject(i)
+                val table = entity.getString("tableName")
+                old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                val indices = entity.optJSONArray("indices") ?: org.json.JSONArray()
+                for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+            }
+            val queries = schema.getJSONArray("setupQueries")
+            for (i in 0 until queries.length()) old.execSQL(queries.getString(i))
+            old.execSQL("INSERT INTO spaces VALUES ('personal', 'Personal', 'P', 0, 0, 'saved')")
+            old.execSQL("INSERT INTO tabs VALUES ('saved', 'personal', 'https://example.com', 'Saved', NULL, 0, 0, 1, NULL, NULL)")
+            old.version = 1
+        }
+        val migrated = Room.databaseBuilder(context, NagiDatabase::class.java, name).allowMainThreadQueries().build()
+        try {
+            val saved = migrated.browserDao().tab("saved")!!
+            assertEquals("https://example.com", saved.url)
+            assertNull(saved.parentTabId)
+            assertEquals("saved", migrated.browserDao().spaces().single().activeTabId)
+        } finally { migrated.close(); context.deleteDatabase(name) }
+    }
     @Test fun themeColorSurvivesIndependentSettingsUpdatesAndStoreRecreation() = runBlocking {
         settings.update { it.copy(themeColor = 0xFF3568C0) }
         settings.update { it.copy(theme = ThemeMode.DARK, sidebarWidth = 310f, sidebarCollapsed = true) }
@@ -42,12 +71,32 @@ class WorkspaceRepositoryTest {
     }
     @Test fun seedsEachSpaceWithOneSelectedTabAndEditableEngines() = runBlocking {
         assertEquals(2, db.browserDao().spaces().size)
+        assertEquals("lucide:user-round", db.browserDao().spaces().first { it.id == "personal" }.icon)
+        assertEquals("lucide:briefcase", db.browserDao().spaces().first { it.id == "work" }.icon)
         assertEquals(com.takeruf.nagi.browser.search.DefaultSearchEngines.all.size, db.browserDao().engines().size)
         db.browserDao().spaces().forEach { assertNotNull(db.browserDao().tab(it.activeTabId!!)) }
         val engine = db.browserDao().engines().first()
         db.browserDao().putEngine(engine.copy(name = "Edited"))
         workspace.initialize()
         assertEquals("Edited", db.browserDao().engines().first { it.id == engine.id }.name)
+    }
+    @Test fun upgradesLegacyDefaultSpaceIconsAndPreservesCustomChoices() = runBlocking {
+        val dao = db.browserDao()
+        val personal = dao.spaces().first { it.id == "personal" }
+        val work = dao.spaces().first { it.id == "work" }
+        dao.putSpace(personal.copy(icon = "◉"))
+        dao.putSpace(work.copy(icon = "▣"))
+        dao.putSpace(Space("custom", "Custom", "◉").entity())
+        workspace.initialize()
+        assertEquals("lucide:user-round", dao.spaces().first { it.id == "personal" }.icon)
+        assertEquals("lucide:briefcase", dao.spaces().first { it.id == "work" }.icon)
+        assertEquals("◉", dao.spaces().first { it.id == "custom" }.icon)
+        assertEquals(personal.activeTabId, dao.spaces().first { it.id == "personal" }.activeTabId)
+        dao.putSpace(dao.spaces().first { it.id == "personal" }.copy(icon = "🏠"))
+        dao.putSpace(dao.spaces().first { it.id == "work" }.copy(icon = "lucide:cloud"))
+        workspace.initialize()
+        assertEquals("🏠", dao.spaces().first { it.id == "personal" }.icon)
+        assertEquals("lucide:cloud", dao.spaces().first { it.id == "work" }.icon)
     }
     @Test fun closeLastTabCreatesReplacementAndRestoreKeepsSpace() = runBlocking {
         val id = db.browserDao().spaces().first().activeTabId!!
@@ -59,6 +108,44 @@ class WorkspaceRepositoryTest {
         assertEquals(id, tabs.restoreClosed())
         assertNull(db.browserDao().tab(id)!!.closedAt)
         assertEquals("https://example.com", db.browserDao().tab(id)!!.url)
+    }
+    @Test fun closingChildReturnsToParentInsteadOfNearestUnrelatedTab() = runBlocking {
+        val parent = db.browserDao().spaces().first { it.id == "personal" }.activeTabId!!
+        tabs.create("personal", "https://unrelated.com", select = false)
+        val child = tabs.create("personal", "https://child.com")
+        assertEquals(parent, db.browserDao().tab(child)!!.parentTabId)
+        tabs.close(child)
+        assertEquals(parent, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+    }
+    @Test fun explicitOpenerOverridesSelectedTabAndNestedChildrenReturnInOrder() = runBlocking {
+        val parent = tabs.create("personal", "https://parent.com", select = false)
+        val child = tabs.create("personal", "https://child.com", parentTabId = parent)
+        val grandchild = tabs.create("personal", "https://grandchild.com", parentTabId = child)
+        tabs.close(grandchild, selectNext = true)
+        assertEquals(child, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+        tabs.close(child, selectNext = true)
+        assertEquals(parent, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+    }
+    @Test fun backFromUnselectedSplitTabSelectsItsParent() = runBlocking {
+        val parent = db.browserDao().spaces().first { it.id == "personal" }.activeTabId!!
+        val child = tabs.create("personal", "https://child.com", select = false, parentTabId = parent)
+        tabs.create("personal", "https://selected.com")
+        tabs.close(child, selectNext = true)
+        assertEquals(parent, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+    }
+    @Test fun closedOrMovedParentFallsBackToRemainingTabInSameSpace() = runBlocking {
+        val parent = db.browserDao().spaces().first { it.id == "personal" }.activeTabId!!
+        val fallback = tabs.create("personal", "https://fallback.com", select = false)
+        val child = tabs.create("personal", "https://child.com", parentTabId = parent)
+        tabs.close(parent)
+        tabs.close(child, selectNext = true)
+        assertEquals(fallback, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+        val movedChild = tabs.create("personal", "https://child.com", parentTabId = fallback)
+        tabs.moveToSpace(fallback, "work")
+        tabs.close(movedChild, selectNext = true)
+        val selected = db.browserDao().spaces().first { it.id == "personal" }.activeTabId!!
+        assertEquals("personal", db.browserDao().tab(selected)!!.spaceId)
+        assertNotEquals(fallback, selected)
     }
     @Test fun reorderAndMoveArePersistentAndRepairOldSpaceSelection() = runBlocking {
         val first = db.browserDao().spaces().first().activeTabId!!

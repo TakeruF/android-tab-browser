@@ -20,6 +20,7 @@ data class BrowserTab(
     val lastAccessedAt: Long = System.currentTimeMillis(),
     val closedAt: Long? = null,
     val archivedAt: Long? = null,
+    val parentTabId: String? = null,
 )
 
 data class SearchEngine(
@@ -47,7 +48,7 @@ data class BrowserSettings(
     val defaultSearchEngineId: String = "google",
     val selectedSpaceId: String = "personal",
     val restoreTabs: Boolean = true,
-    val desktopDefault: Boolean = false,
+    val desktopDefault: Boolean = true,
     val openLinksInNewTab: Boolean = false,
     val archivePeriod: ArchivePeriod = ArchivePeriod.NEVER,
     val automaticSearchRegion: Boolean = true,
@@ -55,6 +56,10 @@ data class BrowserSettings(
     val searchRegionSource: String? = null,
     val searchRegionCheckedAt: Long = 0,
     val themeColor: Long = 0xFF426B5A,
+    // null uses both defaults until the user chooses a set.
+    val commonSearchEngineIds: Set<String>? = null,
+    // null follows the regional AI default until explicitly selected.
+    val defaultAiEngineId: String? = null,
 )
 
 data class WorkspaceSnapshot(

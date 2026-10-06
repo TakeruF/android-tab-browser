@@ -28,7 +28,7 @@ class BrowserSessionController(private val container: AppContainer,
                 is EngineEvent.OpenTab -> {
                     val tab = container.workspace.dao.tab(id)
                     if (tab != null && tab.closedAt == null) {
-                        val newId = container.tabs.create(tab.spaceId, event.url)
+                        val newId = container.tabs.create(tab.spaceId, event.url, parentTabId = id)
                         openedTabs.emit(newId)
                     }
                 }

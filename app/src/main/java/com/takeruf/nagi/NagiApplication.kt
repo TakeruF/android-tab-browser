@@ -17,6 +17,7 @@ class NagiApplication : Application() {
 
 class AppContainer(application: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Keep the existing database filename so installed Nagi builds retain their data.
     val database = Room.databaseBuilder(application, NagiDatabase::class.java, "orbit.db").build()
     val settings = SettingsStore(application)
     val workspace = WorkspaceRepository(database, settings)

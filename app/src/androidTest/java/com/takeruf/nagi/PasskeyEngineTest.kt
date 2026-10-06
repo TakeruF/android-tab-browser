@@ -41,7 +41,7 @@ class PasskeyEngineTest {
     }
     @After fun cleanup() { main { engine.destroy() }; scenario.close() }
     private fun securePage() {
-        main { (engine.surface as WebView).loadDataWithBaseURL("https://orbit.test/", "<html><head><title>Passkey fixture</title></head><body>Passkey fixture</body></html>", "text/html", "UTF-8", null) }
+        main { (engine.surface as WebView).loadDataWithBaseURL("https://nagi.test/", "<html><head><title>Passkey fixture</title></head><body>Passkey fixture</body></html>", "text/html", "UTF-8", null) }
         title("Passkey fixture")
     }
     @Test fun browserModeAndOriginPermissionAreConfigured() {
@@ -75,7 +75,7 @@ class PasskeyEngineTest {
         securePage()
         main { engine.evaluateJavascript("""
             var controller=new AbortController();controller.abort();
-            navigator.credentials.get({publicKey:{challenge:new Uint8Array(32),rpId:'orbit.test'},signal:controller.signal})
+            navigator.credentials.get({publicKey:{challenge:new Uint8Array(32),rpId:'nagi.test'},signal:controller.signal})
               .then(()=>document.title='cancel:unexpected-success',e=>document.title='cancel:'+e.name);
         """) }
         assertEquals("cancel:AbortError", title("cancel:"))

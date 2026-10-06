@@ -87,9 +87,15 @@ class AppearanceUiTest {
 
     private fun image(node: SemanticsNodeInteraction): Bitmap = node.captureToImage().asAndroidBitmap()
 
-    private fun contrast(node: SemanticsNodeInteraction, minimum: Double = 4.5) {
+    private fun screenImage(node: SemanticsNodeInteraction): Bitmap {
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        val screen = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        return Bitmap.createBitmap(screen, bounds.left.toInt(), bounds.top.toInt(), bounds.width.toInt(), bounds.height.toInt())
+    }
+
+    private fun contrast(node: SemanticsNodeInteraction, minimum: Double = 4.5, screen: Boolean = false) {
         node.assertIsDisplayed()
-        val bitmap = image(node)
+        val bitmap = if (screen) screenImage(node) else image(node)
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         val background = pixels.asIterable().groupingBy { it }.eachCount().maxBy { it.value }.key
@@ -121,6 +127,33 @@ class AppearanceUiTest {
             contrast(nodes[0]); contrast(nodes[1])
         }
         save("${mode.name.lowercase()}-home")
+    }
+
+    @Test fun pressedNewTabAndSidebarOuterCornersStayClippedInBothThemes() {
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            theme(mode)
+            val sidebar = image(compose.onNodeWithTag("sidebar"))
+            val inset = with(compose.density) { 24.dp.roundToPx() }
+            assertNotEquals(sidebar.getPixel(sidebar.width - 1, 1),
+                sidebar.getPixel(sidebar.width - 1, inset))
+            assertNotEquals(sidebar.getPixel(sidebar.width - 1, sidebar.height - 2),
+                sidebar.getPixel(sidebar.width - 1, sidebar.height - inset))
+            val button = compose.onNodeWithTag("new-tab-button")
+            val before = image(button)
+            button.performTouchInput { down(center); advanceEventTime(700) }
+            // Clickable rows inside a scroll container defer their press indication.
+            compose.waitUntil(3_000) {
+                val current = image(button)
+                current.getPixel(current.width / 2, 4) != before.getPixel(current.width / 2, 4)
+            }
+            val pressed = image(button)
+            assertEquals(before.getPixel(1, 1), pressed.getPixel(1, 1))
+            assertEquals(before.getPixel(pressed.width - 2, pressed.height - 2),
+                pressed.getPixel(pressed.width - 2, pressed.height - 2))
+            assertNotEquals(before.getPixel(pressed.width / 2, 4),
+                pressed.getPixel(pressed.width / 2, 4))
+            button.performTouchInput { cancel() }
+        }
     }
 
     @Test fun boundaryMouseResizeCollapsesAtMinimumAndReopens() {
@@ -168,21 +201,138 @@ class AppearanceUiTest {
         compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(264.dp)
     }
 
-    @Test fun customThemeColorPersistsAndRemainsReadableInBothThemes() {
-        compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Theme color"))
-        text("Blue").performScrollTo().performClick()
-        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().themeColor == 0xFF3568C0 } }
-        compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
-        compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
-        text("Save").performClick()
-        compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().themeColor == 0xFFFEFE00 } }
+    private fun editSpace() {
+        compose.onNodeWithContentDescription("Space actions").performClick()
+        compose.onNodeWithText("Edit Space").performClick()
+    }
+
+    @Test fun spaceDraftPreviewsBehindDialogAndCancelRestoresWithoutWriting() {
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity,
+            com.takeruf.nagi.ui.browser.BrowserViewModel.Factory(container))[
+            com.takeruf.nagi.ui.browser.BrowserViewModel::class.java]
+        fun persisted() = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId } }
+        fun sidebarPixel(): Int {
+            val bitmap = image(compose.onNodeWithTag("sidebar"))
+            return bitmap.getPixel(1, bitmap.height - 2)
+        }
         for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
             theme(mode)
-            contrast(compose.onNodeWithText("Custom color", substring = true, useUnmergedTree = true))
-            save("custom-theme-color-${mode.name.lowercase()}")
+            val originalSpace = persisted()
+            val before = sidebarPixel()
+            editSpace()
+            compose.onNodeWithText("Space name").performTextReplacement("Live Preview QA")
+            compose.onNodeWithText("Lucide").performClick()
+            compose.onNodeWithContentDescription("Space icon cloud").performClick()
+            compose.onNodeWithTag("space-color-${0xFF477F96}").performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                vm.state.value.currentSpace?.let {
+                    it.name == "Live Preview QA" && it.icon == "lucide:cloud" && it.color == 0xFF477F96
+                } == true
+            }
+            compose.waitForIdle()
+            assertNotEquals(before, sidebarPixel())
+            assertEquals(originalSpace, persisted())
+            save("space-live-preview-${mode.name.lowercase()}")
+            text("Cancel").performClick()
+            compose.waitUntil(10_000) { vm.state.value.currentSpace?.name == spaceName }
+            compose.waitForIdle()
+            assertEquals(before, sidebarPixel())
+            assertEquals(originalSpace, persisted())
+
+            editSpace()
+            compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+            compose.onNodeWithText("HEX color").performTextReplacement("#CC3333")
+            compose.waitUntil(10_000) { vm.state.value.currentSpace?.color == 0xFFCC3333 }
+            compose.waitForIdle()
+            assertNotEquals(before, sidebarPixel())
+            assertEquals(originalSpace, persisted())
+            compose.onNodeWithText("HEX color").performTextReplacement("invalid")
+            compose.waitForIdle()
+            assertEquals(0xFFCC3333, vm.state.value.currentSpace?.color)
+            compose.onAllNodesWithText("Cancel").onLast().performClick()
+            compose.waitUntil(10_000) { vm.state.value.currentSpace?.color == originalSpace.color }
+            compose.onNodeWithText("Save").performClick()
+            compose.waitForIdle()
+            assertEquals(originalSpace.color, persisted().color)
         }
-        assertEquals(0xFFFEFE00, runBlocking { container.settings.settings.first().themeColor })
+    }
+
+    @Test fun themePresetsAreSelectedAndSavedInSpaceEditor() {
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            theme(mode)
+            for (seed in listOf(0xFF426B5A, 0xFF6C6193, 0xFFB07D47, 0xFF477F96, 0xFF995C77, 0xFF687081)) {
+                editSpace()
+                val chip = compose.onNodeWithTag("space-color-$seed")
+                chip.performScrollTo().performClick().assertIsSelected()
+                compose.onNodeWithText("Save").performClick()
+                compose.waitUntil(10_000) { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.color == seed } }
+                compose.waitForIdle()
+            }
+            save("space-theme-presets-${mode.name.lowercase()}")
+        }
+    }
+
+    @Test fun customThemeColorPersistsAndRemainsReadableInBothThemes() {
+        editSpace()
+        compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
+        compose.onAllNodesWithText("Save").onLast().performClick()
+        // The inner editor changes only the draft; cancelling the outer editor must discard it.
+        assertEquals(0xFF426B5A, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.color })
+        text("Cancel").performClick()
+        editSpace()
+        compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
+        compose.onAllNodesWithText("Save").onLast().performClick()
+        text("Save").performClick()
+        compose.waitUntil(10_000) { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.color == 0xFFFEFE00 } }
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            theme(mode)
+            contrast(text("Search anything"))
+            contrast(text("Where would you like to go?"))
+            editSpace()
+            contrast(compose.onNodeWithText("Custom color", substring = true, useUnmergedTree = true).performScrollTo())
+            save("custom-space-theme-${mode.name.lowercase()}")
+            text("Cancel").performClick()
+        }
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("sidebar").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0xFFFEFE00, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.color })
+    }
+
+    @Test fun selectedSpaceColorsChangeRenderedBaseAndSurviveRecreation() {
+        fun matches(seed: Long): Boolean {
+            val bitmap = image(compose.onNodeWithTag("sidebar"))
+            val pixel = bitmap.getPixel(1, bitmap.height - 2)
+            val r = android.graphics.Color.red(pixel)
+            val g = android.graphics.Color.green(pixel)
+            val b = android.graphics.Color.blue(pixel)
+            return if (seed == 0xFFCC3333) r > g && r > b else b > g && b > r
+        }
+        val otherName = "Blue Space QA"
+        runBlocking { container.spaces.create(otherName, color = 0xFF3568C0) }
+        val otherId = runBlocking { container.settings.settings.first().selectedSpaceId }
+        try {
+            for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+                theme(mode)
+                runBlocking { container.spaces.edit(spaceId, spaceName, "◉", 0xFFCC3333) }
+                for ((id, seed) in listOf(spaceId to 0xFFCC3333, otherId to 0xFF3568C0)) {
+                    runBlocking { container.spaces.select(id) }
+                    compose.waitUntil(10_000) { matches(seed) }
+                    compose.waitForIdle()
+                    contrast(text("Search anything"))
+                    contrast(text("Where would you like to go?"))
+                    save("space-base-${mode.name.lowercase()}-${if (seed == 0xFFCC3333) "red" else "blue"}")
+                }
+                compose.activityRule.scenario.recreate()
+                compose.waitUntil(10_000) { compose.onAllNodesWithTag("sidebar").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(10_000) { matches(0xFF3568C0) }
+                assertEquals(otherId, runBlocking { container.settings.settings.first().selectedSpaceId })
+                assertEquals(0xFF426B5A, runBlocking { container.settings.settings.first().themeColor })
+            }
+        } finally {
+            runBlocking { container.spaces.select(spaceId); container.spaces.delete(otherId) }
+        }
     }
 
     @Test fun lightSidebarFavoritesAndNewTabRemainReadable() = sidebarAndHome(ThemeMode.LIGHT)
@@ -200,7 +350,7 @@ class AppearanceUiTest {
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("You can also drag the sidebar edge."))
             contrast(text("You can also drag the sidebar edge."))
             compose.activityRule.scenario.recreate()
-            compose.waitUntil(10_000) { compose.onAllNodesWithText("Make it yours").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Settings").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(mode, runBlocking { container.settings.settings.first().theme })
             theme(mode)
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
@@ -231,6 +381,41 @@ class AppearanceUiTest {
             save("${mode.name.lowercase()}-commands")
             compose.onNode(hasSetTextAction()).performKeyInput { pressKey(Key.Escape) }
             compose.onNodeWithText("Esc").assertDoesNotExist()
+        }
+    }
+
+    @Test fun exactLucideCodeSelectionValidatesCancelsAndPersists() {
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            theme(mode)
+            compose.onNodeWithContentDescription("Space actions").performClick()
+            compose.onNodeWithText("Edit Space").performClick()
+            compose.onNodeWithText("Lucide").performClick()
+            compose.onNodeWithText("Search for more on Lucide").performScrollTo().assertHasClickAction()
+            compose.onNodeWithText("Choose by Lucide code name").performScrollTo().performClick()
+            for (invalid in listOf("Angle", "angle ", "ang", "lucide:angle", "no-such-icon")) {
+                compose.onNodeWithText("Icon code name").performTextReplacement(invalid)
+                compose.onNodeWithText("Use icon").assertIsNotEnabled()
+                compose.onNodeWithText("No icon matches this code name.").assertIsDisplayed()
+            }
+            compose.onNodeWithText("Icon code name").performTextReplacement("angle")
+            compose.onNodeWithContentDescription("Icon preview").assertIsDisplayed()
+            compose.onNodeWithText("Use icon").assertIsEnabled()
+            save("${mode.name.lowercase()}-lucide-code-preview")
+            compose.onNodeWithText("Use icon").performClick()
+            compose.onNodeWithText("Save").performClick()
+            compose.waitUntil(10_000) { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon == "lucide:angle" } }
+            compose.activityRule.scenario.recreate()
+            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Space actions").fetchSemanticsNodes().isNotEmpty() }
+            assertEquals("lucide:angle", runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon })
+            compose.onNodeWithContentDescription("Space actions").performClick()
+            compose.onNodeWithText("Edit Space").performClick()
+            compose.onNodeWithText("Choose by Lucide code name").performScrollTo().performClick()
+            compose.onNodeWithText("Icon code name").performTextReplacement("bird")
+            compose.onNode(hasText("Cancel") and hasAnyAncestor(hasTestTag("lucide-code-dialog"))).performClick()
+            compose.onNodeWithText("Icon code name").assertDoesNotExist()
+            compose.onNodeWithText("Save").performClick()
+            compose.waitForIdle()
+            assertEquals("lucide:angle", runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon })
         }
     }
 
@@ -287,7 +472,7 @@ class AppearanceUiTest {
         compose.onNodeWithContentDescription("Page menu").performClick()
         compose.onNodeWithText("New split view").performClick()
         compose.onNodeWithContentDescription("Resize split view").assertIsDisplayed().performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Choose tab").assertIsDisplayed()
+        compose.onNodeWithText("Choose tab").assertDoesNotExist()
         compose.onAllNodesWithContentDescription("Page menu")[0].performClick()
         compose.onNodeWithText("Find in page").performClick()
         val inputBounds = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot

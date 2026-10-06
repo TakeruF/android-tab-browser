@@ -6,7 +6,7 @@ import org.junit.Test
 
 class DownloadFilenameTest {
     @Test fun preservesFilenameInsteadOfRewritingExtensionFromGenericMimeType() {
-        assertEquals("orbit.txt", DownloadFilename.fromDisposition("attachment; filename=orbit.txt"))
+        assertEquals("nagi.txt", DownloadFilename.fromDisposition("attachment; filename=nagi.txt"))
         assertEquals("two words.pdf", DownloadFilename.fromDisposition("attachment; filename=\"two words.pdf\""))
     }
     @Test fun handlesUtf8NamesAndLiteralPlus() {

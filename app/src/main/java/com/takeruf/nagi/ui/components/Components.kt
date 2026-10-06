@@ -9,6 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import com.takeruf.nagi.browser.favicon.FaviconStore
+import com.takeruf.nagi.browser.favicon.faviconOrigin
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import java.io.File
@@ -35,7 +38,13 @@ fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClic
 
 @Composable
 fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = null, fallbackText: String? = null) {
-    val source = remember(path, siteUrl) { faviconSource(path, siteUrl) }
+    val context = LocalContext.current
+    val store = remember(context.applicationContext) { FaviconStore.get(context) }
+    val shared by store.icons.collectAsState()
+    val origin = remember(siteUrl) { faviconOrigin(siteUrl) }
+    LaunchedEffect(path, siteUrl) { store.resolve(siteUrl, path) }
+    val sharedPath = shared[origin]
+    val source = remember(path, siteUrl, sharedPath) { faviconSource(sharedPath ?: path, null) }
     var loaded by remember(source) { mutableStateOf(false) }
     Box(modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = androidx.compose.ui.Alignment.Center) {

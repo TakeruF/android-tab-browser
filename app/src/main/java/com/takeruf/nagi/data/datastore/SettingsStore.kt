@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.takeruf.nagi.domain.model.*
+import com.takeruf.nagi.browser.search.AiSearchEngines
 import kotlinx.coroutines.flow.*
 import java.io.IOException
 
@@ -17,10 +18,13 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val width = floatPreferencesKey("sidebar_width")
         val collapsed = booleanPreferencesKey("sidebar_collapsed")
         val engine = stringPreferencesKey("default_search_engine")
+        val aiEngine = stringPreferencesKey("default_ai_engine")
+        val commonEngines = stringSetPreferencesKey("common_search_engines")
         val space = stringPreferencesKey("selected_space")
         val restore = booleanPreferencesKey("restore_tabs")
         val desktop = booleanPreferencesKey("desktop_default")
         val newLinks = booleanPreferencesKey("open_links_new_tab")
+        val aiEnginesSeeded = booleanPreferencesKey("ai_engines_seeded_v1")
         val additionalEnginesSeeded = booleanPreferencesKey("additional_engines_seeded_v1")
         val regionalEngineSeeded = booleanPreferencesKey("regional_engine_seeded")
         val automaticRegion = booleanPreferencesKey("automatic_search_region")
@@ -35,16 +39,20 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         theme = enumOrDefault(p[Keys.theme], ThemeMode.SYSTEM),
         sidebarWidth = (p[Keys.width] ?: 264f).coerceIn(220f, 380f),
         sidebarCollapsed = p[Keys.collapsed] ?: false,
-        defaultSearchEngineId = p[Keys.engine] ?: "google",
+        defaultSearchEngineId = p[Keys.engine]?.takeUnless { it in AiSearchEngines.ids } ?: "google",
         selectedSpaceId = p[Keys.space] ?: "personal",
-        restoreTabs = p[Keys.restore] ?: true, desktopDefault = p[Keys.desktop] ?: false,
+        restoreTabs = p[Keys.restore] ?: true, desktopDefault = p[Keys.desktop] ?: true,
         openLinksInNewTab = p[Keys.newLinks] ?: false,
         archivePeriod = enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
-        automaticSearchRegion = p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
+        automaticSearchRegion = p[Keys.automaticRegion] ?: true,
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
         searchRegionCheckedAt = p[Keys.regionCheckedAt] ?: 0,
         themeColor = p[Keys.themeColor] ?: 0xFF426B5A,
+        commonSearchEngineIds = p[Keys.commonEngines],
+        defaultAiEngineId = p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
     ) }
+    suspend fun aiEnginesSeeded(): Boolean = store.data.first()[Keys.aiEnginesSeeded] ?: false
+    suspend fun markAiEnginesSeeded() { store.edit { it[Keys.aiEnginesSeeded] = true } }
     suspend fun additionalEnginesSeeded(): Boolean = store.data.first()[Keys.additionalEnginesSeeded] ?: false
     suspend fun markAdditionalEnginesSeeded() { store.edit { it[Keys.additionalEnginesSeeded] = true } }
     suspend fun regionalEngineSeeded(): Boolean = store.data.first()[Keys.regionalEngineSeeded] ?: false
@@ -54,13 +62,15 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
             // Read inside the atomic edit to prevent concurrent settings changes being lost.
             val current = BrowserSettings(
                 enumOrDefault(p[Keys.theme], ThemeMode.SYSTEM), p[Keys.width] ?: 264f,
-                p[Keys.collapsed] ?: false, p[Keys.engine] ?: "google", p[Keys.space] ?: "personal",
-                p[Keys.restore] ?: true, p[Keys.desktop] ?: false, p[Keys.newLinks] ?: false,
+                p[Keys.collapsed] ?: false, p[Keys.engine]?.takeUnless { it in AiSearchEngines.ids } ?: "google", p[Keys.space] ?: "personal",
+                p[Keys.restore] ?: true, p[Keys.desktop] ?: true, p[Keys.newLinks] ?: false,
                 enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
-                p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
+                p[Keys.automaticRegion] ?: true,
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
-                p[Keys.themeColor] ?: 0xFF426B5A)
+                p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids })
             val next = change(current)
+            next.defaultAiEngineId?.let { p[Keys.aiEngine] = it } ?: p.remove(Keys.aiEngine)
+            next.commonSearchEngineIds?.let { p[Keys.commonEngines] = it } ?: p.remove(Keys.commonEngines)
             p[Keys.themeColor] = next.themeColor
             p[Keys.theme] = next.theme.name; p[Keys.width] = next.sidebarWidth.coerceIn(220f, 380f)
             p[Keys.collapsed] = next.sidebarCollapsed; p[Keys.engine] = next.defaultSearchEngineId

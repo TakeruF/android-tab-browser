@@ -1,11 +1,11 @@
 package com.takeruf.nagi.ui.browser
 
+import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import com.takeruf.nagi.ui.components.NagiIcons
 import androidx.compose.runtime.Composable
@@ -23,7 +23,7 @@ fun NewTabPage(spaceName: String, onSearch: () -> Unit) {
             Text(spaceName, style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(20.dp))
-            Surface(onClick = onSearch, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+            Surface(onClick = onSearch, shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainer,
                 contentColor = MaterialTheme.colorScheme.onSurface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(NagiIcons.Search, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

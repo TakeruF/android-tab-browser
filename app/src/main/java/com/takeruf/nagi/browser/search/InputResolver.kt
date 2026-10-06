@@ -1,6 +1,7 @@
 package com.takeruf.nagi.browser.search
 
 import com.takeruf.nagi.domain.model.SearchEngine
+import com.takeruf.nagi.domain.model.BrowserSettings
 import java.net.IDN
 import java.net.URI
 import java.net.URLEncoder
@@ -13,6 +14,9 @@ sealed interface ResolvedInput {
 
 /** Pure policy: UI and engine never guess whether an input is a URL. */
 object InputResolver {
+    fun resolve(input: String, engines: List<SearchEngine>, settings: BrowserSettings): ResolvedInput =
+        resolve(input, engines.filter { it.id in CommonSearchEngines.ids(settings) }, settings.defaultSearchEngineId)
+
     fun resolve(input: String, engines: List<SearchEngine>, defaultId: String): ResolvedInput {
         val text = input.trim()
         if (text.isEmpty()) return ResolvedInput.Invalid("Enter a URL or search query")
@@ -42,7 +46,14 @@ object InputResolver {
         if (!explicit && input.contains("://")) return null
         val candidate = if (explicit) input else "https://$input"
         return runCatching {
-            val uri = URI(candidate)
+            // Browsers accept literal braces in paths, queries and fragments, but URI
+            // rejects them. Escape only that suffix, preserving the authority checks
+            // and existing percent escapes (including encoded URL delimiters).
+            val suffixStart = candidate.indexOfAny(charArrayOf('/', '?', '#'), candidate.indexOf("://") + 3)
+            val parseable = if (suffixStart < 0) candidate else
+                candidate.substring(0, suffixStart) + candidate.substring(suffixStart)
+                    .replace("{", "%7B").replace("}", "%7D")
+            val uri = URI(parseable)
             if (uri.rawUserInfo != null) return null
             val authority = uri.rawAuthority ?: return null
             if ('@' in authority) return null

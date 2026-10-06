@@ -11,30 +11,94 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 
-enum class SidebarSection { FAVORITES, PINNED, TODAY, SPACE }
+enum class SidebarSection { FAVORITES, PINNED, TODAY, SPACE, SPLIT_LEFT, SPLIT_RIGHT }
 data class SidebarDestination(val section: SidebarSection, val id: String? = null, val after: Boolean = false)
-data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false)
+data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false, val siteUrl: String? = null)
+
+data class FavoriteLanding(val item: SidebarDragItem, val topLeft: Offset)
 
 @Stable
 class SidebarDragState {
     var item by mutableStateOf<SidebarDragItem?>(null)
     var point by mutableStateOf(Offset.Zero)
     var destination by mutableStateOf<SidebarDestination?>(null)
+    var grabOffset by mutableStateOf(Offset.Zero)
+        private set
+    var sourceSize by mutableStateOf(Offset.Zero)
+        private set
+    var favoriteOrder by mutableStateOf<List<String>?>(null)
+        private set
+    var favoriteLanding by mutableStateOf<FavoriteLanding?>(null)
+        private set
+    fun finishFavoriteLanding() { favoriteLanding = null }
+    private var favoriteIds = emptyList<String>()
+    private var originalFavoriteIds = emptyList<String>()
+    private var favoriteCommitted = false
+
+    // Keep the optimistic order until Room emits the saved order, avoiding a release flicker.
+    fun syncFavorites(ids: List<String>) {
+        favoriteIds = ids
+        if (item == null && (ids == favoriteOrder || ids.toSet() != favoriteOrder?.toSet())) {
+            favoriteOrder = null
+            favoriteCommitted = false
+        }
+    }
+    private fun favoriteSlots() = targets.values
+        .filter { it.first.section == SidebarSection.FAVORITES && it.first.id != null }
+        .sortedWith(compareBy({ it.second.top }, { it.second.left }))
+
+    fun commitFavoriteOrder() {
+        favoriteCommitted = favoriteOrder != null
+        val value = item ?: return
+        val index = favoriteOrder?.indexOf(value.id) ?: return
+        favoriteSlots().getOrNull(index)?.second?.let { favoriteLanding = FavoriteLanding(value, it.topLeft) }
+    }
     internal val sources = mutableMapOf<String, Triple<SidebarDragItem, Boolean, Rect>>()
     private val targets = mutableMapOf<String, Pair<SidebarDestination, Rect>>()
     fun bounds(key: String, destination: SidebarDestination, rect: Rect) { targets[key] = destination to rect }
     fun remove(key: String) { targets.remove(key) }
-    fun start(value: SidebarDragItem, position: Offset) { item = value; move(position) }
+    fun start(value: SidebarDragItem, position: Offset, bounds: Rect? = null) {
+        favoriteLanding = null
+        item = value
+        grabOffset = bounds?.let { position - it.topLeft } ?: Offset.Zero
+        sourceSize = bounds?.let { Offset(it.width, it.height) } ?: Offset.Zero
+        originalFavoriteIds = favoriteIds
+        favoriteCommitted = false
+        move(position)
+    }
     fun move(position: Offset) {
         point = position
         val hit = targets.values.filter { it.second.contains(position) }
             .minByOrNull { it.second.width * it.second.height }
+        if (item?.favorite == true && hit?.first?.section == SidebarSection.FAVORITES) {
+            // Hit-test stationary slots, never the animated tiles, so a resting pointer
+            // cannot make neighbors repeatedly swap back and forth.
+            val slots = favoriteSlots()
+            val index = slots.indexOfFirst { it.second.contains(position) }.takeIf { it >= 0 }
+                ?: slots.indices.minByOrNull { (slots[it].second.center - position).getDistanceSquared() }
+            val id = item!!.id
+            val remaining = originalFavoriteIds.filter { it != id }.toMutableList()
+            if (index != null && id in originalFavoriteIds) {
+                val insertion = index.coerceAtMost(remaining.size)
+                // The repository expects an anchor in the original list, with the dragged ID removed.
+                destination = remaining.getOrNull(insertion)?.let { SidebarDestination(SidebarSection.FAVORITES, it) }
+                    ?: SidebarDestination(SidebarSection.FAVORITES, remaining.lastOrNull(), after = true)
+                remaining.add(insertion, id)
+                favoriteOrder = remaining
+                return
+            }
+        }
+        if (item?.favorite == true) favoriteOrder = null
         destination = hit?.let { (target, rect) ->
             target.copy(after = target.id != null && if (target.section == SidebarSection.FAVORITES)
                 position.x > rect.center.x else position.y > rect.center.y)
         }
     }
-    fun cancel() { item = null; destination = null }
+    fun cancel() {
+        item = null
+        destination = null
+        if (!favoriteCommitted) favoriteOrder = null
+    }
 }
 
 @Composable
@@ -79,7 +143,8 @@ fun Modifier.sidebarDragHost(state: SidebarDragState, onStart: () -> Unit, onDro
                 if (press != null) {
                     press.consume()
                     start()
-                    state.start(source.first, origin + press.position)
+                    state.start(source.first, origin + down.position, source.third)
+                    state.move(origin + press.position)
                     try {
                         while (true) {
                             // Intercept before the scrollable child once this is an active tab drag.
