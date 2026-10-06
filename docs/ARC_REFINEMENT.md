@@ -48,7 +48,7 @@ Favoritesはローカルの共有ショートカットで、移動前のWebView�
 
 ## 検証結果
 
-API 36のPixel Tabletエミュレーター `Nagi_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で確認。
+API 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で確認。
 
 | 確認 | 結果 |
 | --- | --- |

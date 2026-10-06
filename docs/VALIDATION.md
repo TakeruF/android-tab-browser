@@ -25,7 +25,7 @@
 | 単体テスト | 26件成功、失敗・スキップ0 |
 | Android端末テスト | 13件成功、失敗・スキップ0 |
 
-単体テスト: URL/IDN/IPv4/IPv6/ポート/危険なscheme判定・keyword/UTF-8検索11件、LRU退避/復元/表示タブ保護4件、実際のRoomによるSpace/Tab/Bookmark/Engine/Archiveの整合性8件、ダウンロードファイル名3件。
+単体テスト: URL/IDN/IPv4/IPv6/ポート/危険なscheme判定・keyword/UTF-8検索11件、25タブ切り替え時のliveセッション保持/表示切り替え/閉じたタブの破棄/全セッション終了4件、実際のRoomによるSpace/Tab/Bookmark/Engine/Archiveの整合性8件、ダウンロードファイル名3件。
 
 端末テスト: ブラウズ/履歴/Favorites/Bookmarks/閉じたタブ復元、Split/比率変更/交換/解除、検索エンジン追加とActivity再生成の3件、CJK入力4件、実際のWebViewによるJavaScript/Cookie/LocalStorage/IndexedDB/戻る進む/ページ内検索/ページ履歴snapshot/Desktop UA/ダウンロード/HTML入力/target blank/ファイル選択・全画面コールバックの6件。
 
@@ -207,3 +207,81 @@ Space編集に絵文字／Lucide切り替え、各24種の折り返しグリッ�
 アクセントカラーをテーマカラーへ改名し、ブラウザーの背景・パネル・選択色にも反映。DataStoreの既存`accent_color`キーを維持して保存済みの色を引き継ぎます。ライト／ダークと極端な色の文字コントラストを検証しました。
 
 検証: Debug APK・AndroidTest APKビルド成功、単体テスト44件成功、Lintエラー0。API 36のOrbit_Tablet_QAで`AppearanceUiTest#customThemeColorPersistsAndRemainsReadableInBothThemes`、`AppearanceUiTest#lucideAndEmojiPersistAcrossRecreationAndBothThemes`成功。Lucide・任意の絵文字の保存、Activity再生成後のLucide復元、両テーマの選択画面とカスタム色表示を確認。実機では未検証です。
+
+
+## 2026-10-05 — テーマカラーでベース配色を変更
+
+固定の緑色パレットへ選択色を重ねる方式を修正。各surfaceの明るさを保ちながら元の色味を除き、選択したテーマカラーで背景・パネル・枠線を生成します。画面全体とサイドバーへ重ねていたSpace色も外し、サイドバーのグラデーションをテーマカラーへ統一。Space色はSpaceの識別表示で維持します。既存のテーマカラー設定と保存キーは変更していません。
+
+検証: Debug／AndroidTest APKビルド成功、単体45件・AppearanceUiTest 13件成功（失敗・スキップ0）、Lint成功、git diff --check成功。API 36のOrbit_Tablet_QAで、Spaceが緑のままでも赤・青のテーマカラーがサイドバーの実描画へ反映されること、ライト／ダークでの文字コントラスト、Activity再生成後の色の保持を確認。単体テストでは赤・青・グレーのsurfaceに固定の緑色が残らないことも検査しました。ライト赤／ダーク青の画面全体を目視確認。画面記録は`app/build/reports/theme-base-validation/`。実機では未検証です。
+
+## 2026-10-05 — 柔らかい角丸のoverflow menu
+
+ページ・タブ・Favorites・Spaceの3ドットメニューを`NagiOverflowMenu`／`NagiOverflowMenuItem`へ統一。外側24dp、内側は外側から8dpのinsetを引いた16dp、上下12dp、項目52dp以上、左右はカード8dp＋項目12dp。surfaceContainerHighと6dpの影を使い、hover／focus／pressのMaterial indicationを内側の角丸でclipします。アイコンとラベルを中央揃えにし、削除／Favorite除去だけerror色に設定。タブとFavoritesは3ドットのBoxをアンカーに変更しました。設定の検索エンジン選択と右ペインのタブ選択は変更していません。
+
+[標準DropdownMenu](https://developer.android.com/reference/kotlin/androidx/compose/material3/DropdownMenu.composable)のPopup位置調整、スクロール、focus、fade／scaleアニメーションを保持。行は固定高さにせず拡大文字で伸びるようにしています。
+
+API 36のOrbit_Tablet_QAでOverflowMenuUiTest 3件、BrowserUiTest 3件、SidebarDragTest 5件、計11件が一括成功（失敗・スキップ0）。無効項目、クリック後の閉じる動作、戻るキー、ライト／ダークのhoverで角の背景を保持すること、2倍の文字サイズでの行の伸長と長いラベルの折り返し・項目へのスクロール、既存の右クリックとドラッグ操作を検証。SidebarDragTestのSpace編集用selectorは、既存のアイコンpickerの現在のラベル`Custom emoji`へ修正しました。
+
+実際のページメニューとライト／ダークの共通カード・hover・拡大文字を目視確認。画面記録は`app/build/reports/overflow-validation/`。拡大文字テストはPopup内のLocalDensityを2倍にしたcomponent検証で、OS設定変更の検証ではありません。物理端末・ColorOS上では未検証です。
+
+最終チェック: Debug／Release（unsigned）／AndroidTest APKビルド成功、Lint成功（エラー0、既存警告25）、`git diff --check`成功。ドメイン／保存処理の変更はありません。
+
+## Shared corner geometry (2026-10-05)
+
+- Rectangular controls, search fields, tab/new-tab rows, favorites, Space/icon pickers, settings cards, command results, dialogs and overflow menus use `NagiShapes.Rounded` (12dp). The Material shape scale uses the same geometry; rectangular text buttons explicitly use it.
+- The sidebar clips its gradient and children at its top-end/bottom-end corners, including its collapsed form. WebView content uses matching bottom corners.
+- Clickable library rows, settings rows and command results clip press/hover feedback to the same shape as their visible backgrounds and borders.
+- Circular icon buttons, switches and color dots retain their circular/capsule geometry. Small favicon tiles (6dp) and narrow drag/resize indicators (2–4dp) retain geometry appropriate to their size.
+- Debug app/test builds and `git diff --check` passed. API-36 emulator validation covered 26 cases across AppearanceUiTest, OverflowMenuUiTest, LocalizationUiTest and SidebarDragTest: 25 passed in the combined run; the new corner/press case passed on rerun after waiting for the deferred scroll-container press indication. Its pixel assertions cover both sidebar end corners and clipped new-tab press feedback in light/dark modes.
+- Inspected emulator screenshots for light/dark home, Chinese settings and dark overflow hover. Physical-device visual verification remains pending.
+
+## Sidebar Space swipe (2026-10-05)
+
+- Quick horizontal touch swipes across the sidebar select the adjacent Space in its saved order: left advances, right goes back, and endpoints do not wrap. Works with the sidebar expanded or collapsed.
+- Direction locks after touch slop; vertical motion yields to scrolling. Long-press tab drags, immediate favicon drag handles, and mouse drags retain their existing behavior. A threshold distance and normal release are required; canceled/multitouch gestures do not select a Space.
+- Debug app/test builds, APK signature verification and `git diff --check` passed. All 8 SidebarDragTest cases passed on the API-36 emulator, including switching from the new-tab button without creating a tab, quick tab-row swipes, canceled/vertical gestures, endpoint behavior, recreation persistence, collapsed sidebar, and existing mouse/touch drag operations. Inspected the resulting sidebar screenshot; physical-device verification remains pending.
+
+## Responsive sidebar favorites (2026-10-05)
+
+- Favorite tiles fill each row using equal widths. Column capacity comes from the available sidebar content width with a 72dp minimum tile width and 6dp gap; the column count is capped by the actual favorite count. At sidebar widths of 220/264/380dp this gives 2/3/4 columns. Incomplete final rows retain the same tile width as preceding rows.
+- Debug app/test builds, APK signature verification and `git diff --check` passed. All 9 SidebarDragTest cases passed on the API-36 emulator, including measured two-item full-width filling, reflow at 2/3/4 columns, existing drag/drop and Space swipes. Inspected two-item and four-column screenshots.
+
+## ChatGPT command-bar handoff (2026-10-05)
+
+- Non-URL search input always offers the configured search engine and ChatGPT as the first two actions. ChatGPT comes first for 80+ Unicode code points, trailing question marks, or explanation/comparison/summary request markers in Japanese, English, Simplified/Traditional Chinese and Korean. Explicit search-engine keywords retain priority. URLs, unsupported schemes, empty input and `>` commands do not offer ChatGPT.
+- Reuses the command bar's Up/Down and Enter handling, selected-row border/background, click/touch execution and IME composition guard. ChatGPT uses a lightning icon. Labels are localized in Japanese, English, Korean and Simplified Chinese.
+- The action navigates to `https://chatgpt.com/?q=…`, encoding the question as one query parameter. No API key or page-content extraction is used. ChatGPT login, prompt prefill and submission remain provider-controlled; actual remote prompt acceptance/answer generation and physical-device behavior were not verified.
+- Debug app/test builds and all 54 unit tests passed, including 5 new policy/encoding cases. API-36 emulator: 2 new component tests passed (arrows, Enter, touch, query-change selection reset), 3 existing omnibox CJK composition tests passed on the targeted rerun, and 1 real MainActivity handoff test passed (active tab URL updated, command bar dismissed). Inspected light/dark screenshots under `app/build/reports/chatgpt-validation/chatgpt-validation/`.
+- The initial combined run had a Japanese test-IME binding failure (passed on targeted rerun) and the unrelated existing settings-engine-name test failed because its `Add search engine` selector assumes the previous settings layout. That test was left unchanged; its settings-editor coverage is not claimed here.
+- Debug lint passed with 0 errors and 25 warnings; Release (unsigned) build and `git diff --check` passed.
+
+## 常用検索エンジン（2026-10-05）
+
+登録一覧と常用候補を分離。未設定時は中国大陸で百度＋千问、それ以外でGoogle＋ChatGPT。設定のチェックボックスとChatGPTスイッチで組み合わせを保存し、手動変更時は地域自動設定を無効にします。常用外のキーワードは通常検索の文字列として扱います。
+
+単体61件、API 36エミュレーター対象7件（CommonSearchEnginesUiTest 1件、ChatGptCommandBarUiTest 2件、LocalizationUiTest 4件）が全件成功。Debug / Releaseビルド成功、Lintエラー0・警告25。常用選択の保存・Activity再生成・候補追加と除外・未選択360キーワードの通常検索・4言語設定を確認。物理端末・中国大陸の実ネットワークは未検証。画面記録は `app/build/reports/common-search-validation/`。
+
+## 2026-10-06 — drag tabs into split view and filled theme presets
+
+- A sidebar tab can be dropped into the left or right half of the browser area. The drop target highlights and the tab preview follows the pointer outside the sidebar. Existing split panes can be replaced or swapped; canceled gestures leave the layout unchanged.
+- The settings header uses the localized Settings title. Theme preset buttons use their own color across the button, with contrasting labels and a check on the selected preset.
+- Verified with an isolated clean build and an API 36 tablet emulator: debug app/test APKs, unit tests, and lint passed. Two split-drop UI tests covered touch, mouse, cancellation, left/right placement, replacement, and swapping. Two existing sidebar drag tests passed. The preset UI test checked all six colors, selection, and screen-pixel text contrast in light and dark themes.
+
+## 2026-10-06 — Sidebar split pair
+
+- When two panes are visible, the expanded sidebar groups their tabs in a single rounded card, with the left page on the left and the right page on the right. Equal-width tiles show each favicon and a single-line ellipsized title. The group occupies the left tab's section; the right tab is not duplicated elsewhere.
+- Clicking a grouped title focuses that pane without replacing either page. Clicking its icon opens the existing tab actions; favicon-handle and whole-tile dragging remain available. Closing one page restores the ordinary sidebar row.
+- Debug app/test builds, lint, and diff whitespace checks passed. Three targeted SidebarDragTest cases passed on an isolated API-36 tablet emulator, covering grouped geometry/focus, mixed pinned state, right-page closure, drag cancellation, left/right placement, replacement, and swapping. The group test was rerun after adding a wait for actual dark-mode/narrow-width rendering and passed. Inspected light and dark 220dp-sidebar screenshots in `app/build/reports/split-sidebar-validation/`. Physical-device validation is not included.
+
+## 2026-10-06 — Split pane title alignment
+
+- Both pane title rows reserve 48dp and center their contents vertically, matching the right pane's tab picker. The progress/divider slot reserves 2dp so independent loading states do not shift the page content.
+- Debug app/test builds and `git diff --check` passed. API-36 tablet emulator: existing split creation/resize/swap/close and sidebar split grouping/focus tests passed (2 cases). Inspected light/dark screenshots in `app/build/reports/split-title-validation/`, including a loading right page beside an idle left pane. Physical-device validation is not included.
+
+
+## 2026-10-06 — Back from newly opened tabs
+
+- System Back and the Back keyboard shortcut use the focused page history first. At the start of a normal tab's history, if another visible tab exists in the space, Back closes the focused tab and selects its opener. A missing/closed/archived/moved opener falls back to a remaining tab in the same space. The final visible tab and pinned tabs retain their existing exit behavior when no page history exists; fullscreen Back still exits fullscreen first.
+- Selected new tabs remember the previously selected tab; page-created tabs explicitly remember their source engine's tab, including split panes. Parent IDs are persisted with a Room version 1-to-2 auto-migration that preserves existing data. Closing an active tab also prefers its live opener.
+- Debug app/test builds and lint passed. All 78 unit tests passed, including nested openers, unrelated neighboring tabs, an unselected split child, unavailable parents, and a populated version-1 database migration. API-36 tablet emulator: all three TabBackUiTest cases passed using device-local pages, covering a real target=_blank link, open-links-in-new-tab with Activity recreation, and in-tab history before child closure. Physical-device gesture validation is not included.

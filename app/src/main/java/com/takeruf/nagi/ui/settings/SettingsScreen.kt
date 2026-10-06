@@ -342,4 +342,3 @@ private fun SearchEngineEditor(engine: SearchEngine?, engines: List<SearchEngine
             if (error == null) onSave(value)
         }) { Text(strings(R.string.ui_save)) } }, dismissButton = { TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text(strings(R.string.ui_cancel)) } })
 }
-

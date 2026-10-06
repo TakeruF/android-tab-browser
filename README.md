@@ -8,6 +8,7 @@ Androidタブレット向けのサイドバー中心のワークスペースブ�
 
 - Spaceごとのタブ管理、固定タブ、共通のFavorites、Bookmarks、履歴。
 - URL・検索・タブ・Space・コマンドをまとめて探せるCommand Bar。
+- Command Barで通常検索と「ChatGPTに聞く」を上下キー・Enterまたはクリック／タッチで選択。80文字以上や質問・説明／比較などの依頼ではChatGPTを先頭に表示します。URLと検索エンジンの明示キーワードは優先します。
 - 2ペインのSplit、幅変更・折りたたみ可能なSidebar、ドラッグによる並び替え。
 - ライト／ダーク／システムテーマ。選択状態と文字のコントラストを調整。
 - 日本語・中国語・韓国語のIME入力、キーボード操作、マウス／トラックパッドのスクロール。
@@ -47,7 +48,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`。Releaseは`./gradlew :app:ass
 
 - サイドバー下部のアイコンからSpaceを切り替え。Spaceのメニューから名前・色・アイコンを編集。
 - `Ctrl L`でURL・検索・タブ・Space・コマンドを検索。`>`でコマンドだけを表示。
-- `g` / `ddg` / `yt` / `gh` / `scholar` / `sg` / `360` / `dy` / `sm`などのキーワード検索。検索エンジンは設定から追加・編集・削除。
+- 検索候補は設定で選んだ「常用検索エンジン」だけを表示。初期値はGoogle＋ChatGPT、中国大陸では百度＋千问。Google＋百度＋ChatGPTなども選択でき、選択後は地域が変わっても組み合わせを保持します。常用から外したエンジンはキーワード検索の対象にもなりません。登録一覧ではエンジンの追加・編集・削除ができます。
 - タブ行を長押ししてドラッグ＆ドロップで並び替え。マウス、またはタブのアイコンからは直接ドラッグ。挿入線とプレビューを表示し、リスト端で自動スクロール。
 - 区切り線の上下にドロップして固定・解除。最上部にドロップしてFavorites化、Favoritesを下に戻してタブ化。下部のSpaceアイコンへドロップして移動。タブの`…`から保存・右ペイン表示などの操作。
 - ページの`…`からSplit、Desktop Mode、ページ内検索、保存操作。
@@ -61,6 +62,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`。Releaseは`./gradlew :app:ass
 | Ctrl / Command + W | 選択ペインのタブを閉じる |
 | Ctrl / Command + Shift + T | 最後に閉じたタブを復元 |
 | Ctrl / Command + Tab / Shift + Tab | 次 / 前のタブ |
+| Ctrl / Command + 1〜9 | サイドバーのN番目を開く（お気に入り → ピン留め → 通常タブ。9は9番目、存在しない番号は何もしない。テンキー対応） |
 | Ctrl / Command + R | リロード |
 | Ctrl / Command + F | ページ内検索 |
 | Alt + Left / Right | 戻る / 進む |
@@ -74,14 +76,15 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`。Releaseは`./gradlew :app:ass
 Archiveは起動時と手動実行です。
 
 - Spacesはタブのグループです。Favoritesは全Space共通です。Cookie・Web Storage・サイトログインは共有します。
-- アプリ再起動時はRoomのURL・タイトル・順序・選択タブを復元します。WebViewのページ内履歴は同じActivityのLRU退避中に最大20タブ分を保持します。フォーム値・スクロール位置・プロセスをまたぐページ内履歴の復元は保証しません。
+- アプリ再起動時はRoomのURL・タイトル・順序・選択タブを復元します。同じActivityでは開いたタブのWebViewを保持し、タブやSpaceの切り替えによる自動破棄・再読み込みを行いません。Activityやプロセス終了後のフォーム値・スクロール位置・ページ内履歴の復元は保証しません。
 - Cookieは有効、サードパーティCookieは無効。証明書エラーはキャンセルし、サイト権限は毎回確認します。
 - `target="_blank"`とユーザー操作によるURL付き`window.open`に対応。`about:blank`へJavaScriptで文書を書き込むポップアップは未対応です。
 - ダウンロードはDownloadManagerを使用。blob / data URLは未対応です。Android 8–9ではアプリ専用Downloads、Android 10以降では公開Downloadsに保存します。
 - アップロードはシステムのドキュメントピッカーを使用。直接撮影するカメラピッカーとフォルダーアップロードは未実装です。
-- Sync / Reader / AI / Userscripts / Content Blocking / Private Browsingは未実装です。
+- Sync / Reader / アプリ内AIチャット / Userscripts / Content Blocking / Private Browsingは未実装です。
+- ChatGPT連携は`https://chatgpt.com/?q=…`へのWeb引き渡しです。APIキーは不要で、ログイン・質問の入力反映・送信はChatGPT側の動作に依存します。ページ本文は送信しません。
 
-検索テンプレートにはHTTPS URLと`{query}`を使用してください。`bd`は百度、`sg`は搜狗、`360`は360、`dy`は抖音、`sm`は神马です。標準13エンジンを用意しています。
+検索テンプレートにはHTTPS URLと`{query}`を使用してください。`bd`は百度、`sg`は搜狗、`360`は360、`dy`は抖音、`sm`は神马、`qwen`は千问、`pplx`はPerplexityです。千问は設定画面では「千问（中国大陆）」／「Qwen (China Mainland)」、検索候補では「千问」／「Qwen」と表示します。標準15エンジンを用意しています。
 
 表示言語は日本語・英語・韓国語・中国語（簡体字）に対応し、端末の言語に従います。Android 13以降では端末のアプリ情報にある「言語」から個別に選択できます。[多言語・検索エンジンの詳細](docs/LOCALIZATION.md)。
 

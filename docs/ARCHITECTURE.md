@@ -9,7 +9,7 @@ flowchart TD
   REPO --> ROOM[Room: source of truth]
   VM --> STORE[SettingsStore / DataStore]
   UI --> SESSION[BrowserSessionController]
-  SESSION --> POOL[EnginePool: LRU 3 sessions]
+  SESSION --> POOL[EnginePool: live open-tab sessions]
   POOL --> ENGINE[BrowserEngine interface]
   ENGINE --> WEB[WebViewBrowserEngine]
   WEB --> HOST[NativeBrowserHost: Android platform capabilities]
@@ -22,7 +22,7 @@ flowchart TD
 ## Directory structure
 
 ```text
-app/src/main/java/com/orbit/browser/
+app/src/main/java/com/takeruf/nagi/
 ├── MainActivity.kt / NagiApplication.kt
 ├── domain/model/          Space, BrowserTab, SearchEngine, HistoryEntry, Bookmark, Settings
 ├── data/
@@ -73,14 +73,12 @@ DataStoreはtheme、sidebarWidth、sidebarCollapsed、defaultSearchEngineId、se
 ## Engine lifecycle
 
 1. Compose paneはTab IDでセッションを取得。
-2. EnginePoolはアクセス順で最大3セッションを保持。
-3. Splitの2つの表示IDを先に保護し、ほかのセッションをLRUから退避。
-4. 退避時はengine-owned snapshotを最大20個保持し、native surfaceを親から外してdestroy。
-5. 再表示時はsnapshotからページ履歴を復元。snapshotがない場合はRoomのURLをload。
-6. 非表示セッションは`onPause`、表示時は`onResume`。画面離脱とActivityの停止でもpause。
-7. 閉じた／Archive／削除されたタブのセッションとsnapshotを除去。Activity終了時は全セッションをdestroy。
+2. EnginePoolは一度開いたタブのliveセッションを、タブ数や非表示時間によって自動破棄せず保持。
+3. Splitの2つの表示IDを指定し、非表示セッションは`onPause`、表示時は`onResume`。画面離脱とActivityの停止でもpause。
+4. 再表示時は同じengineとページを再利用し、URLの再読み込みやsnapshot復元を行わない。Space切り替えでも保持。
+5. 閉じた／Archive／削除されたタブのセッションはnative surfaceを親から外してdestroy。Activity終了時は全セッションをdestroy。
 
-WebViewの`pauseTimers()`はプロセス全体へ作用するので呼びません。`onPause()`は全JavaScriptタイマーの停止を保証しません。URLによる再起動復元とWebView内部履歴の一時復元は異なる保証です。
+WebViewの`pauseTimers()`はプロセス全体へ作用するので呼びません。`onPause()`は全JavaScriptタイマーの停止を保証しません。開いたページ数に応じてメモリ使用量は増えます。Activity終了やOSによるプロセス終了後はRoomのURLから読み込み直します。
 
 ## Chromium migration seam
 
