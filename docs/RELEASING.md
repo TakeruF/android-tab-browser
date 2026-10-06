@@ -6,11 +6,11 @@
 
 Releaseの署名設定は環境変数 `NAGI_SIGNING_PROPERTIES` が指すPropertiesファイルから読み込む。未設定時は `~/.config/nagi/release-signing.properties`。必要なキーは `storeFile` / `storePassword` / `keyAlias` / `keyPassword`。署名設定がない場合はReleaseビルドを成功させず、unsigned APKを配布しない。
 
-0.1.1の署名鍵は、以前のNagi 0.1.0 Debug APKに使われたローカル秘密鍵と証明書を、別の非公開PKCS12 keystoreへ移してパスワードを変更したもの。同じpackageと署名を維持し、アンインストールせずに更新する。証明書のDNは以前のAndroid Debugのままだが、配信するAPKはReleaseビルドである。別マシンのdebug keystoreへ戻すと署名が変わるため、今後はこのRelease keystoreを継続使用する。
+0.1.1は takeruf.com/nagi で配布済みの0.1.0 APKと同じ配布鍵を使用する。元の公開APKからpackage・version・署名fingerprintを検査して、Release keystoreを設定した。同じpackageと署名を維持し、アンインストールせずに更新する。ローカルDebug版は別署名のため、この配布版の上書き更新対象ではない。今後もこの配布鍵を継続使用する。
 
 設定ファイルとkeystoreはGit管理対象外の `~/.config/nagi/` にあり、ファイル権限600。秘密鍵とパスワードを安全な場所へ別途バックアップする。公開するのは証明書fingerprintとAPKのchecksumだけ。
 
-署名証明書SHA-256: `623f25e9ec57d3d339eff16af24ffa21a8807fa1046d7d024846032546b38565`。
+署名証明書SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`。
 
 旧package `com.orbit.browser` と別packageを使うインストールは、Androidの同一アプリ更新の対象ではない。
 
