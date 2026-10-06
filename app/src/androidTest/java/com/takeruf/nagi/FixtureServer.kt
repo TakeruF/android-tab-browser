@@ -59,6 +59,22 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                 }
                 val body = if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
                 else if (path.startsWith("/ua")) "<html><head><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Mobile")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
+                else if (path.startsWith("/features")) """
+                    <html><head><title>Fixture Features</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                    <body style="font:18px sans-serif"><style>input,textarea{display:block;max-width:90%;margin:8px 0}</style><a id="drag-link" href="/two" style="display:inline-block;margin:16px 0">Drag link</a>
+                    <img id="drag-image" src="/custom-icon.png" width="120" height="120" style="display:block;margin-bottom:16px">
+                    <button id="blob-download" onclick="let u=window.URL.createObjectURL(new Blob(['x'.repeat(120000)],{type:'text/plain'}));let a=document.createElement('a');a.href=u;a.download='generated.txt';document.body.appendChild(a);a.click();window.URL.revokeObjectURL(u);a.remove()">Export Blob</button>
+                    <a id="data-download" download="table.csv" href="data:text/csv;charset=utf-8,name%2Cvalue%0A%E6%97%A5%E6%9C%AC%E8%AA%9E%2C42">Export CSV</a>
+                    <input id="capture" type="file" accept="image/*" capture="environment">
+                    <input id="form-input" value="initial"><textarea id="form-text"></textarea>
+                    </body></html>
+                """
+                else if (path.startsWith("/login")) """
+                    <html><head><title>Fixture Login</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                    <body><form action="/two"><label>Username<input id="login-user" name="username" autocomplete="username"></label>
+                    <label>Password<input id="login-password" name="password" type="password" autocomplete="current-password"></label>
+                    <button type="submit">Sign in</button></form></body></html>
+                """
                 else if (path.startsWith("/scroll")) """
                     <html><head><title>Fixture Scroll</title><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1"></head>
                     <body style="margin:0;width:4000px;height:4000px;background:linear-gradient(#f5f8f4,#244435)">

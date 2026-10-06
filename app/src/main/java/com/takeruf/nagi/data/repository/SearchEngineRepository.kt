@@ -39,7 +39,7 @@ class SearchEngineRepository(private val workspace: WorkspaceRepository, private
     suspend fun setDefaultAi(id: String) {
         workspace.ready.await()
         require(id in AiSearchEngines.ids && (id == "chatgpt" || workspace.dao.engines().any { it.id == id }))
-        settings.update { it.copy(defaultAiEngineId = id,
+        settings.update { it.copy(defaultAiEngineId = id, automaticSearchRegion = false,
             commonSearchEngineIds = it.commonSearchEngineIds?.plus(id)) }
     }
 

@@ -11,8 +11,8 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 
-enum class SidebarSection { FAVORITES, PINNED, TODAY, SPACE, SPLIT_LEFT, SPLIT_RIGHT }
-data class SidebarDestination(val section: SidebarSection, val id: String? = null, val after: Boolean = false)
+enum class SidebarSection { FAVORITES, PINNED, TODAY, SPACE, SPLIT_LEFT, SPLIT_RIGHT, SPLIT_TAB }
+data class SidebarDestination(val section: SidebarSection, val id: String? = null, val after: Boolean = false, val atStart: Boolean = false)
 data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false, val siteUrl: String? = null)
 
 data class FavoriteLanding(val item: SidebarDragItem, val topLeft: Offset)
@@ -54,8 +54,11 @@ class SidebarDragState {
         favoriteSlots().getOrNull(index)?.second?.let { favoriteLanding = FavoriteLanding(value, it.topLeft) }
     }
     internal val sources = mutableMapOf<String, Triple<SidebarDragItem, Boolean, Rect>>()
-    private val targets = mutableMapOf<String, Pair<SidebarDestination, Rect>>()
-    fun bounds(key: String, destination: SidebarDestination, rect: Rect) { targets[key] = destination to rect }
+    private data class Target(val first: SidebarDestination, val second: Rect, val third: Boolean, val replacementRight: Boolean?)
+    private val targets = mutableMapOf<String, Target>()
+    fun bounds(key: String, destination: SidebarDestination, rect: Rect, canSplit: Boolean = true, replacementRight: Boolean? = null) {
+        targets[key] = Target(destination, rect, canSplit, replacementRight)
+    }
     fun remove(key: String) { targets.remove(key) }
     fun start(value: SidebarDragItem, position: Offset, bounds: Rect? = null) {
         favoriteLanding = null
@@ -89,8 +92,16 @@ class SidebarDragState {
             }
         }
         if (item?.favorite == true) favoriteOrder = null
-        destination = hit?.let { (target, rect) ->
-            target.copy(after = target.id != null && if (target.section == SidebarSection.FAVORITES)
+        destination = hit?.let { (target, rect, canSplit, replacementRight) ->
+            // The middle combines standalone tabs or replaces a split member; edges reorder.
+            if ((canSplit || replacementRight != null) && target.section in listOf(SidebarSection.PINNED, SidebarSection.TODAY) &&
+                target.id != null && target.id != item?.id && item?.favorite == false &&
+                position.y >= rect.top + rect.height * 0.25f &&
+                position.y <= rect.bottom - rect.height * 0.25f) {
+                if (replacementRight != null) SidebarDestination(
+                    if (replacementRight) SidebarSection.SPLIT_RIGHT else SidebarSection.SPLIT_LEFT, target.id)
+                else SidebarDestination(SidebarSection.SPLIT_TAB, target.id, after = position.x >= rect.center.x)
+            } else target.copy(after = target.id != null && if (target.section == SidebarSection.FAVORITES)
                 position.x > rect.center.x else position.y > rect.center.y)
         }
     }
@@ -102,9 +113,9 @@ class SidebarDragState {
 }
 
 @Composable
-fun Modifier.sidebarTarget(drag: SidebarDragState, key: String, destination: SidebarDestination): Modifier {
+fun Modifier.sidebarTarget(drag: SidebarDragState, key: String, destination: SidebarDestination, canSplit: Boolean = true, replacementRight: Boolean? = null): Modifier {
     DisposableEffect(drag, key) { onDispose { drag.remove(key) } }
-    return onGloballyPositioned { drag.bounds(key, destination, it.boundsInRoot()) }
+    return onGloballyPositioned { drag.bounds(key, destination, it.boundsInRoot(), canSplit, replacementRight) }
 }
 
 /** Register rows; the stable sidebar owns the pointer so recycling a row cannot interrupt a drag. */

@@ -13,6 +13,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
+import kotlinx.coroutines.*
 import com.takeruf.nagi.browser.downloads.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +30,46 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     val fullscreen = fullscreenView.asStateFlow()
     private var fullscreenExit: (() -> Unit)? = null
     private val downloads = DownloadService(activity.applicationContext)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var fileDialog: AlertDialog? = null
+    private var captureFile: File? = null
+    private var captureUri: Uri? = null
+    private val capturedFiles = mutableListOf<File>()
+    private val generatedDialogs = mutableMapOf<AlertDialog, (Boolean) -> Unit>()
+    private var disposed = false
+    private val cameraLauncher = activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val file = captureFile
+        val uri = captureUri
+        captureFile = null; captureUri = null
+        if (success && file != null && file.length() > 0 && uri != null) {
+            capturedFiles.add(file)
+            finishFiles(listOf(uri.toString()))
+        } else {
+            file?.delete(); finishFiles(null)
+        }
+    }
+    private val cameraPermissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && fileResult != null && !disposed) launchCamera() else finishFiles(null)
+    }
+    private fun finishFiles(uris: List<String>?) {
+        val callback = fileResult; fileResult = null
+        fileDialog = null; callback?.invoke(uris)
+    }
+    private fun launchCamera() {
+        try {
+            val directory = File(activity.cacheDir, "camera-uploads").apply { mkdirs() }
+            captureFile = File.createTempFile("photo-", ".jpg", directory)
+            captureUri = FileProvider.getUriForFile(activity, "${activity.packageName}.uploads", captureFile!!)
+            cameraLauncher.launch(captureUri!!)
+        } catch (_: Exception) {
+            captureFile?.delete(); captureFile = null; captureUri = null
+            finishFiles(null); showMessage(strings(R.string.ui_camera_unavailable))
+        }
+    }
+    private fun takePhoto() {
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) launchCamera()
+        else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
     override fun showContextMenu(title: String, actions: List<PageContextAction>) {
         AlertDialog.Builder(activity).setTitle(title).setItems(actions.map { it.label }.toTypedArray()) { _, index -> actions[index].execute() }
             .setNegativeButton(strings(R.string.ui_cancel), null).show()
@@ -46,7 +89,11 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
             result.data?.clipData?.let { clip -> (0 until clip.itemCount).map { clip.getItemAt(it).uri.toString() } }
                 ?: result.data?.data?.let { listOf(it.toString()) }
         } else null
-        val callback = fileResult; fileResult = null; callback?.invoke(uris)
+        // Picker replies must not expose private app files through our own providers.
+        finishFiles(uris?.filter { value ->
+            val uri = Uri.parse(value)
+            uri.scheme == "content" && uri.authority?.startsWith(activity.packageName) != true
+        }?.takeIf { it.isNotEmpty() })
     }
     private val permissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val granted = requestedPermissions.filter { kind -> permissionNames(kind).any { name ->
@@ -56,15 +103,20 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         requestedPermissions = emptySet(); callback?.invoke(granted)
     }
     override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) {
-        fileResult?.invoke(null); fileResult = result
-        val types = request.mimeTypes.flatMap { it.split(',') }.mapNotNull { value ->
-            val type = value.trim().lowercase()
-            when {
-                type.startsWith('.') -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(type.drop(1))
-                type.contains('/') -> type
-                else -> null
-            }
-        }.distinct()
+        if (fileResult != null || disposed) { result(null); return }
+        fileResult = result
+        if (FileSelectionPolicy.offersPhoto(request)) {
+            if (request.capture) takePhoto()
+            else fileDialog = AlertDialog.Builder(activity).setTitle(strings(R.string.ui_upload_file))
+                .setItems(arrayOf(strings(R.string.ui_take_photo), strings(R.string.ui_choose_files))) { _, index ->
+                    fileDialog = null
+                    if (index == 0) takePhoto() else openDocuments(request)
+                }.setNegativeButton(strings(R.string.ui_cancel)) { _, _ -> finishFiles(null) }
+                .setOnCancelListener { finishFiles(null) }.show()
+        } else openDocuments(request)
+    }
+    private fun openDocuments(request: FileSelectionRequest) {
+        val types = FileSelectionPolicy.types(request)
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = if (types.size == 1) types.first() else "*/*"
@@ -73,7 +125,7 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { fileLauncher.launch(intent) }.onFailure {
-            fileResult = null; result(null); showMessage(strings(R.string.ui_no_file_picker_is_available))
+            finishFiles(null); showMessage(strings(R.string.ui_no_file_picker_is_available))
         }
     }
     override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) {
@@ -111,6 +163,30 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
                     .onFailure { showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty())) }
             }.setNegativeButton(strings(R.string.ui_cancel), null).show()
     }
+    override fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) {
+        if (disposed) { result(false); return }
+        lateinit var dialog: AlertDialog
+        fun finish(accepted: Boolean) { generatedDialogs.remove(dialog)?.invoke(accepted) }
+        dialog = AlertDialog.Builder(activity).setTitle(strings(R.string.ui_download_file))
+            .setMessage("${request.name}\n${request.size / 1024} KB\n\n${request.origin}")
+            .setPositiveButton(strings(R.string.ui_download)) { _, _ -> finish(true) }
+            .setNegativeButton(strings(R.string.ui_cancel)) { _, _ -> finish(false) }
+            .setOnCancelListener { finish(false) }.create()
+        generatedDialogs[dialog] = result
+        dialog.show()
+    }
+    override fun saveGeneratedDownload(request: GeneratedDownload, file: File) {
+        if (disposed) { file.delete(); return }
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { downloads.saveGenerated(request, file) }
+                showMessage(strings(R.string.ui_download_saved))
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                showMessage(strings(R.string.ui_download_failed_1_s, error.message.orEmpty()))
+            } finally { file.delete() }
+        }
+    }
     override fun openExternal(url: String) {
         AlertDialog.Builder(activity).setTitle(strings(R.string.ui_open_another_app)).setMessage(url)
             .setPositiveButton(strings(R.string.ui_open)) { _, _ ->
@@ -127,7 +203,13 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         val exit = fullscreenExit; fullscreenExit = null; exit?.invoke()
     }
     fun dispose() {
+        disposed = true
         consentDialog?.dismiss(); finishPermission(emptySet())
-        fileResult?.invoke(null); fileResult = null; hideFullscreen()
+        fileDialog?.dismiss(); fileDialog = null; finishFiles(null)
+        captureFile?.delete(); captureFile = null; captureUri = null
+        capturedFiles.forEach { it.delete() }; capturedFiles.clear()
+        generatedDialogs.toMap().forEach { (dialog, callback) -> dialog.dismiss(); callback(false) }
+        generatedDialogs.clear()
+        scope.cancel(); hideFullscreen()
     }
 }

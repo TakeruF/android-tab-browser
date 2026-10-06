@@ -9,6 +9,7 @@ data class PageState(
     val canGoBack: Boolean = false, val canGoForward: Boolean = false,
     val desktopMode: Boolean = false, val error: String? = null,
     val findMatches: Int = 0, val activeFindMatch: Int = 0,
+    val isSuspended: Boolean = false,
 )
 
 sealed interface EngineEvent {
@@ -37,11 +38,14 @@ interface BrowserEngine {
     fun setVisible(visible: Boolean)
     fun saveState(): EngineSnapshot?
     fun restoreState(snapshot: EngineSnapshot): Boolean
+    /** Conservative eligibility check; adapters without a check keep their live page. */
+    fun canSuspend(result: (Boolean) -> Unit) { result(false) }
     fun destroy()
 }
 
 enum class SitePermission { CAMERA, MICROPHONE, LOCATION }
-data class FileSelectionRequest(val mimeTypes: List<String>, val multiple: Boolean)
+data class FileSelectionRequest(val mimeTypes: List<String>, val multiple: Boolean, val capture: Boolean = false)
+data class GeneratedDownload(val name: String, val mimeType: String, val size: Long, val origin: String)
 data class DownloadRequest(val url: String, val userAgent: String, val contentDisposition: String?,
     val mimeType: String?, val cookies: String?, val suggestedName: String)
 data class PageContextAction(val label: String, val execute: () -> Unit)
@@ -53,6 +57,8 @@ interface BrowserHost {
     fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit)
     fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit)
     fun download(request: DownloadRequest)
+    fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) { result(false) }
+    fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File) { file.delete() }
     fun openExternal(url: String)
     fun showMessage(message: String)
 }

@@ -34,7 +34,7 @@ import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, focused: Boolean,
     split: Boolean, showFind: Boolean, onCloseFind: () -> Unit, onFind: () -> Unit, onFocus: () -> Unit,
     onOmnibox: () -> Unit, onOpen: (String) -> Unit,
-    onSplit: () -> Unit, onCloseSplit: () -> Unit, onSwap: () -> Unit,
+    onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit,
     onBookmark: () -> Unit = {}, onFavorite: () -> Unit = {}) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
@@ -65,15 +65,18 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
         Column {
             BoxWithConstraints {
             val compact = maxWidth < 320.dp
-            val inlineLinkActions = maxWidth >= 480.dp
+            val inlineLinkActions = maxWidth >= 360.dp
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
                 if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
                 if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
                 Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Rounded,
                     color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.weight(1f).height(40.dp)) {
-                    Row(Modifier.padding(start = 12.dp, end = if (inlineLinkActions) 4.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.weight(1f).height(40.dp)
+                        .testTag("url-drop-${tab.id}")) {
+                    Box {
+                    WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
+                    Row(Modifier.fillMaxSize().padding(start = 12.dp, end = if (inlineLinkActions) 4.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
                         Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/"),
                             Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -86,6 +89,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                 Icon(NagiIcons.Share, strings(R.string.ui_share_link), Modifier.size(16.dp))
                             }
                         }
+                    }
                     }
                 }
                 Box {
@@ -113,8 +117,11 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             }
             }
             // Keep page titles aligned across both split panes.
-            if (split) Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (split) Row(Modifier.fillMaxWidth().height(48.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings.tabTitle(tab), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                IconButton(onClick = onCloseTab, modifier = Modifier.size(48.dp).testTag("close-split-tab:${tab.id}")) {
+                    Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(21.dp))
+                }
             }
             Box(Modifier.fillMaxWidth().height(2.dp), contentAlignment = Alignment.BottomCenter) {
                 if (page.isLoading) LinearProgressIndicator(progress = { page.progress / 100f }, modifier = Modifier.fillMaxWidth().height(2.dp))
@@ -128,7 +135,10 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     onPrevious = { engine.findNext(false) }, onNext = { engine.findNext(true) }, onClose = onCloseFind)
             }
             Box(Modifier.fillMaxSize()) {
-                if (page.url == "about:blank") NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), onOmnibox)
+                if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
+                    WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
+                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), onOmnibox)
+                }
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(NagiShapes.Bottom), onFocus)
                 page.error?.let { error ->
                     Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,

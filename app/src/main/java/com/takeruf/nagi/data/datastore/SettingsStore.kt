@@ -24,6 +24,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val restore = booleanPreferencesKey("restore_tabs")
         val desktop = booleanPreferencesKey("desktop_default")
         val newLinks = booleanPreferencesKey("open_links_new_tab")
+        val pageDrag = booleanPreferencesKey("native_page_drag")
         val aiEnginesSeeded = booleanPreferencesKey("ai_engines_seeded_v1")
         val additionalEnginesSeeded = booleanPreferencesKey("additional_engines_seeded_v1")
         val regionalEngineSeeded = booleanPreferencesKey("regional_engine_seeded")
@@ -43,6 +44,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         selectedSpaceId = p[Keys.space] ?: "personal",
         restoreTabs = p[Keys.restore] ?: true, desktopDefault = p[Keys.desktop] ?: true,
         openLinksInNewTab = p[Keys.newLinks] ?: false,
+        nativePageDrag = p[Keys.pageDrag] ?: true,
         archivePeriod = enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
         automaticSearchRegion = p[Keys.automaticRegion] ?: true,
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
@@ -67,8 +69,10 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
                 p[Keys.automaticRegion] ?: true,
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
-                p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids })
+                p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
+                nativePageDrag = p[Keys.pageDrag] ?: true)
             val next = change(current)
+            p[Keys.pageDrag] = next.nativePageDrag
             next.defaultAiEngineId?.let { p[Keys.aiEngine] = it } ?: p.remove(Keys.aiEngine)
             next.commonSearchEngineIds?.let { p[Keys.commonEngines] = it } ?: p.remove(Keys.commonEngines)
             p[Keys.themeColor] = next.themeColor

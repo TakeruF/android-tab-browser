@@ -13,9 +13,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-data class AppRelease(val versionCode: Long, val versionName: String, val apkUrl: String,
-    val sha256: String, val size: Long, val notes: String, val minSdk: Int)
-
 object UpdateManifest {
     const val REPOSITORY = "https://github.com/TakeruF/android-tab-browser"
     const val URL = "$REPOSITORY/releases/latest/download/update.json"
@@ -36,10 +33,6 @@ object UpdateManifest {
         return AppRelease(code, name, url, digest, size, value.optString("notes").take(10_000), minSdk)
     }
 }
-
-enum class UpdateStatus { IDLE, CHECKING, CURRENT, AVAILABLE, DOWNLOADING, READY, ERROR, UNSUPPORTED }
-data class UpdateState(val status: UpdateStatus = UpdateStatus.IDLE, val release: AppRelease? = null,
-    val progress: Int = 0, val apk: File? = null)
 
 /** Downloads are private to the app; only a verified upgrade can reach the installer. */
 class AppUpdates(private val context: Context, private val scope: CoroutineScope,

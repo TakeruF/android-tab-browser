@@ -58,7 +58,7 @@
     <string name="ui_default_search_engine">"Default search engine"</string>
     <string name="ui_select">"Select"</string>
     <string name="ui_automatic_search_by_region">"Automatic search by region"</string>
-    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"Mainland China: 百度 · elsewhere: Google. Choosing an engine turns this off."</string>
+    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"Mainland China: 百度 + 千问 · elsewhere: Google + ChatGPT. Choosing an engine turns this off."</string>
     <string name="ui_region_unavailable_current_engine_kept">"Region unavailable · current engine kept"</string>
     <string name="ui_detecting_region">"Detecting region…"</string>
     <string name="ui_check_again">"Check again"</string>
@@ -278,4 +278,24 @@
     <string name="ui_update_install_failed">Could not open the verified update. Download it again and retry.</string>
     <string name="ui_update_banner">Update to %1$s</string>
     <string name="ui_clear_data">Clear data</string>
+    <string name="ui_privacy_policy">Privacy policy</string>
+    <string name="ui_privacy_policy_url">https://takeruf.com/en/nagi/privacy</string>
+    <string name="ui_play_updates">Updates are delivered through Google Play.</string>
+    <string name="ui_open_google_play">Open Google Play</string>
+    <string name="ui_password_autofill">Password autofill</string>
+    <string name="ui_password_autofill_description">Use Google Password Manager or another autofill service selected in Android settings. Tap a login field on a website to see available suggestions. Availability depends on your device, website and provider.</string>
+    <string name="ui_open_autofill_settings">Choose autofill service</string>
+    <string name="ui_autofill_settings_unavailable">Open Android settings to choose an autofill service.</string>
+    <string name="ui_upload_file">Upload file</string>
+    <string name="ui_take_photo">Take photo</string>
+    <string name="ui_choose_files">Choose files</string>
+    <string name="ui_camera_unavailable">No camera app is available.</string>
+    <string name="ui_download_saved">Saved to Downloads</string>
+    <string name="ui_generated_download_failed">Could not save this generated file. The limit is 32 MB.</string>
+    <string name="ui_page_drag">Drag links and images</string>
+    <string name="ui_page_drag_description">Long-press a page link or image to drag it. Drop links on a pane address bar to open them. Right-click for actions; turn this off to use the long-press menu.</string>
+    <string name="ui_sleep_tabs_description">When more than 6 pages are live, safe background tabs idle for 10 minutes can sleep. Displayed pages, edited forms and active media stay live. Sleeping tabs reload when opened; some page state may be lost.</string>
+    <string name="ui_sleep_tabs">Suspend background tabs</string>
+    <string name="ui_tab_suspended">Suspended tab</string>
+    <string name="ui_release_to_split_tabs">Release to open tabs side by side</string>
 </resources>

@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <service android:name=".testing.AutofillHarnessService" android:label="Nagi autofill test harness"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE" android:exported="true">
+            <intent-filter><action android:name="android.service.autofill.AutofillService" /></intent-filter>
+        </service>
         <service android:name=".testing.InputConnectionHarnessIme" android:label="Nagi input test harness"
             android:permission="android.permission.BIND_INPUT_METHOD" android:exported="true">
             <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>

@@ -4,11 +4,13 @@ A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpac
 
 ![Nagi 0.1.1 in the light theme](docs/screenshots/readme-home.png)
 
-[Download Nagi 0.1.1](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.1.1)
+[Download Nagi 0.1.2](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.1.2)
 
-Install the APK over the 0.1.0 version distributed at takeruf.com to keep your workspace. That version does not include an updater; after installing 0.1.1, use **Settings → App updates** for future releases. Local Debug builds and the former `com.orbit.browser` package have different signing or package identities.
+Install the APK over the 0.1.0 version distributed at takeruf.com to keep your workspace. That version does not include an updater; after installing 0.1.2, use **Settings → App updates** for future releases. Local Debug builds and the former `com.orbit.browser` package have different signing or package identities.
 
 ## Features
+
+Version 0.1.2 adds camera uploads, generated downloads, native page drag, sleeping background tabs, and system password autofill.
 
 - Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
 - A Command Bar for URLs, search, tabs, Spaces, and commands.
@@ -16,10 +18,12 @@ Install the APK over the 0.1.0 version distributed at takeruf.com to keep your w
 - Resizable Split panes, a resizable/collapsible sidebar, and drag-and-drop organization.
 - Light, dark, and system themes with adjustable theme colors and selection contrast.
 - Japanese, Chinese, and Korean IME composition, keyboard shortcuts, and mouse/trackpad scrolling.
-- Find in page, desktop mode, HTTP downloads, and the system document picker.
+- Find in page, desktop mode, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
+- Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
 - Bookmark management, link/image context menus, site-data clearing, and verified in-app APK updates.
+- Website password autofill through the selected Android system provider; see [password autofill](docs/PASSWORD_AUTOFILL.md).
 
-Nagi **0.1.1** is an MVP. See the supported behavior and limitations below.
+Nagi **0.1.2** is an MVP. See the supported behavior and limitations below.
 
 ## Build and run
 
@@ -33,14 +37,18 @@ Open this directory in Android Studio, sync Gradle, and run `app` on an Android 
 ```sh
 git clone https://github.com/TakeruF/android-tab-browser.git
 cd android-tab-browser
-./gradlew :app:assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleGithubDebug
+adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 adb shell am start -n com.takeruf.nagi/.MainActivity
 ```
 
 Set `ANDROID_HOME` or add `sdk.dir` to the Git-ignored `local.properties`. With multiple devices, use `adb -s <serial>`.
 
-The Debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Generate the signed Release with `./gradlew :app:assembleRelease`; see [distribution and in-app updates](docs/RELEASING.md) for signing and publication.
+The Debug APK is `app/build/outputs/apk/github/debug/app-github-debug.apk`. Generate the signed Release with `./gradlew :app:assembleGithubRelease`; see [distribution and in-app updates](docs/RELEASING.md) for signing and publication.
+
+Build the Google Play upload bundle with `./gradlew :app:bundlePlayRelease` (output: `app/build/outputs/bundle/playRelease/app-play-release.aab`). The `github` flavor keeps verified APK updates; the `play` flavor contains no GitHub update transport or APK installer and directs users to Google Play. Both use `com.takeruf.nagi`; see signing/channel-switch requirements in [RELEASING.md](docs/RELEASING.md).
+
+Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), also available from Settings in all four interface languages.
 
 ## Using Nagi
 
@@ -50,7 +58,7 @@ The Debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Generate the signe
 - Hold a tab row to drag it; mouse and favicon dragging start directly. Insertion lines and a preview show the destination, with edge auto-scrolling.
 - Drop across the divider to pin/unpin, at the top to create a Favorite, below Favorites to restore a tab, or on a Space icon to move it. Tab menus include save and right-pane actions.
 - Use the page menu for Split, desktop mode, find, or saving to Bookmarks/Favorites. Open and remove saved pages from the sidebar's Bookmarks button.
-- Long-press or right-click a link/image to open a tab, copy/share its URL, or save an image.
+- Long-press a link/image to drag it, and drop a link on either pane address bar to navigate that pane. Images can be dragged to Android drop targets. Right-click for Nagi link/image actions. Turn off “Drag links and images” in Settings to restore the long-press action menu.
 - Drag the Split divider to resize. Drop a tab onto either pane or use the tab menu to show it on the right; swap or exit Split from the page menu.
 - Drag the sidebar boundary right to expand/resize, or far left to collapse.
 
@@ -68,18 +76,18 @@ The Debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Generate the signe
 
 ## Architecture
 
-See [architecture and the Room schema](docs/ARCHITECTURE.md). `WebViewBrowserEngine` owns WebView configuration and API calls; Compose attaches the native surface through an Android rendering adapter. The session pool retains all opened live WebViews until the Activity ends and pauses hidden sessions. There is currently no automatic retention cap.
+See [architecture and the Room schema](docs/ARCHITECTURE.md). `WebViewBrowserEngine` owns WebView configuration and API calls; Compose attaches the native surface through an Android rendering adapter. The session pool pauses hidden sessions and can suspend eligible background pages idle for 10 minutes when more than 6 pages are live. Selected/split pages and pages with edited forms or active media are protected. Settings also offers manual background suspension. Up to 32 history snapshots are kept in memory; selecting a suspended tab recreates its WebView. See [browser integrations](docs/BROWSER_INTEGRATIONS.md).
 
 ## Supported behavior and limitations
 
 Archive runs on launch and on manual request.
 
 - Spaces organize tabs; Favorites are shared across Spaces. Cookies, Web Storage, and site logins are also shared.
-- Room restores URLs, titles, order, and selected tabs after restart. Within one Activity, switching tabs/Spaces preserves opened WebViews. Form values, scroll position, and in-page history are not guaranteed after Activity/process termination.
+- Room restores URLs, titles, order, and selected tabs after restart. Eligible hidden pages can sleep; waking restores their in-Activity history snapshot and scroll position where available, otherwise reloads the URL. WebView does not serialize the live DOM or arbitrary JavaScript state. Form values, scroll position, and in-page history are not guaranteed after Activity/process termination.
 - Cookies are enabled; third-party cookies are blocked. “Clear cookies and site data” resets site logins, storage, and page cache across Spaces while retaining tabs, Bookmarks, and history. Certificate errors are canceled; site permissions require confirmation.
 - User-initiated `target="_blank"` and `window.open` with a URL are supported. Popups that write documents into `about:blank` are not.
-- Downloads use DownloadManager. Blob/data URLs are unsupported. Android 8–9 uses app-specific Downloads; Android 10+ uses public Downloads.
-- Uploads use the system document picker. Direct camera capture and folder uploads are not implemented.
+- HTTP downloads use DownloadManager. Main-frame Blob/data exports up to 32 MB use a bounded page-file transfer after confirmation, then save to Downloads. Android 8–9 uses app-specific Downloads; Android 10+ uses public Downloads. Generated downloads need a supported WebView message API; iframe-generated exports are not supported.
+- Uploads use the system document picker, with a photo option for single-image or unrestricted uploads. Image capture requests open the camera directly and return a scoped content URI. Camera output is JPEG; video/audio capture and folder uploads are not implemented.
 - Sync, Reader, in-app AI chat, Userscripts, Content Blocking, and Private Browsing are not implemented.
 - ChatGPT integration opens `https://chatgpt.com/?q=…` without an API key or page-content submission. Login, query prefill, and sending depend on ChatGPT; successful answers/login are not established by URL-handoff tests.
 
@@ -96,12 +104,14 @@ See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains 
 ## Tests and screenshots
 
 ```sh
-./gradlew :app:testDebugUnitTest :app:lintDebug
-./gradlew :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:testGithubDebugUnitTest :app:lintGithubDebug
+./gradlew :app:assembleGithubDebug :app:assembleGithubRelease :app:assembleGithubDebugAndroidTest
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest
 ```
 
-Replace `emulator-5554` with your device serial. On 2026-10-06, JDK 17 / SDK 36 / the API-36 tablet emulator passed:
+Version 0.1.2: GitHub unit tests 112 passed; Play unit tests 101 passed. Release Lint: 0 errors, 40 GitHub warnings and 51 Play warnings. Both signed Release artifacts built successfully.
+
+Replace `emulator-5554` with your device serial. For the earlier 0.1.1 release on 2026-10-06, JDK 17 / SDK 36 / the API-36 tablet emulator passed:
 
 | Check | Result |
 | --- | --- |

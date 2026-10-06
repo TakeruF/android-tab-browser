@@ -57,7 +57,7 @@
     <string name="ui_default_search_engine">"默认搜索引擎"</string>
     <string name="ui_select">"选择"</string>
     <string name="ui_automatic_search_by_region">"按地区自动选择搜索引擎"</string>
-    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"中国大陆使用百度，其他地区使用 Google。手动选择搜索引擎后将关闭此功能。"</string>
+    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"中国大陆使用百度＋千问，其他地区使用 Google＋ChatGPT。手动选择搜索引擎后将关闭此功能。"</string>
     <string name="ui_region_unavailable_current_engine_kept">"无法获取地区 · 保留当前搜索引擎"</string>
     <string name="ui_detecting_region">"正在检测地区…"</string>
     <string name="ui_check_again">"重新检测"</string>
@@ -277,4 +277,24 @@
     <string name="ui_update_install_failed">无法打开已验证的更新。请重新下载后重试。</string>
     <string name="ui_update_banner">更新至 %1$s</string>
     <string name="ui_clear_data">清除数据</string>
+    <string name="ui_privacy_policy">隐私政策</string>
+    <string name="ui_privacy_policy_url">https://takeruf.com/zh/nagi/privacy</string>
+    <string name="ui_play_updates">更新通过 Google Play 分发。</string>
+    <string name="ui_open_google_play">打开 Google Play</string>
+    <string name="ui_password_autofill">密码自动填充</string>
+    <string name="ui_password_autofill_description">使用在 Android 设置中选择的 Google 密码管理工具或其他自动填充服务。点按网站的登录输入框即可查看可用建议。可用性取决于设备、网站和服务提供方。</string>
+    <string name="ui_open_autofill_settings">选择自动填充服务</string>
+    <string name="ui_autofill_settings_unavailable">请在 Android 设置中选择自动填充服务。</string>
+    <string name="ui_upload_file">上传文件</string>
+    <string name="ui_take_photo">拍摄照片</string>
+    <string name="ui_choose_files">选择文件</string>
+    <string name="ui_camera_unavailable">无法打开相机应用。</string>
+    <string name="ui_download_saved">已保存到 Downloads</string>
+    <string name="ui_generated_download_failed">无法保存生成的文件。大小上限为32 MB。</string>
+    <string name="ui_page_drag">拖放链接和图片</string>
+    <string name="ui_page_drag_description">长按网页链接或图片即可拖动。将链接放到窗格地址栏即可打开。右键可打开操作菜单，关闭此设置后也可通过长按打开菜单。</string>
+    <string name="ui_sleep_tabs_description">当打开的网页超过6个时，可休眠闲置10分钟的安全后台标签页。正在显示、编辑表单或使用媒体的页面保持运行。休眠页面打开时会重新加载，部分页面状态可能丢失。</string>
+    <string name="ui_sleep_tabs">休眠后台标签页</string>
+    <string name="ui_tab_suspended">已休眠的标签页</string>
+    <string name="ui_release_to_split_tabs">松开以并排显示标签页</string>
 </resources>

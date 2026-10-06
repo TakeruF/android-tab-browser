@@ -34,6 +34,11 @@ fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> U
 
 /** Observe focus at the native boundary so Compose's pointer interop stays the sole input owner. */
 private class SurfaceContainer(context: Context, private val onFocus: () -> Unit) : FrameLayout(context) {
+    init {
+        // Exclude the host itself while preserving the native surface's virtual fields.
+        importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
+    }
+
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) onFocus()
         return super.dispatchTouchEvent(event)

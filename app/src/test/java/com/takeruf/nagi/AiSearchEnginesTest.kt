@@ -9,6 +9,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AiSearchEnginesTest {
+    @Test fun automaticRegionOverridesSavedAiChoice() {
+        for (country in listOf("CN", "JP", "HK", "MO", "TW", "US")) {
+            val expected = if (country == "CN") "qwen" else "chatgpt"
+            val settings = BrowserSettings(searchRegionCountry = country, defaultAiEngineId = "perplexity")
+            assertEquals(expected, AiSearchEngines.default(settings, DefaultSearchEngines.all).id)
+            assertEquals("perplexity", AiSearchEngines.defaultId(settings.copy(automaticSearchRegion = false)))
+        }
+    }
+
     @Test fun selectedAiKeywordsUseRequestedTemplatesWithEncodedQueries() {
         val settings = BrowserSettings(commonSearchEngineIds = setOf("google", "qwen", "perplexity"))
         for ((keyword, expected) in listOf(
@@ -23,7 +32,7 @@ class AiSearchEnginesTest {
     @Test fun selectedDefaultAiLeadsLongQueriesAndSearchLeadsShortQueries() {
         val workspace = WorkspaceSnapshot(searchEngines = DefaultSearchEngines.all)
         for (aiId in listOf("chatgpt", "qwen", "perplexity")) {
-            val settings = BrowserSettings(defaultSearchEngineId = "bing", defaultAiEngineId = aiId,
+            val settings = BrowserSettings(defaultSearchEngineId = "bing", defaultAiEngineId = aiId, automaticSearchRegion = false,
                 commonSearchEngineIds = setOf("google", "qwen", "perplexity", "chatgpt"))
             for ((query, first) in listOf("weather" to "primary", "あ".repeat(80) to "ai:$aiId", "😀".repeat(80) to "ai:$aiId")) {
                 val suggestions = SuggestionProvider.suggestions(query, workspace, settings)

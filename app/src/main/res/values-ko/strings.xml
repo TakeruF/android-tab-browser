@@ -57,7 +57,7 @@
     <string name="ui_default_search_engine">"기본 검색 엔진"</string>
     <string name="ui_select">"선택"</string>
     <string name="ui_automatic_search_by_region">"지역별 검색 엔진 자동 선택"</string>
-    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"중국 본토에서는 百度, 그 외 지역에서는 Google을 사용합니다. 직접 선택하면 자동 설정이 꺼집니다."</string>
+    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"중국 본토에서는 百度＋千问, 그 외 지역에서는 Google＋ChatGPT를 사용합니다. 직접 선택하면 자동 설정이 꺼집니다."</string>
     <string name="ui_region_unavailable_current_engine_kept">"지역 확인 불가 · 현재 검색 엔진 유지"</string>
     <string name="ui_detecting_region">"지역 확인 중…"</string>
     <string name="ui_check_again">"다시 확인"</string>
@@ -277,4 +277,24 @@
     <string name="ui_update_install_failed">검증된 업데이트를 열 수 없습니다. 다시 다운로드하고 재시도하세요.</string>
     <string name="ui_update_banner">%1$s 업데이트</string>
     <string name="ui_clear_data">데이터 삭제</string>
+    <string name="ui_privacy_policy">개인정보 처리방침</string>
+    <string name="ui_privacy_policy_url">https://takeruf.com/ko/nagi/privacy</string>
+    <string name="ui_play_updates">업데이트는 Google Play를 통해 제공됩니다.</string>
+    <string name="ui_open_google_play">Google Play 열기</string>
+    <string name="ui_password_autofill">비밀번호 자동 완성</string>
+    <string name="ui_password_autofill_description">Android 설정에서 선택한 Google 비밀번호 관리자 또는 다른 자동 완성 서비스를 사용합니다. 웹사이트의 로그인 입력란을 탭하면 사용 가능한 추천 항목이 표시됩니다. 지원 여부는 기기, 웹사이트 및 서비스에 따라 다릅니다.</string>
+    <string name="ui_open_autofill_settings">자동 완성 서비스 선택</string>
+    <string name="ui_autofill_settings_unavailable">Android 설정에서 자동 완성 서비스를 선택하세요.</string>
+    <string name="ui_upload_file">파일 업로드</string>
+    <string name="ui_take_photo">사진 촬영</string>
+    <string name="ui_choose_files">파일 선택</string>
+    <string name="ui_camera_unavailable">카메라 앱을 열 수 없습니다.</string>
+    <string name="ui_download_saved">Downloads에 저장했습니다</string>
+    <string name="ui_generated_download_failed">생성된 파일을 저장할 수 없습니다. 최대 크기는 32 MB입니다.</string>
+    <string name="ui_page_drag">링크 및 이미지 드래그</string>
+    <string name="ui_page_drag_description">웹페이지의 링크나 이미지를 길게 눌러 드래그하세요. 링크를 창의 주소 표시줄에 놓으면 열립니다. 우클릭으로 메뉴를 열거나 이 설정을 끄고 길게 눌러 메뉴를 열 수 있습니다.</string>
+    <string name="ui_sleep_tabs_description">열린 페이지가 6개를 넘으면 10분간 사용하지 않은 안전한 백그라운드 탭을 절전 상태로 전환합니다. 표시 중인 페이지, 편집한 양식 및 사용 중인 미디어는 유지합니다. 절전 탭은 열 때 다시 로드되며 일부 페이지 상태가 손실될 수 있습니다.</string>
+    <string name="ui_sleep_tabs">백그라운드 탭 절전</string>
+    <string name="ui_tab_suspended">절전 상태의 탭</string>
+    <string name="ui_release_to_split_tabs">놓아서 탭을 나란히 보기</string>
 </resources>

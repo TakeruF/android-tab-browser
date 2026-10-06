@@ -13,6 +13,10 @@ class EnginePoolTest {
         override val events = emptyFlow<EngineEvent>()
         var destroyed = false; var displayed = false; var restored = false
         var loadCount = 0; var reloadCount = 0; var destroyCount = 0
+        var safeToSuspend = true
+        var deferredCheck: ((Boolean) -> Unit)? = null
+        var deferCheck = false
+        override fun canSuspend(result: (Boolean) -> Unit) { if (deferCheck) deferredCheck = result else result(safeToSuspend) }
         override fun loadUrl(url: String) { loadCount++; state.value = state.value.copy(url = url) }
         override fun reload() { reloadCount++ } ; override fun goBack() {}; override fun goForward() {}
         override fun canGoBack() = false; override fun canGoForward() = false
@@ -92,5 +96,56 @@ class EnginePoolTest {
         val next = pool.acquire("a", "new", false) as FakeEngine
         assertFalse(next.displayed); assertFalse(next.restored)
         assertEquals("new", next.state.value.url)
+    }
+
+    @Test fun oldBackgroundPagesSleepAndRestoreTheirNavigatedHistory() {
+        var now = 0L
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() }, clock = { now })
+        val a = pool.acquire("a", "https://a.com", false) as FakeEngine
+        a.state.value = PageState(url = "https://a.com/next", desktopMode = true)
+        now++
+        pool.setVisible(setOf("b"))
+        val b = pool.acquire("b", "https://b.com", false)
+        pool.suspendBackground(maxLive = 1)
+        assertFalse(a.destroyed)
+        now += 10 * 60_000L
+        pool.suspendBackground(maxLive = 1)
+        assertTrue(a.destroyed); assertSame(b, pool.peek("b"))
+        assertEquals(setOf("a"), pool.suspendedIds)
+        pool.setVisible(setOf("a"))
+        val restored = pool.acquire("a", "https://stale.com", false) as FakeEngine
+        assertTrue(restored.restored)
+        assertEquals("https://a.com/next", restored.state.value.url)
+        assertTrue(pool.suspendedIds.isEmpty())
+    }
+    @Test fun displayedProtectedAndUnsafePagesCannotBeSuspended() {
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() }, clock = { 0 })
+        pool.setVisible(setOf("left", "right")); pool.protect(setOf("left", "right", "protected"))
+        val pages = listOf("left", "right", "protected", "form", "safe").associateWith { pool.acquire(it, it, false) as FakeEngine }
+        pages.getValue("form").safeToSuspend = false
+        pool.suspendBackground(maxLive = 0, idleMillis = 0)
+        assertEquals(setOf("safe"), pool.suspendedIds)
+        pages.filterKeys { it != "safe" }.values.forEach { assertFalse(it.destroyed) }
+        pool.setVisible(emptySet())
+        pool.suspendBackground(maxLive = 0, idleMillis = 0)
+        assertFalse(pages.getValue("left").destroyed)
+    }
+    @Test fun returningToTabDuringEligibilityCheckKeepsItLive() {
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() }, clock = { 0 })
+        val a = pool.acquire("a", "a", false) as FakeEngine
+        a.deferCheck = true
+        pool.suspendBackground(maxLive = 0, idleMillis = 0)
+        pool.setVisible(setOf("a"))
+        a.deferredCheck!!(true)
+        assertFalse(a.destroyed)
+        assertTrue(pool.suspendedIds.isEmpty())
+    }
+    @Test fun closingSleepingTabDiscardsSnapshotAndCreatesFreshPageOnReopen() {
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() }, clock = { 0 })
+        pool.acquire("a", "old", false)
+        pool.suspendBackground(maxLive = 0, idleMillis = 0)
+        pool.retainTabIds(emptySet())
+        val next = pool.acquire("a", "new", false) as FakeEngine
+        assertFalse(next.restored); assertEquals("new", next.state.value.url)
     }
 }

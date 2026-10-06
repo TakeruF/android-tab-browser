@@ -60,6 +60,7 @@ data class BrowserSettings(
     val commonSearchEngineIds: Set<String>? = null,
     // null follows the regional AI default until explicitly selected.
     val defaultAiEngineId: String? = null,
+    val nativePageDrag: Boolean = true,
 )
 
 data class WorkspaceSnapshot(

@@ -75,6 +75,102 @@ class SidebarDragTest {
             if (cancel) cancel() else up()
         }
     }
+    @Test fun droppingOnAnotherTabCombinesThosePagesAndPreservesOrder() {
+        val original = runBlocking { container.workspace.dao.tabs(spaceId).map { it.id to it.isPinned } }
+        fun centerDrop(cancelled: Boolean = false, mouse: Boolean = false, toRight: Boolean = true) {
+            val source = compose.onNodeWithTag("sidebar-tab-$beta")
+            val from = source.fetchSemanticsNode().boundsInRoot
+            val to = compose.onNodeWithTag("sidebar-tab-$alpha").fetchSemanticsNode().boundsInRoot
+            val end = Offset(if (toRight) to.center.x else to.left + to.width * 0.25f, to.center.y) - from.topLeft
+            if (mouse) source.performMouseInput {
+                moveTo(center); press(); moveTo(end, delayMillis = 100); release()
+            } else {
+                source.performTouchInput {
+                    down(center); advanceEventTime(650); moveTo(end, delayMillis = 100)
+                }
+                compose.onNodeWithTag("sidebar-split-drop-$alpha").assertIsDisplayed()
+                val highlight = compose.onNodeWithTag("sidebar-split-drop-$alpha").fetchSemanticsNode().boundsInRoot
+                val preview = compose.onNodeWithTag("tab-drag-preview").fetchSemanticsNode().boundsInRoot
+                assertTrue("The split highlight fills the row", highlight.height >= from.height - 1f)
+                assertEquals(to.width / 2f, highlight.width, 1f)
+                assertEquals(if (toRight) to.center.x else to.left, highlight.left, 1f)
+                assertEquals(from.width, preview.width, 1f)
+                assertEquals((from.left + end.x - from.width / 2f).coerceAtLeast(0f), preview.left, 1f)
+                assertTrue("The raised card leaves the rounded destination visible", preview.bottom < to.bottom - 1f)
+                if (!cancelled) saveScreen(if (toRight) "tab-on-tab-hover" else "tab-on-tab-hover-left")
+                source.performTouchInput { if (cancelled) cancel() else up() }
+            }
+        }
+        centerDrop(cancelled = true)
+        compose.onNodeWithTag("sidebar-split-group").assertDoesNotExist()
+        centerDrop()
+        compose.onNodeWithTag("browser-pane-left-$alpha").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
+        assertEquals(original, runBlocking { container.workspace.dao.tabs(spaceId).map { it.id to it.isPinned } })
+        saveScreen("tab-on-tab-split")
+        // Existing members offer replacement previews; cancelling preserves the pair.
+        for (id in listOf(alpha, beta)) {
+            val source = compose.onNodeWithTag("sidebar-tab-$gamma")
+            val from = source.fetchSemanticsNode().boundsInRoot
+            val to = compose.onNodeWithTag("sidebar-tab-$id").fetchSemanticsNode().boundsInRoot
+            source.performTouchInput {
+                down(center); advanceEventTime(650); moveTo(to.center - from.topLeft, delayMillis = 100)
+            }
+            compose.onNodeWithTag("tab-drag-preview").assertExists()
+            compose.onNodeWithTag("sidebar-split-drop-$id").assertDoesNotExist()
+            compose.onNodeWithTag("sidebar-replace-drop-$id").assertIsDisplayed()
+            saveScreen("grouped-tab-drop-$id")
+            source.performTouchInput { cancel() }
+            source.performMouseInput {
+                moveTo(center); press(); moveTo(to.center - from.topLeft, delayMillis = 100)
+            }
+            compose.onNodeWithTag("sidebar-split-drop-$id").assertDoesNotExist()
+            compose.onNodeWithTag("sidebar-replace-drop-$id").assertIsDisplayed()
+            source.performMouseInput { cancel() }
+            compose.onNodeWithTag("browser-pane-left-$alpha").assertIsDisplayed()
+            compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        }
+    }
+
+    @Test fun droppingOnSplitMembersReplacesOnlyThatSideAndRestoresAfterRecreation() {
+        val original = runBlocking { container.workspace.dao.tabs(spaceId).map { it.id to it.isPinned } }
+        fun dropCenter(sourceId: String, targetId: String, mouse: Boolean) {
+            val source = compose.onNodeWithTag("sidebar-tab-$sourceId")
+            val from = source.fetchSemanticsNode().boundsInRoot
+            val to = compose.onNodeWithTag("sidebar-tab-$targetId").fetchSemanticsNode().boundsInRoot
+            val end = to.center - from.topLeft
+            if (mouse) source.performMouseInput {
+                moveTo(center); press(); moveTo(end, delayMillis = 100); release()
+            } else {
+                source.performTouchInput { down(center); advanceEventTime(650); moveTo(end, delayMillis = 100) }
+                compose.onNodeWithTag("sidebar-replace-drop-$targetId").assertIsDisplayed()
+                compose.onNodeWithText("Release to replace this tab").assertDoesNotExist()
+                saveScreen("split-replace-hover")
+                source.performTouchInput { up() }
+            }
+            compose.waitForIdle()
+        }
+        dropCenter(beta, alpha, mouse = true)
+        dropCenter(gamma, beta, mouse = false)
+        compose.onNodeWithTag("browser-pane-left-$alpha").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$gamma").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-tab-$beta").assertExists()
+        // Replacing a saved pair also works while a standalone tab is selected.
+        compose.onNodeWithTag("sidebar-tab-$beta").performClick()
+        dropCenter(beta, alpha, mouse = true)
+        compose.onNodeWithTag("browser-pane-left-$beta").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$gamma").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-tab-$alpha").assertExists()
+        assertEquals(original, runBlocking { container.workspace.dao.tabs(spaceId).map { it.id to it.isPinned } })
+        saveScreen("split-replaced")
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("browser-pane-right-$gamma").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("browser-pane-left-$beta").assertIsDisplayed()
+    }
+
     @Test fun dragTabsToEitherHalfSplitsReplacesAndSwapsWithoutMovingTabs() {
         val originalLeft = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
         drag(compose.onNodeWithTag("sidebar-tab-$beta"), compose.onNodeWithTag("split-drop-right"), cancel = true)

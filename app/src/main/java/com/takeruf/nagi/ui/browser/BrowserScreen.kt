@@ -31,6 +31,10 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
                 onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap,
+                onCloseTab = {
+                    val remaining = if (isRight) left else right
+                    if (remaining != null) vm.closeSplitTab(tab.id, remaining.id, onCloseSplit)
+                },
                 onBookmark = { val page = engine.state.value; vm.bookmark(tab.copy(url = page.url, title = page.title, faviconUrl = page.faviconUrl), false) },
                 onFavorite = { val page = engine.state.value; vm.bookmark(tab.copy(url = page.url, title = page.title, faviconUrl = page.faviconUrl), true) })
         }

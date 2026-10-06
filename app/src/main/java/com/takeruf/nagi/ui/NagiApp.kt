@@ -79,7 +79,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
     val sessions = remember(host) { BrowserSessionController(container) { _, desktop ->
-        WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop)
+        WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
+            nativePageDrag = { currentSettings.nativePageDrag })
     } }
     val pages by sessions.pages.collectAsStateWithLifecycle()
     DisposableEffect(sessions) { onDispose { sessions.dispose() } }
@@ -90,7 +91,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val snackbar = remember { SnackbarHostState() }
     val updateState by container.updates.state.collectAsStateWithLifecycle()
     var updateDialog by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(container.updates) { if (container.updates.state.value.status == com.takeruf.nagi.updates.UpdateStatus.IDLE) container.updates.check() }
+    LaunchedEffect(container.updates) { if (com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && container.updates.state.value.status == com.takeruf.nagi.updates.UpdateStatus.IDLE) container.updates.check() }
     var omniboxOpen by rememberSaveable { mutableStateOf(false) }
     var omniboxInitial by rememberSaveable { mutableStateOf("") }
     var pendingNewTabId by remember { mutableStateOf<String?>(null) }
@@ -110,7 +111,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val right = splitRight.takeIf { splitVisible }
     val focusedTab = if (rightFocused && right != null) right else left
     val focusedEngine = focusedTab?.let { sessions.pool.peek(it.id) }
-    SideEffect { container.tabs.protectFromArchive(setOfNotNull(left?.id, right?.id)) }
+    SideEffect {
+        val protectedIds = setOfNotNull(left?.id, right?.id)
+        container.tabs.protectFromArchive(protectedIds)
+        sessions.pool.protect(protectedIds)
+    }
     DisposableEffect(container) { onDispose { container.tabs.protectFromArchive(emptySet()) } }
     val fullscreen by host.fullscreen.collectAsStateWithLifecycle()
     fun navigate(destination: String) {
@@ -246,23 +251,43 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 Row(Modifier.fillMaxSize()) {
                     Box(Modifier.width(width).fillMaxHeight().padding(vertical = 8.dp).testTag("sidebar")) {
                         Sidebar(previewState, vm, pages.filterValues { it.isLoading }.keys,
+                            suspendedIds = pages.filterValues { it.isSuspended }.keys,
                             pageUrl = pages[focusedTab?.id]?.url ?: focusedTab?.url.orEmpty(),
                             pageTitle = pages[focusedTab?.id]?.title ?: focusedTab?.title.orEmpty(),
                             onNavigate = ::navigate, onNewTab = ::newTab, onOmnibox = { openOmnibox(false) },
                             onOpenUrl = { vm.newTab(it); rightFocused = false; navigate("browser") }, onSplitTab = { id ->
                                 if (id == state.activeTab?.id) split() else { leftTabId = state.activeTab?.id; rightTabId = id; rightFocused = true; navigate("browser") }
                             }, splitLeftTabId = splitLeft?.id, splitRightTabId = splitRight?.id, splitRightFocused = rightFocused,
-                            onFocusSplit = { rightFocused = it; (if (it) splitRight else splitLeft)?.let { tab -> vm.selectTab(tab.id) } }, drag = sidebarDrag, onSplitDrop = { id, toRight ->
-                                val leftId = left?.id
+                            onDetachSplit = { id ->
+                                leftTabId = null
+                                rightTabId = null
+                                rightFocused = false
+                                vm.selectTab(id)
+                                navigate("browser")
+                            }, onFocusSplit = { rightFocused = it; (if (it) splitRight else splitLeft)?.let { tab -> vm.selectTab(tab.id) } }, drag = sidebarDrag, onSplitDrop = { id, toRight ->
+                                val replacingGroup = sidebarDrag.destination?.id != null
+                                val dropLeft = if (replacingGroup) splitLeft else left
+                                val dropRight = if (replacingGroup) splitRight else right
+                                val leftId = dropLeft?.id
                                 if (leftId != null && state.visibleTabs.any { it.id == id }) {
                                     if (toRight) {
                                         if (id != leftId) { leftTabId = leftId; rightTabId = id }
-                                        else right?.let { leftTabId = it.id; vm.selectTab(it.id); rightTabId = id }
+                                        else dropRight?.let { leftTabId = it.id; rightTabId = id }
                                     } else if (id != leftId) {
-                                        rightTabId = right?.id?.takeUnless { it == id } ?: leftId
+                                        rightTabId = dropRight?.id?.takeUnless { it == id } ?: leftId
                                         leftTabId = id; vm.selectTab(id)
                                     }
                                     rightFocused = toRight
+                                    vm.selectTab(id)
+                                    navigate("browser")
+                                }
+                            }, onSplitPair = { targetId, draggedId ->
+                                if (targetId != draggedId && state.visibleTabs.any { it.id == targetId } &&
+                                    state.visibleTabs.any { it.id == draggedId }) {
+                                    leftTabId = targetId
+                                    rightTabId = draggedId
+                                    rightFocused = true
+                                    vm.selectTab(draggedId)
                                     navigate("browser")
                                 }
                             }, onToggleSidebar = { setSidebarCollapsed(!sidebarCollapsed) })
@@ -328,6 +353,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                     onSwap = { right?.let { val old = left?.id; leftTabId = it.id; vm.selectTab(it.id); rightTabId = old; rightFocused = !rightFocused } },
                                     leftTabId = left?.id) }
                                 composable("settings") { SettingsScreen(state, vm,
+                                    onSuspendTabs = sessions::suspendBackground,
                                     onClearSiteData = { scope.launch {
                                         sessions.reset()
                                         BrowserDataCleaner.clear(activity)
@@ -339,16 +365,22 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                 composable("bookmarks") { LibraryScreen(false, state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
                             }
                             if (route == "browser" && state.activeTab != null) {
-                                Row(Modifier.fillMaxSize()) {
-                                    listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT).forEach { side ->
-                                        val highlighted = sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
-                                        Box(Modifier.weight(1f).fillMaxHeight()
-                                            .testTag(if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right")
-                                            .sidebarTarget(sidebarDrag, side.name, SidebarDestination(side))) {
-                                            if (highlighted) Box(Modifier.fillMaxSize().padding(12.dp)
-                                                .clip(NagiShapes.Rounded)
-                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                                                .border(2.dp, MaterialTheme.colorScheme.primary, NagiShapes.Rounded))
+                                BoxWithConstraints(Modifier.fillMaxSize()) {
+                                    val availableWidth = (maxWidth - 24.dp).coerceAtLeast(1.dp)
+                                    val minimumRatio = maxOf(0.25f, (180.dp / availableWidth).coerceAtMost(0.5f))
+                                    val ratio = splitRatio.coerceIn(minimumRatio, 1f - minimumRatio)
+                                    Row(Modifier.fillMaxSize()) {
+                                        listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT).forEach { side ->
+                                            val highlighted = sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
+                                            if (right != null && side == SidebarSection.SPLIT_RIGHT) Spacer(Modifier.width(24.dp))
+                                            Box(Modifier.weight(if (right == null) 1f else if (side == SidebarSection.SPLIT_LEFT) ratio else 1f - ratio).fillMaxHeight()
+                                                .testTag(if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right")
+                                                .sidebarTarget(sidebarDrag, side.name, SidebarDestination(side))) {
+                                                if (highlighted) Box(Modifier.fillMaxSize().padding(12.dp)
+                                                    .clip(NagiShapes.Rounded)
+                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                                    .border(2.dp, MaterialTheme.colorScheme.primary, NagiShapes.Rounded))
+                                            }
                                         }
                                     }
                                 }
@@ -358,12 +390,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 }
                 if (sidebarDrag.item != null) SidebarDragPreview(sidebarDrag)
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
-                if (updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
+                if (com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
                     TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
                         Text(strings(R.string.ui_update_banner, updateState.release!!.versionName))
                     }
                 }
-                if (updateDialog) AlertDialog(onDismissRequest = { updateDialog = false },
+                if (com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateDialog) AlertDialog(onDismissRequest = { updateDialog = false },
                     title = { Text(strings(R.string.ui_app_updates)) },
                     text = { com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) },
                     confirmButton = { TextButton(onClick = { updateDialog = false }) { Text(strings(R.string.ui_cancel)) } })

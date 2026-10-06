@@ -43,6 +43,12 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     suspend fun createTab(url: String = "about:blank", select: Boolean = true): String? = state.value.currentSpace?.let { container.tabs.create(it.id, url, select) }
     fun selectTab(id: String) = action { container.tabs.select(id) }
     fun closeTab(id: String) = action { container.tabs.close(id) }
+    fun closeSplitTab(id: String, remainingId: String, onClosed: () -> Unit) = action {
+        // Select the surviving pane explicitly, even when another sidebar tab is closer.
+        container.tabs.select(remainingId)
+        container.tabs.close(id)
+        onClosed()
+    }
     fun closeTabOnBack(id: String) = action { container.tabs.close(id, selectNext = true) }
     fun restoreClosed() = action { if (container.tabs.restoreClosed() == null) messages.emit("No closed tabs to restore") }
     fun togglePin(id: String) = action { container.tabs.togglePin(id) }

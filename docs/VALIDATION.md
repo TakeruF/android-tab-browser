@@ -291,3 +291,23 @@ All 61 unit tests and seven targeted API-36 tests passed: CommonSearchEnginesUiT
 ## English documentation and refreshed README screenshots — 2026-10-06
 
 Repository Markdown, release notes, and update-manifest notes use English. CJK strings remain only as literal IME test examples. README screenshots were captured from the signed 0.1.1 Release on the API-36 emulator: light/dark home, Split with two locally hosted demonstration pages, and the live updater showing the latest version. Images were inspected, and relative document/image links were checked.
+
+## 2026-10-06 — Google Play / GitHub distribution separation
+
+- Added `github` and `play` distribution flavors, retaining `com.takeruf.nagi` and the existing database.
+- GitHub: 98 unit tests passed. Play: 87 shared unit tests passed. The 11 updater tests remain GitHub-only because Play does not include APK update transport or installation code.
+- Signed GitHub Release APK and Play Release AAB built. Release Lint: GitHub 0 errors / 35 warnings; Play 0 errors / 46 warnings.
+- Inspected the final Play AAB's manifest and DEX: install permission, updater FileProvider, GitHub update-manifest URL, unknown-source settings action, and APK-install MIME marker were absent.
+- API-36 tablet emulator: both ReleaseFeaturesUiTest cases passed for Play, covering Bookmarks, site-data clearing, Google Play update entry, missing APK-update entry/install permission, and the privacy-policy link.
+- Both ReleaseFeaturesUiTest cases also passed for GitHub, confirming its APK-update entry remains available and the common policy link is visible.
+- The emulator initially contained the distribution-signed build, so the default debug-signed install was rejected before tests ran. QA Debug and test APKs were signed with the existing distribution key through a temporary Gradle init script, preserving installed data; normal Debug signing configuration in the repository remains unchanged.
+- Privacy policy source and Console/store drafts: `docs/PLAY_CONSOLE.md`. The policy website uses four separately authored locale bodies under takeruf.com/nagi/privacy. No Play Console submission or approval is claimed.
+- Website PR https://github.com/TakeruF/me/pull/20 merged as `7253930`. Production checks returned HTTP 200 with the correct body and canonical URL for all four policy locales; the root locale redirect and product-page policy link also passed. Chrome confirmed the published Japanese page.
+
+## 2026-10-06 — 0.1.2 release validation
+
+- JDK 17: 112 GitHub and 101 Play unit tests passed. Updated the updater test fixture to always offer a newer candidate than the compiled version, retaining signature/checksum/downgrade checks.
+- Signed Github Release APK and Play Release AAB built. Release Lint: GitHub 0 errors / 40 warnings; Play 0 errors / 51 warnings.
+- APK: com.takeruf.nagi, 0.1.2/code 3, API 26+, non-debuggable; distribution certificate remains a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc. SHA-256: 6d87d9056a72855f0774ddc8b1f2ab4f58201e24f94891ea7396ac17493af442.
+- bundletool validated the Play AAB; manifest/DEX inspection confirmed version 0.1.2/code 3 and exclusion of the APK updater, installer permission, update provider and unknown-source action. Play AAB SHA-256: a1c14c534ad3029d0bf91d8d513fe7fb26a97bc9532830f93efe3d8d2e13092a.
+- The existing Console Alpha track was confirmed Active, serving 0.1.1 to selected testers in 178 countries/regions, with 4 testers opted in. The 0.1.2 update uses this same track and its existing Google Group/opt-in links.

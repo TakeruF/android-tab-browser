@@ -20,6 +20,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.net.Uri
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,8 +46,10 @@ import com.takeruf.nagi.ui.theme.NagiSystemBars
 import java.util.UUID
 
 @Composable
-fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onBack: () -> Unit) {
+fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onSuspendTabs: () -> Unit = {}, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     var customizingEngines by rememberSaveable { mutableStateOf(false) }
     val settingsListState = rememberLazyListState()
     BackHandler(enabled = customizingEngines) { customizingEngines = false }
@@ -99,6 +108,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 TextButton(shape = NagiShapes.Rounded, onClick = vm::refreshSearchRegion) { Text(strings(R.string.ui_check_again)) }
             }
             SettingToggle(strings(R.string.ui_open_links_in_new_tab), strings(R.string.ui_page_links_you_tap_open_as_a_new_tab), prefs.openLinksInNewTab) { value -> vm.updateSettings { it.copy(openLinksInNewTab = value) } }
+            SettingToggle(strings(R.string.ui_page_drag), strings(R.string.ui_page_drag_description), prefs.nativePageDrag) { value -> vm.updateSettings { it.copy(nativePageDrag = value) } }
             SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(R.string.ui_keep_your_spaces_and_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
             SettingToggle(strings(R.string.ui_desktop_site_by_default), strings(R.string.ui_use_a_desktop_user_agent_for_newly_created_sessions), prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
         } }
@@ -139,6 +149,13 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 }
                 TextButton(shape = NagiShapes.Rounded, onClick = { vm.restoreClosed() }) { Text(strings(R.string.ui_restore)) }
             }
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings(R.string.ui_sleep_tabs_description), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(shape = NagiShapes.Rounded, onClick = onSuspendTabs, modifier = Modifier.testTag("suspend-background-tabs")) {
+                    Text(strings(R.string.ui_sleep_tabs))
+                }
+            }
             Column(Modifier.padding(16.dp)) {
                 Text(strings(R.string.ui_archive_inactive_tabs))
                 Text(strings(R.string.ui_checked_on_launch_or_when_you_choose_archive_now_pinned_b64b52e0),
@@ -152,12 +169,32 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 TextButton(shape = NagiShapes.Rounded, enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
             }
         } }
+        item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings(R.string.ui_password_autofill_description),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("autofill-settings"), onClick = {
+                    val intent = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE,
+                        Uri.parse("package:${context.packageName}"))
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                        } catch (_: ActivityNotFoundException) {
+                            Toast.makeText(context, strings(R.string.ui_autofill_settings_unavailable), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) { Text(strings(R.string.ui_open_autofill_settings)) }
+            }
+        } }
         item { SettingsSection(strings(R.string.ui_privacy), NagiIcons.ShieldCheck) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(strings(R.string.ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40), style = MaterialTheme.typography.bodySmall)
                 Text(strings(R.string.ui_your_workspace_stays_on_this_device), style = MaterialTheme.typography.titleSmall)
                 Text(strings(R.string.ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(shape = NagiShapes.Rounded, onClick = { uriHandler.openUri(strings(R.string.ui_privacy_policy_url)) }) { Text(strings(R.string.ui_privacy_policy)) }
                 TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }
                 TextButton(shape = NagiShapes.Rounded, onClick = { clearSiteData = true }) { Text(strings(R.string.ui_clear_site_data)) }
                 Text(strings(R.string.ui_private_browsing_and_content_blocking_are_planned_for_a_later_release), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

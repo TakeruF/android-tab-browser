@@ -21,15 +21,20 @@ import com.takeruf.nagi.browser.favicon.faviconOrigin
 import org.json.JSONArray
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
-private class WebViewSnapshot(val bundle: Bundle) : EngineSnapshot
+private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int) : EngineSnapshot
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebViewBrowserEngine(
     context: Context, private val host: BrowserHost, private val fullscreenHost: FullscreenHost,
     private val openLinksInNewTab: () -> Boolean, desktopDefault: Boolean,
+    private val nativePageDrag: () -> Boolean = { false },
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webView = WebView(context)
+    private val pageDownloads = com.takeruf.nagi.browser.downloads.PageDownloads(webView, host)
+    private var mediaPermissionGranted = false
+    private var fullscreenActive = false
+    private var restoringScroll: Pair<Int, Int>? = null
     override val surface get() = webView
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(PageState(desktopMode = desktopDefault))
@@ -51,6 +56,10 @@ class WebViewBrowserEngine(
     private var loadingTimeout: Job? = null
 
     init {
+        // Let WebView expose its virtual HTML fields and website origin to the
+        // device's AutofillService. Hints belong to those fields, not this container.
+        webView.id = R.id.browser_web_view
+        webView.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_YES
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true // Includes localStorage and IndexedDB in the WebView engine.
@@ -74,7 +83,7 @@ class WebViewBrowserEngine(
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
         applyUserAgent(desktopDefault)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
-        webView.setOnLongClickListener { showPageContextMenu() }
+        webView.setOnLongClickListener { if (nativePageDrag()) startLinkDrag() else showPageContextMenu() }
         webView.setOnContextClickListener { showPageContextMenu() }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -95,6 +104,8 @@ class WebViewBrowserEngine(
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 navigationGeneration++
+                pageDownloads.invalidate()
+                mediaPermissionGranted = false
                 faviconJob?.cancel()
                 failedNavigation = false
                 update { it.copy(url = url, isLoading = true, progress = 0, error = null,
@@ -115,6 +126,8 @@ class WebViewBrowserEngine(
                 update { it.copy(url = url, title = if (url == "about:blank") "New tab" else view.title?.takeIf { t -> t.isNotBlank() } ?: url,
                     isLoading = false, progress = 100, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 documentPage = state.value
+                pageDownloads.installFallback()
+                restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
                 CookieManager.getInstance().flush(); metadata()
                 if (!failedNavigation) discoverFavicon(view, url)
                 if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
@@ -148,7 +161,7 @@ class WebViewBrowserEngine(
             override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 fileCallback?.onReceiveValue(null); fileCallback = callback
                 host.chooseFiles(FileSelectionRequest(params.acceptTypes.filter(String::isNotBlank),
-                    params.mode == FileChooserParams.MODE_OPEN_MULTIPLE)) { paths ->
+                    params.mode == FileChooserParams.MODE_OPEN_MULTIPLE, params.isCaptureEnabled)) { paths ->
                     if (fileCallback === callback) {
                         callback.onReceiveValue(paths?.map(Uri::parse)?.toTypedArray()); fileCallback = null
                     }
@@ -176,9 +189,10 @@ class WebViewBrowserEngine(
                 return true
             }
             override fun onShowCustomView(view: android.view.View, callback: CustomViewCallback) {
+                fullscreenActive = true
                 fullscreenHost.showFullscreen(view) { callback.onCustomViewHidden() }
             }
-            override fun onHideCustomView() { fullscreenHost.hideFullscreen() }
+            override fun onHideCustomView() { fullscreenActive = false; fullscreenHost.hideFullscreen() }
             override fun onPermissionRequest(request: PermissionRequest) {
                 if (request.origin.scheme != "https") { request.deny(); return }
                 val supported = request.resources.mapNotNull { resource -> when (resource) {
@@ -195,7 +209,7 @@ class WebViewBrowserEngine(
                             PermissionRequest.RESOURCE_AUDIO_CAPTURE -> SitePermission.MICROPHONE in granted
                             else -> false
                         } }.toTypedArray()
-                        if (resources.isEmpty()) request.deny() else request.grant(resources)
+                        if (resources.isEmpty()) request.deny() else { mediaPermissionGranted = true; request.grant(resources) }
                     }
                 }
             }
@@ -216,7 +230,9 @@ class WebViewBrowserEngine(
                 DownloadRequest(url, userAgent, disposition, mimeType,
                     CookieManager.getInstance().getCookie(url), DownloadFilename.fromDisposition(disposition)
                         ?: URLUtil.guessFileName(url, disposition, mimeType)))
-            else host.showMessage(strings(R.string.ui_blob_and_data_downloads_are_not_supported_in_this_mvp))
+            else if (url.startsWith("blob:") || url.startsWith("data:")) pageDownloads.request(url,
+                DownloadFilename.fromDisposition(disposition) ?: URLUtil.guessFileName(url, disposition, mimeType))
+            else host.showMessage(strings(R.string.ui_this_address_type_is_not_supported))
         }
         webView.setFindListener { active, count, _ -> update { it.copy(findMatches = count, activeFindMatch = active) } }
     }
@@ -238,6 +254,25 @@ class WebViewBrowserEngine(
                 metadata()
             }
         }
+    }
+    private fun startLinkDrag(): Boolean {
+        val hit = webView.hitTestResult ?: return false
+        // Native image dragging owns image/content URIs. Supply a URL explicitly for text links,
+        // since a WebView may otherwise export only the link's visible label as plain text.
+        if (hit.type != WebView.HitTestResult.SRC_ANCHOR_TYPE) return false
+        val url = hit.extra?.takeIf { it.startsWith("https://", true) || it.startsWith("http://", true) } ?: return false
+        val density = webView.resources.displayMetrics.density
+        val shadow = android.widget.TextView(webView.context).apply {
+            text = Uri.parse(url).host.orEmpty(); textSize = 16f
+            setTextColor(android.graphics.Color.BLACK); setBackgroundColor(android.graphics.Color.LTGRAY)
+            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
+            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+            measure(android.view.View.MeasureSpec.makeMeasureSpec((240 * density).toInt(), android.view.View.MeasureSpec.AT_MOST),
+                android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED))
+            layout(0, 0, measuredWidth, measuredHeight)
+        }
+        return webView.startDragAndDrop(android.content.ClipData.newPlainText("Link", url),
+            android.view.View.DragShadowBuilder(shadow), null, android.view.View.DRAG_FLAG_GLOBAL)
     }
     private fun showPageContextMenu(): Boolean {
         val hit = webView.hitTestResult ?: return false
@@ -315,6 +350,7 @@ class WebViewBrowserEngine(
     override fun loadUrl(url: String) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
+        restoringScroll = null
         downloadUrl = null
         navigationGeneration++
         faviconJob?.cancel()
@@ -347,11 +383,13 @@ class WebViewBrowserEngine(
     override fun saveState(): EngineSnapshot? {
         if (destroyed) return null
         val bundle = Bundle()
-        return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle) else null
+        return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY) else null
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
+        restoringScroll = snapshot.scrollX to snapshot.scrollY
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
+        if (!restored) restoringScroll = null
         if (restored) {
             update { it.copy(url = webView.url ?: "about:blank", title = webView.title ?: "New tab",
                 canGoBack = webView.canGoBack(), canGoForward = webView.canGoForward()) }
@@ -359,9 +397,33 @@ class WebViewBrowserEngine(
         }
         return restored
     }
+    override fun canSuspend(result: (Boolean) -> Unit) {
+        if (destroyed || state.value.isLoading || restoringScroll != null || fileCallback != null || pendingPermissions.isNotEmpty() ||
+            mediaPermissionGranted || fullscreenActive || pageDownloads.isBusy) { result(false); return }
+        val generation = navigationGeneration
+        webView.evaluateJavascript("""
+            (function(){
+              if (window.__nagiEdited) return false;
+              if (window.__nagiPageDownloads && window.__nagiPageDownloads.isBusy()) return false;
+              if (document.querySelector('dialog[open]')) return false;
+              if (Array.from(document.querySelectorAll('audio,video')).some(e=>!e.paused&&!e.ended)) return false;
+              if (document.querySelector('[contenteditable]:not([contenteditable="false"])')) return false;
+              return !Array.from(document.querySelectorAll('input,textarea,select')).some(e=>{
+                if(e.type==='hidden'||e.type==='submit'||e.type==='button') return false;
+                if(e.type==='file') return e.files&&e.files.length>0;
+                if(e.type==='checkbox'||e.type==='radio') return e.checked!==e.defaultChecked;
+                if(e.tagName==='SELECT') return Array.from(e.options).some(o=>o.selected!==o.defaultSelected);
+                return e.value!==e.defaultValue || (e.type==='password'&&e.value.length>0);
+              });
+            })()
+        """.trimIndent()) { value -> result(!destroyed && generation == navigationGeneration && value == "true" &&
+            !state.value.isLoading && fileCallback == null && pendingPermissions.isEmpty() && !mediaPermissionGranted &&
+            !fullscreenActive && !pageDownloads.isBusy) }
+    }
     override fun destroy() {
         if (destroyed) return
         destroyed = true
+        pageDownloads.destroy()
         fileCallback?.onReceiveValue(null); fileCallback = null
         pendingPermissions.forEach { it.deny() }; pendingPermissions.clear()
         popupViews.forEach { it.destroy() }; popupViews.clear()

@@ -35,7 +35,13 @@ class BrowserSessionController(private val container: AppContainer,
                 }
             } }
         }
-    }, onRemove = { id -> collectors.remove(id)?.cancel(); mutablePages.update { it - id } })
+    }, onRemove = { id -> collectors.remove(id)?.cancel(); mutablePages.update { it - id } },
+        onSuspend = { id, page -> mutablePages.update { it + (id to page.copy(isSuspended = true, isLoading = false)) } })
+
+    init {
+        scope.launch { while (isActive) { delay(60_000); pool.suspendBackground() } }
+    }
+    fun suspendBackground() { pool.suspendBackground(maxLive = 0, idleMillis = 0) }
 
     fun acquire(tab: BrowserTab, desktopDefault: Boolean) = pool.acquire(tab.id, tab.url, desktopDefault)
     fun navigate(tab: BrowserTab, url: String, desktopDefault: Boolean) {

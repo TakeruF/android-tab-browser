@@ -7,6 +7,14 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.MotionEvent
 import android.os.SystemClock
+import android.provider.Settings
+import android.view.accessibility.AccessibilityNodeInfo
+import android.accessibilityservice.AccessibilityServiceInfo
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import com.takeruf.nagi.ui.browser.BrowserSurface
+import com.takeruf.nagi.testing.AutofillHarnessService
 import org.json.JSONObject
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
@@ -27,12 +35,17 @@ class WebViewEngineTest {
     private val fullscreenRequests = CopyOnWriteArrayList<View>()
     private val contextActions = CopyOnWriteArrayList<List<PageContextAction>>()
     private val copiedLinks = CopyOnWriteArrayList<String>()
+    private val generatedFiles = CopyOnWriteArrayList<Pair<GeneratedDownload, ByteArray>>()
     private val host = object : BrowserHost, FullscreenHost {
         override fun showContextMenu(title: String, actions: List<PageContextAction>) { contextActions.add(actions) }
         override fun copyLink(url: String) { copiedLinks.add(url) }
         override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) { uploads.add(request); result(null) }
         override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) { result(emptySet()) }
         override fun download(request: DownloadRequest) { downloads.add(request) }
+        override fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) { result(true) }
+        override fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File) {
+            generatedFiles.add(request to file.readBytes()); file.delete()
+        }
         override fun openExternal(url: String) {}
         override fun showMessage(message: String) {}
         override fun showFullscreen(view: View, exit: () -> Unit) { fullscreenRequests.add(view); exit() }
@@ -66,6 +79,185 @@ class WebViewEngineTest {
         }
     }
     @After fun cleanup() { main { engine.destroy() }; scenario.close(); server.close(); ime.close() }
+    @Test fun blobAndDataExportsKeepNameMimeAndBytesEvenAfterObjectUrlRevocation() {
+        main { engine.loadUrl("${server.origin}/features") }; await { it.title == "Fixture Features" && !it.isLoading }
+        clickElement("blob-download")
+        runBlocking { withTimeout(15_000) { while (generatedFiles.size < 1) delay(25) } }
+        assertEquals("generated.txt", generatedFiles[0].first.name)
+        assertEquals("text/plain", generatedFiles[0].first.mimeType)
+        assertEquals(120000, generatedFiles[0].second.size)
+        assertTrue(generatedFiles[0].second.all { it == 'x'.code.toByte() })
+        clickElement("data-download")
+        runBlocking { withTimeout(15_000) { while (generatedFiles.size < 2) delay(25) } }
+        assertEquals("table.csv", generatedFiles[1].first.name)
+        assertEquals("name,value\n日本語,42", generatedFiles[1].second.toString(Charsets.UTF_8))
+    }
+    @Test fun captureHintAndImageMimeReachNativePicker() {
+        main { engine.loadUrl("${server.origin}/features") }; await { it.title == "Fixture Features" && !it.isLoading }
+        clickElement("capture")
+        runBlocking { withTimeout(5_000) { while (uploads.isEmpty()) delay(25) } }
+        assertEquals(listOf("image/*"), uploads.first().mimeTypes)
+        assertTrue(uploads.first().capture)
+    }
+    @Test fun suspensionProtectsEditedFormsAndRestoresCleanPageHistory() {
+        main { engine.loadUrl("${server.origin}/features") }; await { it.title == "Fixture Features" && !it.isLoading }
+        fun eligibility(): Boolean {
+            val response = CompletableDeferred<Boolean>()
+            main { engine.canSuspend { response.complete(it) } }
+            return runBlocking { withTimeout(5_000) { response.await() } }
+        }
+        assertTrue(eligibility())
+        main { engine.evaluateJavascript("document.getElementById('form-input').value='unsaved';document.title='Edited'") }
+        await { it.title == "Edited" }
+        assertFalse(eligibility())
+        main { engine.loadUrl("${server.origin}/two") }; await { it.title == "Fixture Two" && !it.isLoading }
+        assertTrue(eligibility())
+    }
+    @Test fun generatedFileIsSavedThroughAndroidDownloadsCollection() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = java.io.File.createTempFile("download-test-", ".csv", context.cacheDir)
+        val bytes = "name,value\n日本語,42".toByteArray()
+        file.writeBytes(bytes)
+        var uri: android.net.Uri? = null
+        try {
+            uri = com.takeruf.nagi.browser.downloads.DownloadService(context).saveGenerated(
+                GeneratedDownload("nagi-fixture.csv", "text/csv", bytes.size.toLong(), server.origin), file)
+            assertArrayEquals(bytes, context.contentResolver.openInputStream(uri)!!.use { it.readBytes() })
+        } finally {
+            uri?.let { context.contentResolver.delete(it, null, null) }; file.delete()
+        }
+    }
+
+    @Test fun nativeImageDragDeliversReadableContentUriToAndroidDropTarget() {
+        val dropped = CompletableDeferred<android.content.ClipData>()
+        var target: View? = null
+        scenario.onActivity { activity ->
+            engine.destroy()
+            engine = WebViewBrowserEngine(activity, host, host, { false }, false, nativePageDrag = { true })
+            activity.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
+            target = View(activity).apply {
+                setBackgroundColor(android.graphics.Color.LTGRAY)
+                setOnDragListener { _, event ->
+                    if (event.action == android.view.DragEvent.ACTION_DROP) dropped.complete(event.clipData)
+                    true
+                }
+            }
+            activity.addContentView(target, android.widget.FrameLayout.LayoutParams(-1, 250, android.view.Gravity.BOTTOM))
+        }
+        main { engine.loadUrl("${server.origin}/features") }; await { it.title == "Fixture Features" && !it.isLoading }
+        main { engine.evaluateJavascript("var r=document.getElementById('drag-image').getBoundingClientRect();document.title='drag:'+JSON.stringify({x:r.x+r.width/2,y:r.y+r.height/2,w:innerWidth})") }
+        val rect = JSONObject(await { it.title.startsWith("drag:") }.title.removePrefix("drag:"))
+        val start = android.graphics.PointF()
+        val end = android.graphics.PointF()
+        main {
+            val view = (engine as AndroidEngineSurface).surface
+            val position = IntArray(2); view.getLocationOnScreen(position)
+            val scale = view.width / rect.getDouble("w")
+            start.set(position[0] + (rect.getDouble("x") * scale).toFloat(), position[1] + (rect.getDouble("y") * scale).toFloat())
+            target!!.getLocationOnScreen(position)
+            end.set(position[0] + target!!.width / 2f, position[1] + target!!.height / 2f)
+        }
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val downTime = SystemClock.uptimeMillis()
+        fun pointer(action: Int, x: Float, y: Float) {
+            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            try { assertTrue(automation.injectInputEvent(event, true)) } finally { event.recycle() }
+        }
+        pointer(MotionEvent.ACTION_DOWN, start.x, start.y)
+        runBlocking { delay(900) }
+        for (step in 1..15) {
+            pointer(MotionEvent.ACTION_MOVE, start.x + (end.x - start.x) * step / 15, start.y + (end.y - start.y) * step / 15)
+            runBlocking { delay(40) }
+        }
+        pointer(MotionEvent.ACTION_UP, end.x, end.y)
+        val clip = runBlocking { withTimeout(10_000) { dropped.await() } }
+        val uri = clip.getItemAt(0).uri
+        assertNotNull(uri)
+        assertEquals("content", uri.scheme)
+        assertTrue(uri.authority!!.endsWith(".DropDataProvider"))
+        val bytes = InstrumentationRegistry.getInstrumentation().targetContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        assertNotNull(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+    }
+    @Test fun suspendedWebViewRestoresHistoryAndScrollPosition() {
+        lateinit var pool: com.takeruf.nagi.browser.tabs.EnginePool
+        scenario.onActivity { activity ->
+            engine.destroy()
+            pool = com.takeruf.nagi.browser.tabs.EnginePool(factory = { _, desktop ->
+                WebViewBrowserEngine(activity, host, host, { false }, desktop)
+            })
+            engine = pool.acquire("a", "${server.origin}/one", false)
+            activity.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
+        }
+        await { it.title == "Fixture One" && !it.isLoading }
+        main { engine.loadUrl("${server.origin}/scroll") }; await { it.title == "Fixture Scroll" && !it.isLoading }
+        main { (engine as AndroidEngineSurface).surface.scrollTo(0, 700); pool.suspendBackground(0, 0) }
+        runBlocking { withTimeout(5_000) { while (true) {
+            var sleeping = false; main { sleeping = pool.peek("a") == null }
+            if (sleeping) break; delay(25)
+        } } }
+        scenario.onActivity { activity ->
+            pool.setVisible(setOf("a"))
+            engine = pool.acquire("a", "https://stale.example", false)
+            activity.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
+        }
+        await { it.title == "Fixture Scroll" && it.canGoBack && !it.isLoading }
+        runBlocking { withTimeout(5_000) { while (true) {
+            var scrolled = false; main { scrolled = (engine as AndroidEngineSurface).surface.scrollY == 700 }
+            if (scrolled) break; delay(25)
+        } } }
+        main { engine.goBack() }; await { it.title == "Fixture One" && !it.isLoading }
+    }
+    @Test fun passwordProviderFillsWebsiteFieldsThroughComposeSurface() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val automation = instrumentation.uiAutomation
+        fun shell(command: String) = automation.executeShellCommand(command).use { descriptor ->
+            java.io.FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
+        }
+        val previous = Settings.Secure.getString(instrumentation.targetContext.contentResolver, "autofill_service")
+        val previousInfo = automation.serviceInfo
+        try {
+            AutofillHarnessService.offered = false
+            AutofillHarnessService.fieldHints = emptySet()
+            shell("settings put secure autofill_service com.takeruf.nagi/.testing.AutofillHarnessService")
+            automation.serviceInfo = automation.serviceInfo.apply {
+                flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            }
+            scenario.onActivity { activity ->
+                val surface = (engine as AndroidEngineSurface).surface
+                (surface.parent as? ViewGroup)?.removeView(surface)
+                activity.setContent { BrowserSurface(engine, Modifier.fillMaxSize()) }
+            }
+            main { engine.loadUrl("${server.origin}/login") }
+            await { it.title == "Fixture Login" && !it.isLoading }
+            clickElement("login-user")
+            runBlocking { withTimeout(15_000) { while (!AutofillHarnessService.offered) delay(50) } }
+            assertTrue(AutofillHarnessService.fieldHints.contains("username"))
+            assertTrue(AutofillHarnessService.fieldHints.contains("current-password"))
+            var suggestion: AccessibilityNodeInfo? = null
+            runBlocking { withTimeout(15_000) {
+                while (suggestion == null) {
+                    suggestion = automation.windows.asSequence().mapNotNull { it.root }
+                        .flatMap { it.findAccessibilityNodeInfosByText(AutofillHarnessService.LABEL).asSequence() }.firstOrNull()
+                    if (suggestion == null) delay(50)
+                }
+            } }
+            val bounds = android.graphics.Rect()
+            suggestion!!.getBoundsInScreen(bounds)
+            shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+            main { engine.evaluateJavascript("""
+                var check=setInterval(()=>{if(document.getElementById('login-user').value==='fixture-user'
+                    && document.getElementById('login-password').value==='fixture-password'){
+                    clearInterval(check);document.title='Fixture Autofilled';}},50);
+            """) }
+            await { it.title == "Fixture Autofilled" }
+        } finally {
+            automation.serviceInfo = previousInfo
+            if (previous == null) shell("settings delete secure autofill_service")
+            else shell("settings put secure autofill_service $previous")
+            assertEquals(previous, Settings.Secure.getString(instrumentation.targetContext.contentResolver, "autofill_service"))
+        }
+    }
     @Test fun javascriptCookiesLocalStorageIndexedDbNavigationAndFindWork() {
         main { engine.loadUrl("${server.origin}/one") }
         await { it.title == "Fixture One" && !it.isLoading }

@@ -66,9 +66,22 @@ class RegionalSearchTest {
         val regional = RegionalSearchDefaults(workspace, settings, { country }, { null })
         regional.refresh(true)
         assertEquals(setOf("baidu", "qwen"), CommonSearchEngines.ids(settings.settings.first()))
+        assertEquals("qwen", AiSearchEngines.default(settings.settings.first(), DefaultSearchEngines.all).id)
         country = "JP"
         regional.refresh(true)
         assertEquals(setOf("google", "chatgpt"), CommonSearchEngines.ids(settings.settings.first()))
+        assertEquals("chatgpt", AiSearchEngines.defaultId(settings.settings.first()))
+    }
+    @Test fun manualAiChoiceStopsAutomaticRegionUntilEnabledAgain() = runBlocking {
+        val regional = RegionalSearchDefaults(workspace, settings, { "CN" }, { null })
+        regional.refresh(true)
+        SearchEngineRepository(workspace, settings).setDefaultAi("chatgpt")
+        regional.refresh(true)
+        assertFalse(settings.settings.first().automaticSearchRegion)
+        assertEquals("chatgpt", AiSearchEngines.defaultId(settings.settings.first()))
+        settings.update { it.copy(automaticSearchRegion = true) }
+        regional.refresh(true)
+        assertEquals("qwen", AiSearchEngines.defaultId(settings.settings.first()))
     }
     @Test fun outageUsesDeviceAndManualSelectionStopsFutureLookup() = runBlocking {
         var calls = 0

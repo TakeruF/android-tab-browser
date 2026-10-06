@@ -57,7 +57,7 @@
     <string name="ui_default_search_engine">"デフォルト検索エンジン"</string>
     <string name="ui_select">"選択"</string>
     <string name="ui_automatic_search_by_region">"地域に応じた検索エンジン"</string>
-    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"中国本土では百度、その他の地域ではGoogle。手動で選択すると無効になります。"</string>
+    <string name="ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off">"中国本土では百度＋千问、その他の地域ではGoogle＋ChatGPT。手動で選択すると無効になります。"</string>
     <string name="ui_region_unavailable_current_engine_kept">"地域を取得できません・現在の設定を維持"</string>
     <string name="ui_detecting_region">"地域を確認中…"</string>
     <string name="ui_check_again">"再確認"</string>
@@ -277,4 +277,24 @@
     <string name="ui_update_install_failed">検証済みの更新を開けませんでした。再ダウンロードしてお試しください。</string>
     <string name="ui_update_banner">%1$sに更新</string>
     <string name="ui_clear_data">データを消去</string>
+    <string name="ui_privacy_policy">プライバシーポリシー</string>
+    <string name="ui_privacy_policy_url">https://takeruf.com/ja/nagi/privacy</string>
+    <string name="ui_play_updates">更新はGoogle Playから配信されます。</string>
+    <string name="ui_open_google_play">Google Playを開く</string>
+    <string name="ui_password_autofill">パスワードの自動入力</string>
+    <string name="ui_password_autofill_description">Android の設定で選んだ Google パスワード マネージャーなどを使用します。サイトのログイン入力欄をタップすると、利用可能な候補が表示されます。対応状況は端末・サイト・サービスによって異なります。</string>
+    <string name="ui_open_autofill_settings">自動入力サービスを選ぶ</string>
+    <string name="ui_autofill_settings_unavailable">Android の設定から自動入力サービスを選んでください。</string>
+    <string name="ui_upload_file">ファイルをアップロード</string>
+    <string name="ui_take_photo">写真を撮影</string>
+    <string name="ui_choose_files">ファイルを選択</string>
+    <string name="ui_camera_unavailable">カメラアプリを開けませんでした。</string>
+    <string name="ui_download_saved">Downloads に保存しました</string>
+    <string name="ui_generated_download_failed">生成ファイルを保存できませんでした。上限は32 MBです。</string>
+    <string name="ui_page_drag">リンク・画像をドラッグ</string>
+    <string name="ui_page_drag_description">ページのリンクや画像を長押ししてドラッグできます。リンクは各ペインのアドレス欄にドロップすると開きます。操作メニューは右クリック、またはこの設定をオフにして長押しで開けます。</string>
+    <string name="ui_sleep_tabs_description">ページが6枚を超えると、10分以上使っていない安全なタブを休止します。表示中・フォーム編集中・メディア利用中のタブは保持します。休止タブは開くと再読み込みされ、ページ内の一部の状態は失われる場合があります。</string>
+    <string name="ui_sleep_tabs">バックグラウンドのタブを休止</string>
+    <string name="ui_tab_suspended">休止中のタブ</string>
+    <string name="ui_release_to_split_tabs">離してタブを左右に並べる</string>
 </resources>
