@@ -1,69 +1,69 @@
-# Arcの参照仕様と今回の変更
+# Arc references and refinements
 
-調査・実装日: 2026-10-03。対象はAndroidタブレットのSidebarと地域別の検索初期設定です。
+Research and implementation date: 2026-10-03. Scope: the Android tablet sidebar and regional search defaults. This is a historical record; current release validation is in [VALIDATION.md](VALIDATION.md).
 
-## 参照した仕様
+## References
 
-- [Arc公式: Favorites](https://resources.arc.net/hc/en-us/articles/19230755904151-Favorites-Top-Tabs-Across-Every-Space): 最上部、全Space共通、最大12件。上部へのドラッグでFavorite化、下部へのドラッグで解除。
-- [Arc公式: Pinned Tabs](https://resources.arc.net/hc/en-us/articles/19231060187159-Pinned-Tabs-Tabs-you-want-to-stick-around): Space別の固定タブ。水平線の上下へドラッグして固定・解除。Spaceの見出しから固定領域を折りたたみ。
-- [Arc公式: Spaces](https://resources.arc.net/hc/en-us/articles/19228064149143-Spaces-Distinct-Browsing-Areas): 下部のアイコンでSpace切り替え。Spaceごとの色・アイコン。
-- [Arc Sidebarの画面例](https://dannyspina.com/blog/arc_browser): 検索欄、アイコンタイル、控えめな見出し、区切り線、淡い選択行、下部のSpace配置を目視参照。画像はアプリに同梱していません。
-- [Android公式: Pointer input](https://developer.android.com/develop/ui/compose/touch-input/pointer-input): タッチとマウス、入力イベントの受け渡し。
-- [Country APIの公式仕様](https://github.com/lineofflight/country): 接続元IPの国コードをHTTPS GETで取得。追加のAPIキーは不要。
+- [Arc: Favorites](https://resources.arc.net/hc/en-us/articles/19230755904151-Favorites-Top-Tabs-Across-Every-Space): top placement, shared across Spaces, up to 12 items. Drag upward to create a Favorite and downward to remove it.
+- [Arc: Pinned Tabs](https://resources.arc.net/hc/en-us/articles/19231060187159-Pinned-Tabs-Tabs-you-want-to-stick-around): Space-specific pins, pin/unpin by crossing a divider, and a collapsible pinned section.
+- [Arc: Spaces](https://resources.arc.net/hc/en-us/articles/19228064149143-Spaces-Distinct-Browsing-Areas): bottom icons and per-Space colors/icons.
+- [Sidebar examples](https://dannyspina.com/blog/arc_browser): visual reference for search, icon tiles, restrained headings, dividers, subtle selection, and bottom Space placement. External images are not bundled in the app.
+- [Android pointer input](https://developer.android.com/develop/ui/compose/touch-input/pointer-input): touch/mouse input and event forwarding.
+- [Country API](https://github.com/lineofflight/country): IP country code through HTTPS GET without an API key.
 
-## UI・操作の変更
+## UI and interaction changes
 
-| Before | After | Why |
+| Before | After | Purpose |
 | --- | --- | --- |
-| アイコンからだけドラッグ、メニューのMove up/down | 行全体の長押しドラッグ、マウスとアイコンは直接ドラッグ | タブそのものをつかんで並べる操作にする |
-| 行全体をドロップ先として着色 | 上下の挿入線、持ち上げたタブのプレビュー、元の行を淡く表示 | どこへ移動するかを示す |
-| ドラッグキャンセルでも移動処理 | キャンセル時は保存せず、指を離したときだけ保存 | 中断した操作で並び順を変えない |
-| 並び替えだけでPin状態は変わらない | 固定領域と通常領域をまたいで固定・解除、空領域にもドロップ | Arcの区切り線による整理に合わせる |
-| 長いリストの画面外へ移動できない | 上下端で自動スクロール、サイドバー全体でジェスチャーを保持 | 元の行が再利用・破棄されてもドラッグを継続する |
-| Space別Favorites、タイトル付きカード | 全Space共通のアイコンタイル。上部へのドラッグでFavorite化し、下へ戻してタブ化 | FavoritesとSpace別Pinnedを区別する |
-| 上部のSpaceカード、ドラッグ中だけ別Spaceのリスト | 常設の下部Spaceアイコン、そこへのドロップで移動 | 普段のSpace切り替えと同じ場所を使う |
-| 色・アイコンは初期値のみ | Space編集で名前・色・アイコンを変更 | Spaceを視覚的に見分ける |
-| 大きなロゴ・紹介文と重複するFavorites | 控えめな新規タブ画面、薄い背景と検索欄 | Webコンテンツとサイドバーを主役にする |
-| 幅変更もアニメーションで追従 | リサイズは指に直接追従、フレームの角丸と余白を縮小 | 連続操作の遅れを減らす |
+| Drag only from icons; Move up/down menus | Hold the whole row; immediate mouse/icon dragging | Grab the tab directly |
+| Entire destination row colored | Insertion line, lifted preview, dimmed source | Show the destination |
+| Cancel still moved the tab | Save only on drop, never on cancellation | Preserve order when interrupted |
+| Reorder without pin changes | Cross pinned/ordinary sections, including empty sections | Organize with the divider |
+| No off-screen destinations | Edge auto-scroll with sidebar-owned gestures | Continue after row recycling |
+| Space-specific Favorites with titled cards | Shared icon tiles; drag into/out of Favorites | Distinguish Favorites from pins |
+| Top Space cards and temporary cross-Space lists | Persistent bottom icons and drop-to-move | Use the same destination for switching and movement |
+| Fixed initial colors/icons | Editable names, colors, and icons | Identify Spaces visually |
+| Large introductory logo and duplicate Favorites | Quiet new-tab screen with subtle background/search | Prioritize browsing content and sidebar |
+| Animated resizing lag | Direct finger tracking and smaller frame radius/padding | Reduce continuous-input delay |
 
-保存はRoomのtransactionで行います。タブを取り除いた後に挿入位置を算出するため、上から下への移動でもずれません。Favoritesの並び順も永続化します。Spaceを削除しても共有Favoritesは残ります。
+Room transactions persist moves. The insertion index is calculated after removing the source, including downward moves. Favorite order persists, and deleting a Space retains shared Favorites.
 
-## 検索の地域最適化
+## Regional search defaults
 
-新規インストールは自動判定を有効にします。旧版の保存済みデフォルトは手動設定として維持します。
+Fresh installs enable automatic detection; older saved defaults remain manual.
 
-1. 初回は端末で取得可能な国コードから代替設定をすぐ適用。
-2. `https://api.country.is/`へ起動をブロックしないHTTPS接続。`country`だけを使用し、返されたIPは保存・ログ出力しません。
-3. IPが取得できれば優先。取得不能時は携帯網 → SIM → 端末の地域を使用。中国語という言語設定だけでは判定しません。
-4. 国コード`CN`なら百度、それ以外ならGoogle。HK・MO・TWは`CN`として扱いません。どの国も取得できなければ現在のエンジンを維持。
-5. IPは24時間、代替判定・失敗は1時間キャッシュ。起動と画面復帰時に期限を確認。設定のCheck againで強制更新。
-6. 手動でエンジンを選ぶと自動判定をオフにする。通信中に手動変更しても、後から取得した国コードで上書きしない。
-7. 百度を既存データに一度だけ追加。後で削除した場合は復活させず、必要なエンジンがなければ現在の設定を維持。
+1. Immediately apply a fallback from an available device country code.
+2. Request `https://api.country.is/` without blocking startup. Use only `country`; do not store or log the returned IP.
+3. Prefer IP results, falling back to mobile network, SIM, then device region. Chinese language alone is insufficient.
+4. `CN` selects Baidu; other countries select Google. HK/MO/TW are not treated as `CN`. If no country is available, retain the current engine.
+5. Cache IP results for 24 hours and fallback/failures for one hour. Check on launch/foreground; “Check again” forces refresh.
+6. Manual selection disables automatic mode, including when a lookup is in flight; late results cannot overwrite it.
+7. Add Baidu to existing data once. Do not restore it after deletion; missing required engines leave the current choice intact.
 
-検索語・閲覧履歴・端末ID・明示的なIPパラメーターを地域サービスへ送信しません。ただしサービスにはHTTPS接続元IPが見えます。自動判定をオフにすると新たな地域確認を行いません。VPNは出口IPを変えるため、実際の滞在地と判定国が違う場合があります。中国大陸の実回線とローミング端末での到達性・SIM判定は未検証です。
+No queries, browsing history, device IDs, or explicit IP parameters are submitted. The HTTPS host sees the source IP. Disabling automatic mode stops new lookups. A VPN can change the detected country. Mainland-China network reachability and roaming/SIM behavior remain unverified.
 
-## 範囲と残る差
+## Scope and remaining differences
 
-Favoritesはローカルの共有ショートカットで、移動前のWebViewのページ内履歴・フォーム状態を保持する「常駐アプリ型タブ」ではありません。フォルダー、Pinned URLへのリセット、Peek、複数タブの一括ドラッグ、Space自体のドラッグ並び替え、Arc Syncは未実装です。
+Favorites are shared local shortcuts, not persistent app-like tabs that preserve the original WebView's form/history state. Folders, resetting to pinned URLs, Peek, multi-tab dragging, Space drag ordering, and Arc Sync are not implemented.
 
-## 検証結果
+## Historical validation
 
-API 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で確認。
+API-36 Pixel Tablet emulator `Orbit_Tablet_QA`, 2560 × 1600 / 320 dpi / landscape.
 
-| 確認 | 結果 |
+| Check | Result |
 | --- | --- |
-| Debug / Release APK | ビルド成功。Releaseはunsigned |
-| 単体テスト | 34件成功、失敗・スキップ0 |
-| Android Lint | エラー0 |
-| Android端末テスト | 16件成功 |
-| 新しいドラッグ操作 | 行全体の長押し、マウス即時ドラッグ、上下への挿入、Pin/Unpin、キャンセル、Favoritesへの移動と取り出し、別Spaceへの移動、Activity再生成、長いリストの自動スクロール |
-| 既存機能の回帰 | ブラウズ、履歴、Bookmarks、タブ復元、Split、エンジン編集、日本語・中国語・韓国語のIME composition、WebView機能 |
-| 地域判定 | CN/HK/MO/TW/JP、IP優先、代替判定、通信失敗、キャッシュ・再試行、通信中の手動設定優先、削除したエンジンを再生成しないことを単体テストで確認 |
-| 表示 | 実際のCompose画面・プレビュー・挿入線・設定をキャプチャして目視確認 |
+| Debug / Release APK | Successful; Release was unsigned at this stage |
+| Unit tests | 34 passed; no failures/skips |
+| Android Lint | 0 errors |
+| Instrumentation tests | 16 passed |
+| Drag | Whole-row hold, immediate mouse drag, insertion, pin/unpin, cancellation, Favorite conversion/removal, Space movement, recreation, long-list auto-scroll |
+| Regression coverage | Browsing, history, Bookmarks, tab restoration, Split, engine editing, CJK composition, WebView features |
+| Region policy | Injected CN/HK/MO/TW/JP codes; IP priority, fallback, failures, caching/retry, concurrent manual choices, deleted-engine preservation |
+| Rendering | Captured and inspected Compose screens, previews, insertion lines, and settings |
 
-地域判定のテストは注入した国コードを用いています。中国大陸での実IP判定・実回線の到達性と、物理端末でのタッチ・マウス動作は未確認です。
+Injected country tests do not establish real mainland-China IP detection or network access. Physical touch/mouse validation is not included.
 
-画面: [Sidebar](screenshots/arc-sidebar.png)、[ドラッグ中](screenshots/arc-sidebar-drag.png)、[地域検索設定](screenshots/regional-search-settings.png)、[Space編集](screenshots/arc-space-editor.png)。
+Screenshots: [sidebar](screenshots/arc-sidebar.png), [drag](screenshots/arc-sidebar-drag.png), [regional search](screenshots/regional-search-settings.png), [Space editor](screenshots/arc-space-editor.png).
 
 ```sh
 ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease \
@@ -73,4 +73,4 @@ adb -s emulator-5554 shell am instrument -w -r \
   com.takeruf.nagi.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`。ログ: `app/build/reports/tests/testDebugUnitTest/`、`app/build/reports/lint-results-debug.html`。端末の最終テスト出力は`OK (16 tests)`を確認しました。
+APK: `app/build/outputs/apk/debug/app-debug.apk`. Reports: `app/build/reports/tests/testDebugUnitTest/` and `app/build/reports/lint-results-debug.html`. Final instrumentation output was `OK (16 tests)`.

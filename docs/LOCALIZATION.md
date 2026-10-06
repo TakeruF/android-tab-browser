@@ -1,26 +1,26 @@
-# 多言語表示と追加検索エンジン
+# Localization and search engines
 
-## 表示言語
+## Interface languages
 
-日本語・英語・韓国語・中国語（簡体字）に対応。ホーム、サイドバー、メニュー、設定、検索候補、ページ内検索、履歴・ブックマーク、権限確認、ダウンロード確認、アプリの検証エラー、読み上げ用の説明を翻訳しています。ページのコンテンツやユーザーが付けた名前は変更しません。標準のPersonal／Workと空タブは表示時に翻訳し、保存データを端末の言語で書き換えません。
+Nagi supports English, Japanese, Korean, and Simplified Chinese. Translations cover the home screen, sidebar, menus, settings, suggestions, find in page, history/bookmarks, permission/download prompts, validation errors, and accessibility descriptions. Website content and user-defined names are unchanged. Built-in Personal/Work names and empty tabs are translated at display time without rewriting stored data.
 
-端末の言語に応じて自動選択します。対応しない言語では英語を使用します。Android 13以降は端末のアプリ情報にある「言語」からNagiの言語を個別に選べます。Android 8–12では端末の言語設定に従います。仕組みは[Android公式のアプリ別言語設定](https://developer.android.com/guide/topics/resources/app-languages)に沿った`android:localeConfig`とAndroid標準リソースです。
+The device language determines the default; unsupported languages fall back to English. Android 13+ allows per-app language selection, while Android 8–12 follows the device setting. The implementation uses `android:localeConfig` and standard Android resources, following [Android's per-app language guide](https://developer.android.com/guide/topics/resources/app-languages).
 
-文言は`app/src/main/res/values/strings.xml`に英語を定義し、`values-ja`・`values-ko`・`values-zh`に翻訳を配置しています。各言語219件。`%1$s`などの引数番号は翻訳でも維持してください。Composeでは現在のConfigurationに応じたリソースを使います。共有の入力検証・検索候補生成には表示時の翻訳を渡し、翻訳したコマンド名と英語名の両方で検索できます。
+English strings live in `app/src/main/res/values/strings.xml`, with translations in `values-ja`, `values-ko`, and `values-zh`. As of 0.1.1 there are 278 English string resources, including one non-translatable app-name resource, and 277 in each translated file. Preserve numbered placeholders such as `%1$s`. Compose resolves resources from the current Configuration. Shared input validation and suggestion generation receive display-time translations; commands can be found by both translated and English names.
 
-## 検索エンジン
+## Additional search engines
 
-| 名前 | キーワード | 検索URLテンプレート |
+| Name | Keyword | Search URL template |
 | --- | --- | --- |
-| 搜狗 | `sg` | `https://www.sogou.com/web?query={query}` |
+| Sogou | `sg` | `https://www.sogou.com/web?query={query}` |
 | 360 | `360` | `https://www.so.com/s?q={query}` |
-| 抖音 | `dy` | `https://www.douyin.com/search/{query}` |
-| 神马 | `sm` | `https://m.sm.cn/s?q={query}` |
-| 千问（中国大陆） / Qwen (China Mainland) | `qwen` | `https://www.qianwen.com/?q={query}` |
+| Douyin | `dy` | `https://www.douyin.com/search/{query}` |
+| Shenma | `sm` | `https://m.sm.cn/s?q={query}` |
+| Qwen (China Mainland) | `qwen` | `https://www.qianwen.com/?q={query}` |
 | Perplexity | `pplx` | `https://www.perplexity.ai/search/?q={query}` |
 
-既存の9件と合わせて15件になります。千问は設定画面で地域名を表示し、検索候補では「千问」／「Qwen」と表示します。常用検索エンジンに選ぶと、`qwen 東京 天気`や`pplx 東京 天気`でも検索できます。例えば`sg 東京 天気`、`dy 韩国 旅行`で検索できます。抖音の検索語はURLのパスに入るため、空白を`+`ではなく`%20`でエンコードします。日本語・韓国語・中国語、`+`・`/`・`?`・`&`も検索語としてエンコードします。
+Together with the original nine engines, these provide 15 defaults. Qwen includes its region in Settings and uses the shorter name in suggestions. Select an engine as a common engine to use keywords such as `qwen Tokyo weather`, `pplx Tokyo weather`, `sg Tokyo weather`, or `dy Korea travel`. Douyin puts the query in the URL path, so spaces are encoded as `%20` rather than `+`. Japanese, Korean, Chinese, and `+`, `/`, `?`, and `&` are encoded as query content.
 
-[Sogou公式ホーム](https://www.sogou.com/)と[360公式ホーム](https://www.so.com/)の検索フォーム、[神马のモバイルホーム](https://m.sm.cn/)の検索アクション、[抖音の公開検索URL](https://www.douyin.com/search/)を参照。各サービスの実検索結果・ログイン・地域ごとのアクセス可否は別の条件です。この検証ではURL生成とアプリ内での選択・表示を確認しています。
+References: the forms on [Sogou](https://www.sogou.com/) and [360](https://www.so.com/), the search action on [Shenma's mobile home](https://m.sm.cn/), and [Douyin's public search URL](https://www.douyin.com/search/). Tests verify URL generation and in-app selection/display; actual results, login, and regional access are separate conditions.
 
-既存のインストールには一度だけ追加します。同じIDかキーワードが既にある場合は置き換えません。標準検索エンジン、既存の編集内容、カスタムエンジンは保持します。追加後に編集・削除したエンジンを、次の起動で元に戻しません。
+Existing installations receive the additional engines once. Existing IDs/keywords are not overwritten. Defaults, edits, and custom engines are preserved; later edits or deletions are not reverted at startup.

@@ -1,105 +1,99 @@
 # Nagi
 
-Androidタブレット向けのサイドバー中心のワークスペースブラウザ。Kotlin / Jetpack Compose / Material 3 / WebView / Room / DataStoreで構成しています。
+A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpack Compose, Material 3, WebView, Room, and DataStore.
 
-![Nagiのライトテーマ](docs/screenshots/ui-home.png)
+![Nagi 0.1.1 in the light theme](docs/screenshots/readme-home.png)
 
-## 主な機能
+[Download Nagi 0.1.1](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.1.1)
 
-- Spaceごとのタブ管理、固定タブ、共通のFavorites、Bookmarks、履歴。
-- URL・検索・タブ・Space・コマンドをまとめて探せるCommand Bar。
-- Command Barで通常検索と「ChatGPTに聞く」を上下キー・Enterまたはクリック／タッチで選択。80文字以上や質問・説明／比較などの依頼ではChatGPTを先頭に表示します。URLと検索エンジンの明示キーワードは優先します。
-- 2ペインのSplit、幅変更・折りたたみ可能なSidebar、ドラッグによる並び替え。
-- ライト／ダーク／システムテーマ。選択状態と文字のコントラストを調整。
-- 日本語・中国語・韓国語のIME入力、キーボード操作、マウス／トラックパッドのスクロール。
-- ページ内検索、Desktop Mode、通常のHTTPダウンロード、システムファイル選択。
+Install the APK over the 0.1.0 version distributed at takeruf.com to keep your workspace. That version does not include an updater; after installing 0.1.1, use **Settings → App updates** for future releases. Local Debug builds and the former `com.orbit.browser` package have different signing or package identities.
 
-[0.1.1をダウンロード](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.1.1)。以後は設定の「アプリの更新」から確認・ダウンロード・インストールできます。
+## Features
 
-バージョンは**0.1.1 / MVP**です。対応範囲と制限は下記に記載しています。
+- Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
+- A Command Bar for URLs, search, tabs, Spaces, and commands.
+- Standard search and “Ask ChatGPT” actions, selected with arrow keys and Enter or by touch/click. Questions and requests for explanations or comparisons, and input of at least 80 characters, prioritize ChatGPT. Explicit URLs and engine keywords take precedence.
+- Resizable Split panes, a resizable/collapsible sidebar, and drag-and-drop organization.
+- Light, dark, and system themes with adjustable theme colors and selection contrast.
+- Japanese, Chinese, and Korean IME composition, keyboard shortcuts, and mouse/trackpad scrolling.
+- Find in page, desktop mode, HTTP downloads, and the system document picker.
+- Bookmark management, link/image context menus, site-data clearing, and verified in-app APK updates.
 
-## 起動
+Nagi **0.1.1** is an MVP. See the supported behavior and limitations below.
 
-Android Studioでこのディレクトリを開いてGradle Syncを実行し、`app`をAndroid 8.0以降のタブレットで起動してください。横画面を推奨します。端末の回転やAndroidのマルチウィンドウは制限していません。
+## Build and run
+
+Open this directory in Android Studio, sync Gradle, and run `app` on an Android 8.0+ tablet. Landscape is recommended; rotation and Android multi-window remain available.
 
 - JDK 17
-- Android SDK Platform 36（Build Tools等はGradle / Android Studioで取得）
+- Android SDK Platform 36; Android Studio/Gradle resolves the build tools
 - minSdk 26 / targetSdk 36
-- Gradle Wrapper同梱
+- Included Gradle Wrapper
 
 ```sh
 git clone https://github.com/TakeruF/android-tab-browser.git
 cd android-tab-browser
 ./gradlew :app:assembleDebug
-```
-
-CLIでは`ANDROID_HOME`でAndroid SDKを指定するか、ローカルの`local.properties`に`sdk.dir`を設定してください。`local.properties`はGit管理対象外です。
-
-ADB接続したタブレット／エミュレーターにインストール:
-
-```sh
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n com.takeruf.nagi/.MainActivity
 ```
 
-複数端末を接続している場合は`adb -s <serial>`で対象を指定してください。
+Set `ANDROID_HOME` or add `sdk.dir` to the Git-ignored `local.properties`. With multiple devices, use `adb -s <serial>`.
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`。署名付きReleaseは`./gradlew :app:assembleRelease`で生成できます。署名鍵の設定と公開手順は[配信・アプリ内更新](docs/RELEASING.md)を参照してください。
+The Debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Generate the signed Release with `./gradlew :app:assembleRelease`; see [distribution and in-app updates](docs/RELEASING.md) for signing and publication.
 
-## 操作
+## Using Nagi
 
-- サイドバー下部のアイコンからSpaceを切り替え。Spaceのメニューから名前・色・アイコンを編集。
-- `Ctrl L`でURL・検索・タブ・Space・コマンドを検索。`>`でコマンドだけを表示。
-- 検索候補は設定で選んだ「常用検索エンジン」だけを表示。初期値はGoogle＋ChatGPT、中国大陸では百度＋千问。Google＋百度＋ChatGPTなども選択でき、選択後は地域が変わっても組み合わせを保持します。常用から外したエンジンはキーワード検索の対象にもなりません。登録一覧ではエンジンの追加・編集・削除ができます。
-- タブ行を長押ししてドラッグ＆ドロップで並び替え。マウス、またはタブのアイコンからは直接ドラッグ。挿入線とプレビューを表示し、リスト端で自動スクロール。
-- 区切り線の上下にドロップして固定・解除。最上部にドロップしてFavorites化、Favoritesを下に戻してタブ化。下部のSpaceアイコンへドロップして移動。タブの`…`から保存・右ペイン表示などの操作。
-- ページの`…`からSplit、Desktop Mode、ページ内検索、Bookmarks／Favorites保存。サイドバーのBookmarksから保存ページを閲覧・削除。
-- ページ内リンク／画像の長押し・右クリックで、新規タブ表示、URLコピー／共有、画像保存。
-- Splitの中央の仕切りをドラッグして比率変更。右ペインの`Choose tab`で表示タブを選択。ページメニューから左右入れ替え・Split解除。
-- サイドバー境界を右にドラッグして幅変更・展開、大きく左にスワイプして折りたたみ。
+- Switch Spaces with the icons at the bottom of the sidebar. Edit a Space's name, color, and icon from its menu.
+- Press `Ctrl L` to search URLs, queries, tabs, Spaces, and commands. Prefix input with `>` to show commands only.
+- Suggestions and keyword searches use the selected common search engines. Initial choices are Google + ChatGPT, or Baidu + Qwen in mainland China. Your chosen combination persists across region changes. Add, edit, or delete engines in the customization screen.
+- Hold a tab row to drag it; mouse and favicon dragging start directly. Insertion lines and a preview show the destination, with edge auto-scrolling.
+- Drop across the divider to pin/unpin, at the top to create a Favorite, below Favorites to restore a tab, or on a Space icon to move it. Tab menus include save and right-pane actions.
+- Use the page menu for Split, desktop mode, find, or saving to Bookmarks/Favorites. Open and remove saved pages from the sidebar's Bookmarks button.
+- Long-press or right-click a link/image to open a tab, copy/share its URL, or save an image.
+- Drag the Split divider to resize. Drop a tab onto either pane or use the tab menu to show it on the right; swap or exit Split from the page menu.
+- Drag the sidebar boundary right to expand/resize, or far left to collapse.
 
-| ショートカット | 操作 |
+| Shortcut | Action |
 | --- | --- |
-| Ctrl / Command + L | Omnibox |
-| Ctrl / Command + T | 新規タブ |
-| Ctrl / Command + W | 選択ペインのタブを閉じる |
-| Ctrl / Command + Shift + T | 最後に閉じたタブを復元 |
-| Ctrl / Command + Tab / Shift + Tab | 次 / 前のタブ |
-| Ctrl / Command + 1〜9 | サイドバーのN番目を開く（お気に入り → ピン留め → 通常タブ。9は9番目、存在しない番号は何もしない。テンキー対応） |
-| Ctrl / Command + R | リロード |
-| Ctrl / Command + F | ページ内検索 |
-| Alt + Left / Right | 戻る / 進む |
+| Ctrl / Command + L | Open the Omnibox |
+| Ctrl / Command + T | New tab |
+| Ctrl / Command + W | Close the focused pane's tab |
+| Ctrl / Command + Shift + T | Restore the last closed tab |
+| Ctrl / Command + Tab / Shift + Tab | Next / previous tab |
+| Ctrl / Command + 1–9 | Open sidebar item N: Favorites, pinned tabs, then ordinary tabs. 9 selects item 9; missing items do nothing. Numpad supported. |
+| Ctrl / Command + R | Reload |
+| Ctrl / Command + F | Find in page |
+| Alt + Left / Right | Back / forward |
 
-## 設計
+## Architecture
 
-[アーキテクチャとRoom schema](docs/ARCHITECTURE.md)を参照してください。WebViewの設定・API操作は`WebViewBrowserEngine`に閉じ込め、ComposeはAndroid用描画アダプターからViewを接続します。セッションプールは、開いたタブのlive WebViewをActivity終了まで保持します。非表示タブはpauseしますが、現時点では自動回収の上限はありません。
+See [architecture and the Room schema](docs/ARCHITECTURE.md). `WebViewBrowserEngine` owns WebView configuration and API calls; Compose attaches the native surface through an Android rendering adapter. The session pool retains all opened live WebViews until the Activity ends and pauses hidden sessions. There is currently no automatic retention cap.
 
-## 対応範囲と制限
+## Supported behavior and limitations
 
-Archiveは起動時と手動実行です。
+Archive runs on launch and on manual request.
 
-- Spacesはタブのグループです。Favoritesは全Space共通です。Cookie・Web Storage・サイトログインは共有します。
-- アプリ再起動時はRoomのURL・タイトル・順序・選択タブを復元します。同じActivityでは開いたタブのWebViewを保持し、タブやSpaceの切り替えによる自動破棄・再読み込みを行いません。Activityやプロセス終了後のフォーム値・スクロール位置・ページ内履歴の復元は保証しません。
-- Cookieは有効、サードパーティCookieは無効。設定の「Cookie・サイトデータを消去」で全Spaceのサイトログイン・ストレージ・ページキャッシュをリセットできます。タブ・Bookmarks・履歴は保持します。証明書エラーはキャンセルし、サイト権限は毎回確認します。
-- `target="_blank"`とユーザー操作によるURL付き`window.open`に対応。`about:blank`へJavaScriptで文書を書き込むポップアップは未対応です。
-- ダウンロードはDownloadManagerを使用。blob / data URLは未対応です。Android 8–9ではアプリ専用Downloads、Android 10以降では公開Downloadsに保存します。
-- アップロードはシステムのドキュメントピッカーを使用。直接撮影するカメラピッカーとフォルダーアップロードは未実装です。
-- Sync / Reader / アプリ内AIチャット / Userscripts / Content Blocking / Private Browsingは未実装です。
-- ChatGPT連携は`https://chatgpt.com/?q=…`へのWeb引き渡しです。APIキーは不要で、ログイン・質問の入力反映・送信はChatGPT側の動作に依存します。ページ本文は送信しません。
+- Spaces organize tabs; Favorites are shared across Spaces. Cookies, Web Storage, and site logins are also shared.
+- Room restores URLs, titles, order, and selected tabs after restart. Within one Activity, switching tabs/Spaces preserves opened WebViews. Form values, scroll position, and in-page history are not guaranteed after Activity/process termination.
+- Cookies are enabled; third-party cookies are blocked. “Clear cookies and site data” resets site logins, storage, and page cache across Spaces while retaining tabs, Bookmarks, and history. Certificate errors are canceled; site permissions require confirmation.
+- User-initiated `target="_blank"` and `window.open` with a URL are supported. Popups that write documents into `about:blank` are not.
+- Downloads use DownloadManager. Blob/data URLs are unsupported. Android 8–9 uses app-specific Downloads; Android 10+ uses public Downloads.
+- Uploads use the system document picker. Direct camera capture and folder uploads are not implemented.
+- Sync, Reader, in-app AI chat, Userscripts, Content Blocking, and Private Browsing are not implemented.
+- ChatGPT integration opens `https://chatgpt.com/?q=…` without an API key or page-content submission. Login, query prefill, and sending depend on ChatGPT; successful answers/login are not established by URL-handoff tests.
 
-検索テンプレートにはHTTPS URLと`{query}`を使用してください。`bd`は百度、`sg`は搜狗、`360`は360、`dy`は抖音、`sm`は神马、`qwen`は千问、`pplx`はPerplexityです。千问は設定画面では「千问（中国大陆）」／「Qwen (China Mainland)」、検索候補では「千问」／「Qwen」と表示します。標準15エンジンを用意しています。
+Search templates must use HTTPS and `{query}`. The 15 built-in engines include Baidu (`bd`), Sogou (`sg`), 360 (`360`), Douyin (`dy`), Shenma (`sm`), Qwen (`qwen`), and Perplexity (`pplx`). Qwen includes the mainland-China region label in Settings and a shorter name in suggestions.
 
-表示言語は日本語・英語・韓国語・中国語（簡体字）に対応し、端末の言語に従います。Android 13以降では端末のアプリ情報にある「言語」から個別に選択できます。[多言語・検索エンジンの詳細](docs/LOCALIZATION.md)。
+The interface supports English, Japanese, Korean, and Simplified Chinese, following the device language. Android 13+ also supports per-app language selection. See [localization and search engines](docs/LOCALIZATION.md).
 
-新規インストールでは「Automatic search by region」が有効です。既存の保存済みデフォルトは維持し、設定から自動判定を有効にできます。有効なら、IPの国コードが`CN`のとき百度、その他はGoogleを選びます。起動をブロックせず、取得不能時は携帯網 → SIM → 端末の地域設定を使用します。言語だけでは中国大陸と判定しません。IP判定は24時間、代替判定・失敗は1時間キャッシュし、起動・画面復帰時に期限を確認します。設定の「Check again」から再判定できます。手動で検索エンジンを選ぶと自動設定がオフになります。削除したエンジンは再作成せず、必要なエンジンがなければ現在の設定を保持します。
+Fresh installs enable automatic search by region. Existing saved defaults remain unchanged until automatic mode is enabled. An IP country code of `CN` selects Baidu; other countries select Google. Lookup does not block startup. Fallback order is mobile network, SIM, then device region; language alone does not imply mainland China. IP results are cached for 24 hours, fallback/failures for one hour, with checks on launch/foreground and “Check again” in Settings. Manual engine selection disables automatic mode. Deleted engines are not recreated; missing required engines leave the current choice intact.
 
-IP判定には[api.country.is](https://github.com/lineofflight/country)へHTTPS接続します。相手には接続元IPが見えますが、検索語・閲覧履歴・端末IDは送信しません。VPN利用時は出口IPの国が判定される場合があります。中国大陸の実回線での到達性は未検証です。
+Region lookup uses HTTPS to [api.country.is](https://github.com/lineofflight/country). The service sees your source IP, but receives no queries, browsing history, or device IDs. A VPN can change the detected country. Mainland-China network reachability has not been verified.
 
-Arcの参照仕様と今回の検証は[ARC_REFINEMENT.md](docs/ARC_REFINEMENT.md)を参照してください。
+See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains IME composition and does not use uncommitted Enter/arrow input for Command Bar navigation. Instrumentation uses a debug-only test IME; normal use relies on the device keyboard.
 
-日本語・中国語・韓国語の変換操作はIME compositionを保持し、未確定中のEnter・矢印をCommand Barから奪わない設計です。端末テストにはdebugビルドだけに含まれるInputConnectionテスト用IMEを使います。通常利用時は端末のキーボードを選択してください。
-
-## テストと画面確認
+## Tests and screenshots
 
 ```sh
 ./gradlew :app:testDebugUnitTest :app:lintDebug
@@ -107,27 +101,28 @@ Arcの参照仕様と今回の検証は[ARC_REFINEMENT.md](docs/ARC_REFINEMENT.m
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-`emulator-5554`は対象端末のserialに置き換えてください。
+Replace `emulator-5554` with your device serial. On 2026-10-06, JDK 17 / SDK 36 / the API-36 tablet emulator passed:
 
-2026-10-03、JDK 17 / SDK 36 / API 36のPixel Tabletエミュレーターで確認しました。
-
-| 検証 | 結果 |
+| Check | Result |
 | --- | --- |
-| ユニットテスト | 34件成功 |
-| Android端末テスト | 29件成功（UI・CJK入力・WebView・スクロール・ドラッグ） |
-| Debug / Release / Test APK | ビルド成功。Releaseはunsigned |
-| Android Lint | エラー0、警告23 |
+| Unit tests | 98 passed |
+| Cross-feature instrumentation | 91 passed |
+| UI adjustments: sidebar address bar and drag | 17 passed in a separate rerun |
+| Signed Release, Debug, and test APK builds | Successful |
+| Debug Lint | 0 errors, 34 warnings |
+| Published 0.1.0 → 0.1.1 upgrade | Space and Bookmark retained |
+| Public in-app update flow | Detection, download, verification, Android confirmation, installation, and data retention verified with a version-code-1 QA client |
 
-追加のUIテスト9件では、合成済み画面の文字・アイコンのコントラスト、全6色のSpace、テーマ切替・Activity再生成、Command Barのキーボード操作、折りたたみ時のタブの読み上げ情報、縦画面の狭いSplitとページ内検索、システムテーマ追従、接続エラーの再試行を確認しています。
+[Validation records](docs/VALIDATION.md) distinguish historical runs, source/build checks, emulator evidence, and live distribution checks. Physical devices, manufacturer-specific IMEs, real camera/microphone/location/trackpad hardware, and Android 8–15 device behavior remain unverified; updater unit tests cover API 26 and 35 with Robolectric.
 
-[詳細な検証記録](docs/VALIDATION.md)には修正内容、各テストの範囲、レポートの場所を記載しています。物理端末、Android 8–15、メーカーごとのIME、実ハードウェアのカメラ・マイク・位置情報・トラックパッドは未確認です。
-
-| ダークテーマ | 縦画面のSplit / ページ内検索 |
+| Dark theme | Split browsing |
 | --- | --- |
-| ![ダークテーマ](docs/screenshots/ui-home-dark.png) | ![縦画面のページ内検索](docs/screenshots/ui-portrait-find.png) |
+| ![Nagi 0.1.1 dark theme](docs/screenshots/readme-home-dark.png) | ![Nagi 0.1.1 Split browsing](docs/screenshots/readme-split.png) |
 
-[Command Bar](docs/screenshots/ui-light-commands.png)・[ドラッグ中](docs/screenshots/arc-sidebar-drag.png)・[地域検索の設定](docs/screenshots/regional-search-settings.png)も実行時の画面です。
+![App updates in Nagi 0.1.1](docs/screenshots/readme-updates.png)
 
-## ライセンス
+ README screenshots are captures of the signed 0.1.1 Release on the API-36 tablet emulator; the Split image uses local demonstration pages.
 
-Nagi本体は[MIT License](LICENSE)です。依存ライブラリの出典・ライセンスは[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)にまとめ、原文と著作権表記をAPKの`assets/licenses/`にも同梱しています。
+## License
+
+Nagi is licensed under the [MIT License](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies. Original license texts and copyright notices are included in the APK under `assets/licenses/`.

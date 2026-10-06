@@ -1,233 +1,218 @@
-# 検証記録
+# Validation records
 
-2026-10-06の横断テスト: [当初の不具合・機能欠落・再現条件](CROSS_FEATURE_AUDIT_2026-10-06.md)。そこで確認したSplitの選択／操作先、Archive、大文字scheme、upload accept拡張子の不具合を0.1.1で修正。Bookmarks、サイトデータ消去、リンク／画像メニュー、アプリ内更新を追加した。初回ナビゲーションは要求URLを直ちに保存し、30秒の読み込みタイムアウト後に再試行できる。ChatGPTの応答生成・ログイン成功は確認対象に含めない。
+The [2026-10-06 cross-feature audit](CROSS_FEATURE_AUDIT_2026-10-06.md) found Split action-target, Archive, uppercase-scheme, and upload-extension bugs. Version 0.1.1 fixes them and adds Bookmarks, site-data clearing, link/image menus, and in-app updates. Navigation immediately stores the requested URL and supports recovery after a 30-second loading timeout. ChatGPT answers/login are not established by these checks.
 
-検証日: 2026-10-03。JDK 17 / Android SDK 36 / Gradle 8.13。端末テストはAPI 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で実行。
+Current results are in [0.1.1 release validation](#2026-10-06--011-release-validation). The records below are chronological: failures and incomplete checks describe their historical stage, not the final release.
 
-## 最新の検証結果
+Initial validation date: 2026-10-03. JDK 17 / Android SDK 36 / Gradle 8.13. Instrumentation used the API-36 Pixel Tablet emulator `Orbit_Tablet_QA`, 2560 × 1600 / 320 dpi / landscape.
 
-2026-10-04のファビコン修正では、Debug / Test APKビルド・単体39件・対象端末4件（FaviconUi 1件、BrowserUi 3件）が成功。Lintもエラー0を確認しました。API 36のエミュレーターで、保存画像がないFavoritesと画像ファイルが消えたFavoritesの取得、取得失敗時の頭文字、サイト指定のアイコンへの更新、ピン留め・再読み込み・Activity再生成後の描画と永続保存を検査しています。Gmail・ChatGPT・GitHubの初期Favoritesのアイコンも実際の画面で確認しました。物理端末の確認は含みません。画面記録は`app/build/reports/favicon-validation/`に保存しています。
-
-2026-10-03の全体検証結果は**単体34件・端末29件が全件成功、Debug / Release / Test APKのビルド成功、Lintエラー0・警告23**です。Releaseはunsignedです。[詳細UIテストと表示崩れの修正](#詳細uiテストと表示崩れの修正)に実行の範囲を記載しています。
-
-以下は開発順の検証記録です。途中の失敗・未完了の記述は、その時点の結果を示します。
-
-## 初期実装のビルドとテスト
+## Initial implementation build and tests
 
 ```sh
 ./gradlew :app:assembleDebug :app:assembleRelease \
   :app:testDebugUnitTest :app:lintDebug :app:connectedDebugAndroidTest
 ```
 
-| 検証 | 結果 |
+| Check | Result |
 | --- | --- |
-| Debug APK | 成功 |
-| Release APK / R8 | 成功。署名設定は未設定のためunsigned |
-| Android Lint | エラー0。更新可能な依存バージョン等の警告あり |
-| 単体テスト | 26件成功、失敗・スキップ0 |
-| Android端末テスト | 13件成功、失敗・スキップ0 |
+| Debug APK | Successful |
+| Release APK / R8 | Successful; unsigned because signing was not configured |
+| Android Lint | 0 errors; warnings included dependency updates |
+| Unit tests | 26 passed; no failures/skips |
+| Instrumentation | 13 passed; no failures/skips |
 
-単体テスト: URL/IDN/IPv4/IPv6/ポート/危険なscheme判定・keyword/UTF-8検索11件、25タブ切り替え時のliveセッション保持/表示切り替え/閉じたタブの破棄/全セッション終了4件、実際のRoomによるSpace/Tab/Bookmark/Engine/Archiveの整合性8件、ダウンロードファイル名3件。
+Unit coverage: URL/IDN/IPv4/IPv6/ports/unsafe schemes, keywords, and UTF-8 search (11); live retention of 25 tabs, visibility, closed-session disposal, and full shutdown (4); real Room Space/Tab/Bookmark/Engine/Archive invariants (8); download filenames (3).
 
-端末テスト: ブラウズ/履歴/Favorites/Bookmarks/閉じたタブ復元、Split/比率変更/交換/解除、検索エンジン追加とActivity再生成の3件、CJK入力4件、実際のWebViewによるJavaScript/Cookie/LocalStorage/IndexedDB/戻る進む/ページ内検索/ページ履歴snapshot/Desktop UA/ダウンロード/HTML入力/target blank/ファイル選択・全画面コールバックの6件。
+Instrumentation: browsing/history/Favorites/Bookmarks/tab restoration; Split ratios/swap/exit; engine addition/recreation (3); CJK input (4); actual WebView JavaScript/cookies/localStorage/IndexedDB/back-forward/find/history snapshots/desktop UA/download/HTML input/target blank/file-picker/fullscreen callbacks (6).
 
-生成レポート:
+Reports:
 
 - `app/build/reports/tests/testDebugUnitTest/index.html`
 - `app/build/reports/androidTests/connected/debug/index.html`
 - `app/build/reports/lint-results-debug.html`
 
-## 日本語・中国語・韓国語入力
+## Japanese, Chinese, and Korean input
 
-Composeのテキストを置き換えるだけではなく、debug専用InputMethodServiceから、Androidが接続した実際のInputConnectionを使用。テスト終了後に元のIMEを復元します。このサービスはRelease APKに含まれません。
+A debug-only InputMethodService exercised Android's actual InputConnection instead of replacing Compose text directly. Tests restore the original IME. The service is absent from Release APKs.
 
-| 対象 | 操作と確認 |
+| Target | Actions and checks |
 | --- | --- |
-| 日本語Command Bar | `に` → `にほん` → `にほんごのけんさく` → `日本語の検索`。未確定中のDown/Enter/IME Goで文字とフォーカスを保持。確定後に再変換してEnterで検索 |
-| 中国語Command Bar | `zh` → `zhongwen` → `zhongwensousuo` → `中文搜索`。未確定中の誤実行を防ぎ、確定後IME Goで検索 |
-| 韓国語Command Bar | `ㅎ` → `하` → `한` → `한구` → `한국어 검색`。compositionの更新と確定後Enterを確認 |
-| 検索エンジンName | 日本語・中国語・韓国語のpreeditとcommitを同じフィールドで確認 |
-| HTMLフォーム | WebViewの実際の入力欄へCJK compositionとcommitを送信。JavaScriptから最終値を読み、文字を保持していることを確認 |
+| Japanese Command Bar | `に` → `にほん` → `にほんごのけんさく` → `日本語の検索`; retain text/focus during composing Down/Enter/IME Go, then reconvert and search after commit |
+| Chinese Command Bar | `zh` → `zhongwen` → `zhongwensousuo` → `中文搜索`; prevent premature execution and search with IME Go after commit |
+| Korean Command Bar | `ㅎ` → `하` → `한` → `한구` → `한국어 검색`; verify composition updates and committed Enter |
+| Search-engine name | Japanese/Chinese/Korean preedit and commit in one field |
+| HTML form | Send composition/commit to a real WebView field and read the final value with JavaScript |
 
-修正した回帰: 変換中のDownがComposeの別候補へフォーカスを移し、その後の入力を失うケース。Command BarをTextFieldStateで管理し、composition中にアプリへ届いたEnter/Up/Down/EscapeとIME Goがタブ移動・検索実行を起こさないようにしました。
+Fixed a regression where composing Down moved Compose focus to another suggestion and lost subsequent input. TextFieldState retains composition; Enter/Up/Down/Escape and IME Go reaching the app during composition do not navigate or search.
 
-Command Barの初期フォーカスはダイアログのウィンドウが入力を受け取れる状態になるまで待ちます。親ウィンドウ側で先にフォーカスを要求してIMEが未接続になる競合も修正しました。テスト用IMEの切り替え・解除の同期は別に行い、アプリのフォーカスと区別しています。
+Initial Command Bar focus waits until the dialog window can receive input, fixing a race caused by requesting parent-window focus before the IME connected. Test-IME binding/unbinding synchronization is separate from app focus.
 
-ソフトキーボード表示時は安全領域とIMEのinsetsをCommand Barへ適用し、候補リストをスクロールできる高さに縮めます。実装は[AndroidのWindowInsetsガイド](https://developer.android.com/develop/ui/compose/system/insets-ui)に沿っています。
+Command Bar applies safe-area/IME insets and shortens the scrollable suggestion list while the keyboard is visible, following [Android's WindowInsets guide](https://developer.android.com/develop/ui/compose/system/insets-ui).
 
-これはアプリとAndroid入力接続の検証です。Gboard・Samsung Keyboard等の実際の候補辞書、各端末のハードウェアキーボードとIME固有動作の確認は残っています。
+This validates app/input-connection behavior, not Gboard/Samsung dictionaries, physical keyboards, or manufacturer-specific IME behavior.
 
-## トラックパッドとマウスのスクロール
+## Trackpad and mouse scrolling
 
-2026-10-03に`BrowserScrollTest`を追加。API 36の`Orbit_Tablet_QA`で4件成功。別作業とのAPKインストール競合を避けるため専用の`Orbit_Scroll_QA`でも4件再確認し成功。WebViewへ直接送るのではなく、Activityのウィンドウ入口から入力し、ComposeとネイティブViewの転送経路を含めて検証しています。
+Added BrowserScrollTest on 2026-10-03. Four tests passed on Orbit_Tablet_QA, then four passed again on a dedicated Orbit_Scroll_QA to avoid concurrent APK installation. Input entered through the Activity window, covering Compose/native forwarding.
 
-- マウスの`ACTION_SCROLL`でページを縦横に動かし、逆方向にも戻る。
-- `SOURCE_TOUCHPAD`の縦横入力がHTML内のスクロール領域へ届く。ページ全体は動かず、DOMの`wheel`が1入力につき1回届く。
-- タッチスワイプの後も、マウス・トラックパッドの小数のスクロール入力が届く。
-- Splitで先にクリックしなくてもポインター下のペインだけが動く。スクロールしたペインへフォーカスが切り替わり、Ctrl Wがそのペインを閉じる。
+- Mouse `ACTION_SCROLL` moves vertically/horizontally and back.
+- `SOURCE_TOUCHPAD` reaches an HTML scroll container without moving the whole page; each input produces one DOM wheel event.
+- Fractional mouse/touchpad scrolling still works after touch swipes.
+- In Split, only the pane under the pointer scrolls without a prior click; focus follows that pane and Ctrl W closes it.
 
-トラックパッドの`SOURCE_TOUCHPAD`はフォーカス先へ転送されるため、`ACTION_SCROLL`だけをウィンドウ入口でポインター入力に変換。座標・縦横軸・小数の値を維持して標準のWebView処理へ渡します。ペインのフォーカス通知はネイティブコンテナーでタッチ開始とスクロールを観測します。イベント形式は[Android MotionEvent](https://developer.android.com/reference/android/view/MotionEvent)、転送先の規則は[View.dispatchGenericMotionEvent](https://developer.android.com/reference/android/view/View#dispatchGenericMotionEvent(android.view.MotionEvent))を参照。
+Because touchpad events normally follow focus, only `ACTION_SCROLL` is converted to pointer input at the window boundary. Coordinates, axes, and fractions are retained for standard WebView dispatch. The native container observes touch starts/scrolling to report pane focus. References: [MotionEvent](https://developer.android.com/reference/android/view/MotionEvent) and [dispatchGenericMotionEvent](https://developer.android.com/reference/android/view/View#dispatchGenericMotionEvent(android.view.MotionEvent)).
 
-これはエミュレーターへのAndroid入力イベント注入による検証です。物理トラックパッド固有のドライバー・加速度・ジェスチャーの確認は含みません。
+This injects Android events on an emulator; physical drivers, acceleration, and gestures are not verified. Debug, 34 unit tests, and Lint (0 errors) passed. Dedicated-device runs passed these four plus BrowserUi (3), CJK (4), and WebView (6), totaling 17; execution used `adb -s emulator-5556 shell am instrument -w -r`. Logs: `app/build/reports/scroll-validation/`.
 
-修正後のDebugビルド、単体テスト34件、Lintエラー0を確認。専用エミュレーターで上記4件と既存のBrowserUiTest 3件・CjkInputTest 4件・WebViewEngineTest 6件、計17件が成功しています。端末テストはAPKをインストールし`adb -s emulator-5556 shell am instrument -w -r`で実行。ログは`app/build/reports/scroll-validation/`に保存しました。
+The complete suite was not considered finished at that stage: an independently added sidebar Favorite-drag test exceeded its one-second wait and auto-scroll was interrupted while waiting. Six remaining WebView tests passed separately. Sidebar dragging was outside the scrolling repair.
 
-この時点では全体テストは完了扱いにしていません。並行して追加された`SidebarDragTest`のFavoritesへのドラッグで1秒の待機時間超過があり、自動スクロールのテストも待機が終了せず中断しました。その後、未実行だったWebViewEngineTest 6件を分けて実行し成功。サイドバーのドラッグ処理は今回のスクロール修正の対象外です。
+## Manual checks
 
-## 手動確認
+- Installed/launched the APK and inspected home, sidebar, Command Bar, Settings, and Split.
+- Displayed normal Gboard and checked the leading suggestion/action hints. This was English-keyboard rendering, not CJK dictionary coverage.
+- Loaded an external HTTPS page and verified its title/content.
+- Opened the Android document picker from a local HTML file input, selected `orbit-upload.txt`, and verified the filename through HTML File API.
+- Saved a local HTTP attachment to public Downloads with DownloadManager; verified SUCCESS and `orbit.txt` content `Orbit download verification`.
+- Fixed attachment navigation overwriting the document URL and returning to an empty tab after recreation; added a regression asserting original URL/title retention after downloading.
 
-- 実際にAPKをインストールして起動。ホーム、Sidebar、Command Bar、設定、Splitの描画を確認。
-- 通常のGboardを表示し、入力後の先頭候補とキーボード上の操作案内が見えることを確認。これは英語キーボードでの表示確認で、CJK候補辞書の検証とは別です。
-- 外部HTTPSページを取得し、ページタイトルとWebコンテンツの表示を確認。
-- ローカルHTTPページの`input type=file`からAndroidの標準ドキュメントピッカーを開き、`orbit-upload.txt`を選択。HTMLのFile APIで選択したファイル名が表示されることを確認。
-- ローカルHTTPの添付ファイルをDownloadManagerで公開Downloadsへ保存。`orbit.txt`の内容が`Orbit download verification`であることと完了状態SUCCESSを確認。
-- 添付ファイルのURLが元のページURLを上書きし、再生成時に新規タブ画面になるケースを修正。ダウンロード後は元の文書URLとタイトルを維持する回帰検証を追加。
+[Screenshots](screenshots/) use actual WebView rendering. Split/file examples use local fixture HTML; `web-https.png` shows an external HTTPS page.
 
-画面記録は[screenshots](screenshots/)に保存。Splitとファイル処理のWeb領域は検証用のローカルHTML、`web-https.png`は外部HTTPSページです。いずれも実際のWebViewで描画しています。
+## Remaining device validation
 
-## 残る検証
+Real camera/microphone/location, video codecs/fullscreen playback, Android 8–9 download destinations, manufacturer IMEs, and broad real-site compatibility remain unverified. Permission/fullscreen callbacks are implemented, but callback tests do not prove hardware behavior. See [README](../README.md) for MVP scope, restoration guarantees, shared cookies, and unimplemented features.
 
-物理端末のカメラ/マイク/位置情報の取得、実際の動画コーデックと全画面再生、Android 8–9の保存先、複数メーカーのIMEと大規模な実サイト互換性は未確認。サイト権限の要求処理と全画面ホストは実装済みですが、コールバックテストは実ハードウェア動作の証明にはなりません。
+## Arc sidebar and regional search
 
-MVPの機能範囲・復元の保証・共有Cookie・未実装のPhase 3は[README](../README.md)を参照してください。
+[ARC_REFINEMENT.md](ARC_REFINEMENT.md) records the scope and screenshots. At this stage, 34 unit and 16 targeted device tests, Debug/Release builds, and Lint passed.
 
-## Arc Sidebarと地域検索の更新
+## Colors and readability — 2026-10-03
 
-追加変更の検証結果・範囲・最新画面は[ARC_REFINEMENT.md](ARC_REFINEMENT.md)に記録しています。単体34件・対象端末テスト16件が成功し、Debug/ReleaseビルドとLintも成功しています。
+Fixed unspecified root `contentColor` causing black sidebar text/action icons/Favorite initials in dark mode when the background mixed Space colors.
 
-## UIの配色と視認性
+- Increased new-tab heading/supporting-text contrast and outlined search fields.
+- Added fill/border selection for tabs, suggestions, and Spaces, with semantic selection.
+- Defined Material 3 surface/text colors per theme and replaced translucent Settings/search cards with opaque theme surfaces.
+- Preserved stored Space colors; corrected displayed icon colors for at least 4.5:1 background contrast. Cloud/heart symbols use text presentation.
+- Synchronized app/dialog system-bar text with the app theme independently of the OS theme.
+- Improved Split focus/divider and error Retry colors.
 
-2026-10-03にライト／ダーク表示を調整。Space色を混ぜたルート背景の`contentColor`が未指定だったため、ダーク表示でもSidebarの文字・操作アイコン・Favoritesの頭文字が黒で描かれていた問題を修正しました。
+Computed sRGB ratios: normal text/surface 12.67:1 light, 12.06:1 dark; secondary text/surfaceContainerHigh 5.60:1/6.84:1; selected text/primaryContainer 8.71:1/7.36:1; search outline/surfaceContainer 3.77:1/5.10:1. Disabled states, web content, and IME colors are excluded.
 
-- 新規タブの見出しと補助文字のコントラストを上げ、検索欄に輪郭を追加。
-- 選択中のタブ・検索候補・Spaceを塗りと輪郭で表示し、選択状態をsemanticsにも公開。
-- Material 3のsurface containerと文字色をテーマごとに指定。設定カードと検索欄の半透明色を不透明なテーマ色に変更。
-- Spaceの保存色を保ち、表示するアイコン色のみ背景とのコントラストが4.5:1以上になるよう補正。雲・ハートはtext presentationでテーマの文字色を適用。
-- アプリとダイアログのステータス／ナビゲーションバーの文字色を、システム設定とは独立したアプリのテーマに同期。
-- Splitのフォーカス枠とリサイズハンドル、エラーの再試行ボタンも見やすい色に調整。
+Debug/Lint passed (0 errors/23 warnings); BrowserUi's three cases passed. Inspected home, Settings, Command Bar, and Space editing on API 36, without physical-device proof.
 
-sRGB相対輝度から主要な色の組み合わせを計算。通常文字／surfaceはライト12.67:1・ダーク12.06:1、補助文字／surfaceContainerHighは5.60:1・6.84:1、選択文字／primaryContainerは8.71:1・7.36:1。検索欄の輪郭／surfaceContainerは3.77:1・5.10:1です。無効状態・Webページ・IMEの配色はこの数値の対象外です。
+Screenshots: [light](screenshots/colors-light-home.png), [dark](screenshots/colors-dark-home.png), [dark Settings](screenshots/colors-dark-settings.png), [suggestions](screenshots/colors-dark-commandbar.png), [Space editing](screenshots/colors-dark-editor.png).
 
-DebugビルドとLintを再実行し成功（エラー0、警告23）。更新したAPKで既存のBrowserUiTest 3件を実行し成功。API 36の`Orbit_Tablet_QA`でホーム、設定、Command Bar、Space編集を実際に表示して確認しました。物理端末での表示確認は含みません。
+## Detailed UI tests and layout repairs — 2026-10-03
 
-画面: [ライト](screenshots/colors-light-home.png)・[ダーク](screenshots/colors-dark-home.png)・[ダーク設定](screenshots/colors-dark-settings.png)・[検索候補](screenshots/colors-dark-commandbar.png)・[Space編集](screenshots/colors-dark-editor.png)。
-
-## 詳細UIテストと表示崩れの修正
-
-2026-10-03、配色変更後の全テストを再実行。以下が今回の最終結果です。
-
-| 検証 | 結果 |
+| Check | Result |
 | --- | --- |
-| Debug APK / Android Test APK | 成功 |
-| Release APK / R8 | 成功、unsigned |
-| 単体テスト | 34件成功、失敗・スキップ0 |
-| Android端末テスト | 29件成功、失敗・スキップ0 |
-| Lint | エラー0、警告23 |
+| Debug / AndroidTest APK | Successful |
+| Release / R8 | Successful, unsigned |
+| Unit tests | 34 passed; no failures/skips |
+| Instrumentation | 29 passed; no failures/skips |
+| Lint | 0 errors, 23 warnings |
 
-端末テストはAPI 36の`Orbit_Tablet_QA`で`connectedDebugAndroidTest`を実行。既存20件（BrowserUi 3、CJK入力4、WebView 6、スクロール4、ドラッグ3）に、`AppearanceUiTest` 9件を追加しました。全体の実行は2分2秒で完了しています。
+The API-36 connectedDebugAndroidTest run took 2m 2s: existing BrowserUi (3), CJK (4), WebView (6), scroll (4), drag (3), plus AppearanceUiTest (9).
 
-追加した確認:
+Additional coverage:
 
-- ライト／ダークのSidebar、Favoritesの頭文字、見出し、操作アイコン、新規タブの文字を実際の合成済み描画画像で検査。文字4.5:1、アイコン3:1を確認。
-- 実際のテーマ選択チップを操作し、Activity再生成後も設定画面と選択状態が保持されることを確認。
-- Command Barのフォーカス、Downによる選択移動、Escapeによる終了、両テーマでのダイアログのステータスバー文字色を確認。
-- 全6色のSpaceを両テーマで保存し、雲のアイコンの実描画コントラストを確認。色補正は4.5:1を目標とし、この細い字形の描画検査はアンチエイリアスを考慮して4.4:1を下限にしています。
-- Sidebarを折りたたんでも、タブ名・選択状態・クリック操作をsemanticsから取得できることを確認。
-- サイドバー幅380 dpの縦画面でSplitを作成し、仕切りを左へ動かしてもページ内検索の入力幅が100 dp以上、高さが64 dp以下に収まることを確認。検索を閉じる操作とSplit解除も確認。
-- Systemテーマのまま端末のナイトモードをオン／オフし、描画色とステータスバーが追従し、同じタブが残ることを確認。端末設定はテスト後に元へ戻します。
-- ローカルの接続失敗を実際のWebViewで発生させ、両テーマでエラー文字とRetryのコントラスト・再試行操作を確認。
+- Composited light/dark sidebar text, Favorite initials, headings, icons, and new-tab text: 4.5:1 text and 3:1 icons.
+- Actual theme chips, Settings/selection persistence after recreation.
+- Command Bar focus, Down selection, Escape dismissal, and dialog system-bar text in both themes.
+- Six Space colors in both themes and rendered cloud-icon contrast; correction targets 4.5:1, with 4.4:1 minimum for this thin anti-aliased glyph.
+- Collapsed tab names, selection, and clicks through semantics.
+- Portrait Split with a 380dp sidebar, moved divider, find-field width ≥100dp and height ≤64dp, dismissal, and Split exit.
+- System-theme night-mode changes preserving tabs and tracking rendering/system bars; OS settings restored afterward.
+- Actual local WebView connection errors and readable, working Retry in both themes.
 
-目視確認で、縦画面の狭いSplitペインでは検索文字が細く折り返され、ページ内検索欄もほぼ幅0に潰れていました。狭いペインではReloadをページメニューに移し、新規タブの検索文言・余白を短くし、ページ内検索を入力欄と移動ボタンの2行に変更。Split比率も表示幅に応じて制限し、可能な幅がある場合は各ペイン180 dp以上を確保します。折りたたみ時のタブ名の読み上げ情報も補いました。
+Portrait inspection found narrow wrapping and a nearly zero-width find field. Compact panes move Reload into the menu, shorten new-tab copy/padding, and put find input/navigation on two rows. Split ratios adapt to width, keeping each pane ≥180dp when possible. Collapsed-tab accessibility names were also restored.
 
-最初の全体実行では、以前のテストが追加したFavoritesでリストの表示領域が縮み、ドラッグ3件が準備段階で失敗しました。ドラッグテストはFavoritesを一定のfixtureにして、終了時に元のエントリーを復元するよう変更。最終の全29件は一括実行で成功しています。
+The first full run failed three drag setups because Favorites left by earlier tests reduced the viewport. Drag tests now use a fixed Favorite fixture and restore entries afterward. All 29 then passed together.
 
-画面: [縦画面Split](screenshots/ui-portrait-split.png)・[縦画面のページ内検索](screenshots/ui-portrait-find.png)・[ライトの検索候補](screenshots/ui-light-commands.png)・[ダークのエラー](screenshots/ui-dark-error.png)・[システムのダーク追従](screenshots/ui-system-dark.png)。
+Screenshots: [portrait Split](screenshots/ui-portrait-split.png), [portrait find](screenshots/ui-portrait-find.png), [light suggestions](screenshots/ui-light-commands.png), [dark error](screenshots/ui-dark-error.png), [system dark](screenshots/ui-system-dark.png).
 
-レポート: `app/build/reports/androidTests/connected/debug/index.html`、`app/build/reports/tests/testDebugUnitTest/index.html`。実行ログは`app/build/reports/ui-validation/`。この検証はAPI 36のエミュレーターでの結果で、物理端末、別メーカーのIME、Android 8–15は含みません。
+Reports: `app/build/reports/androidTests/connected/debug/index.html`, `app/build/reports/tests/testDebugUnitTest/index.html`; logs: `app/build/reports/ui-validation/`. Emulator only; physical devices, other manufacturers' IMEs, and Android 8–15 were not covered.
 
-## READMEとライセンスの整備
+## README and licenses
 
-MITのLICENSE、依存ライブラリの出典一覧、原文・著作権表記を追加。ライセンス一覧はRelease runtimeの解決済み108モジュールと一致することを確認しました。ライセンス原文・NOTICE・本体MITの計9ファイルはDebug / Release APK内の`assets/licenses/`とバイト単位で一致しています。同梱後に両ビルドとLintも成功しています。
+Added MIT LICENSE, dependency attribution, original texts, and copyrights. The then-current inventory matched 108 resolved Release runtime modules. Nine bundled license/NOTICE/project-MIT files matched bytes in Debug/Release APK `assets/licenses/`; both builds and Lint passed afterward. Checked README local links and 21 external license links, and refreshed light/dark home captures.
 
-READMEのローカルリンクとライセンス文書の外部リンク21件も確認。画面は最終のライト／ダークのホームを撮り直しました。
+## Favicons — 2026-10-04
 
+Debug/test builds, 39 unit tests, FaviconUi (1), BrowserUi (3), and Lint (0 errors) passed. Coverage: Favorites without cached images or with deleted files, initial fallback after failed fetch, site-provided icon updates, pin/reload/recreation rendering and persistence. Inspected Gmail/ChatGPT/GitHub seed icons. Screenshots: `app/build/reports/favicon-validation/`; no physical-device proof.
 
-## 画像注記に沿ったサイドバー操作の更新（2026-10-04）
+## Sidebar annotation refinements — 2026-10-04
 
-- Personal／Workの標準アイコンを🏠／💼で表示。Space編集に絵文字の候補と自由入力を追加し、複合絵文字も保存・Activity再生成後の表示を確認。既存の単色アイコンも選択可能です。
-- `about:blank`のタブを家アイコンで表示。展開・折りたたみの両表示に適用。
-- マウスではタブの「…」「×」とFavoritesの「…」をホバー時に表示。タッチでは選択中タブの操作とFavoritesのメニューを表示し、読み上げ用にも「Show actions」を提供。
-- タブ／Favoritesの右クリックでメニューを表示。右クリックがタブ選択やドラッグを開始しないことを確認。
-- 既存のドラッグによる並べ替え、ピン留め、Favoritesへの移動、別Spaceへの移動、キャンセルを検証。
-- アイコン編集画面はスクロール可能にし、入力キーボードや狭い画面でも項目へ到達できるようにしました。
+- Personal/Work default icons use house/briefcase emoji. Space editing adds presets/free input, including compound emoji persistence/recreation; old monochrome choices remain supported.
+- Empty tabs use a home icon in expanded/collapsed views.
+- Mouse hover reveals tab ellipsis/close and Favorite menus. Touch shows selected-tab actions and Favorite menus, with accessible “Show actions.”
+- Right-click opens tab/Favorite menus without selecting or dragging.
+- Revalidated reorder, pin, Favorite conversion, Space movement, and cancellation.
+- The icon editor scrolls to accommodate keyboards/small screens.
 
-Debugビルド・単体テスト39件・Lintが成功（エラー0、既存警告23）。端末テストはSidebarDragTest 5件が一括成功。AppearanceUiTest 9件とBrowserUiTest 3件も成功しました（表示の12件とサイドバーの5件は別実行）。API 36のOrbit_Tablet_QAで検証。物理端末・実際のトラックパッドは未検証です。
+Debug, 39 unit tests, and Lint (0 errors/23 existing warnings) passed. SidebarDrag (5) passed together; Appearance (9) and BrowserUi (3) passed in a separate run. API-36 emulator only, without physical trackpad validation.
 
-画面: [絵文字と家アイコン](screenshots/sidebar-emoji-home.png)・[ホバー時の操作](screenshots/sidebar-hover-actions.png)・[右クリックメニュー](screenshots/sidebar-context-menu.png)。
+Screenshots: [emoji/home](screenshots/sidebar-emoji-home.png), [hover actions](screenshots/sidebar-hover-actions.png), [context menu](screenshots/sidebar-context-menu.png).
 
-長いリストの自動スクロールは、固定時間のタイマーから描画フレームに合わせた進行に変更。リスト端ではスクロールを止めます。テストもドラッグ入力後の描画を待ってから到達を判定するようにしました。
+Long-list auto-scroll now advances with rendering frames instead of a fixed timer, stops at list boundaries, and waits for rendering in assertions.
 
+## Passkeys and Lucide — 2026-10-04
 
-## パスキー連携とLucide（2026-10-04）
+Enabled browser-mode WebAuthn on supported WebViews and added permission/dependencies for origin-preserving Credential Manager calls. API exposure, mismatched RP rejection, and cancellation passed on API 36/WebView 133.0.6943.137. Real-service registration/login remains unverified. Google Password Manager requires browser approval for third-party passkeys; settings alone are insufficient. See [PASSKEYS.md](PASSKEYS.md).
 
-パスキーのWebAuthnを、対応するWebViewでブラウザー用モードに設定。originを保持して端末のCredential Managerへ渡す権限と依存を追加しました。ネイティブAPIの公開、異なるRP IDの拒否、キャンセルの3件がAPI 36・WebView 133.0.6943.137で成功しました。実サービスでの登録／ログイン成功は未検証です。Google Password Managerで第三者サイトのパスキーを扱うにはブラウザーの承認が必要で、設定だけでは完了しません。[実装・承認条件・検証範囲](PASSKEYS.md)。
+Replaced general Material icons with Lucide: 73 uses/34 kinds across sidebar, address bar, suggestions, library, Settings, and menus. Preserved labels, touch targets, theme colors, favicons, and Space emoji; Back/Forward support RTL. Bundled Lucide/Feather/Android licenses and updated the inventory to 127 modules including transitive dependencies.
 
-一般操作のMaterial IconsをLucideに置換。サイドバー、アドレスバー、検索候補、履歴、ブックマーク、設定、ページ／タブメニューに73箇所・34種類を使用。設定の見出しとメニューにもアイコンを追加し、読み上げ用の説明、クリック領域、テーマ色を維持しています。戻る／進むはRTLの方向にも対応。ファビコンとSpaceの絵文字は維持しました。Lucide・FeatherとAndroidパッケージのライセンスをAPKへ同梱し、推移的依存を含む127モジュールの一覧を更新しました。
+Screenshots: [home](screenshots/lucide-home.png), [Settings](screenshots/lucide-settings.png), [context menu](screenshots/lucide-context-menu.png).
 
-画面: [ホーム](screenshots/lucide-home.png)・[設定](screenshots/lucide-settings.png)・[右クリックメニュー](screenshots/lucide-context-menu.png)。
+Debug/unsigned Release, 39 unit, and 35 instrumentation tests passed with no failures/skips, including three passkey cases plus existing UI/CJK/scroll/WebView/favicon/sidebar coverage. Lint: 0 errors/24 warnings (new WebKit update notice). Eleven bundled license files matched APK bytes. Physical passkey registration/login was not tested.
 
-最終検証: Debug／Releaseビルド（Releaseはunsigned）、単体39件、端末35件が成功。失敗・スキップ0。端末テストはAPI 36のOrbit_Tablet_QAで実行し、既存の表示・CJK入力・スクロール・WebView・ファビコン・サイドバーと、新規パスキーテスト3件を含みます。Lintはエラー0・警告24（追加分はWebKitの更新通知）。同梱ライセンス11ファイルはDebug／Release APK内とバイト単位で一致しました。物理端末のパスキー登録／ログイン成功は未検証です。
+## Sidebar resizing and accent color — 2026-10-04
 
-## サイドバー境界のリサイズとアクセントカラー（2026-10-04）
+Hovering the boundary shows a horizontal resize cursor/guide. Dragging updates width directly; at 220dp minimum it collapses to a 72dp rail, and dragging right expands it. Prior width is retained for the ordinary expand button. The Settings slider also collapses at minimum; maximum width is 380dp. Secondary clicks/canceled drags do not change settings. Root-coordinate calculations compensate for boundary movement.
 
-境界にマウスを合わせると水平リサイズカーソルとガイドを表示し、ドラッグ中に幅を反映します。展開時の最小幅220dpで72dpのレールへ自動的に折りたたみ、境界を右へドラッグすると再展開します。折りたたむ前の幅は保持し、通常の展開ボタンでも復帰できます。設定の幅スライダーも最小値で折りたたみます。最大幅は380dpです。右クリックとキャンセルしたドラッグは設定を変更しません。幅計算は画面上の座標を基準にし、ドラッグ中の境界移動を補正します。
+Appearance adds six accent presets/custom HEX, updating buttons, switches, chips, and selection with DataStore persistence. Space colors/emoji remain separate. Display colors target ≥4.5:1 text contrast in light/dark while preserving the entered color.
 
-Appearanceにアクセントカラー6色とカスタムHEX入力を追加。ボタン、スイッチ、選択チップ、選択タブなどのテーマ色を更新し、DataStoreへ保存します。Spaceの色・絵文字は別の設定です。任意の色の表示はライト／ダークの背景に対して文字コントラスト4.5以上になるよう調整し、入力した元の色を保存します。
+Screenshots: [minimum collapse](screenshots/sidebar-minimum-collapsed.png), [custom light](screenshots/custom-accent-light.png), [custom dark](screenshots/custom-accent-dark.png).
 
-画面: [最小幅での折りたたみ](screenshots/sidebar-minimum-collapsed.png)・[カスタム色のライト表示](screenshots/custom-accent-light.png)・[カスタム色のダーク表示](screenshots/custom-accent-dark.png)。
+All 41 unit/38 device tests passed. An extra AppearanceUi (12) rerun passed final chip colors and resize moves separated by render frames. Debug/unsigned Release/Lint passed; API-36 mouse/touch injection only, without physical mouse/trackpad proof.
 
-検証: 単体41件と端末38件が全件成功。選択チップの最終配色と、描画を挟んだ複数移動のリサイズ操作を含むAppearanceUiTest 12件も追加実行して全件成功しました。Debug／Releaseビルド（Releaseはunsigned）とLintが成功。API 36のOrbit_Tablet_QAでマウス・タッチ入力を検証し、実物のマウス／トラックパッドは未検証です。
+## Four locales and four additional engines — 2026-10-04
 
-## 日英韓中の表示と検索エンジン4件の追加（2026-10-04）
+Added Sogou (`sg`), 360 (`360`), Douyin (`dy`), and Shenma (`sm`), bringing defaults to 13 at this stage. Fresh/existing installs seed once without overwriting IDs/keywords or restoring later edits/deletions. Douyin path queries encode spaces as `%20`. Verified CJK and `+`, `/`, `?`, `&` encoding.
 
-搜狗（`sg`）・360（`360`）・抖音（`dy`）・神马（`sm`）を追加。標準は13件です。初回起動と既存データへの一度限りの追加に対応し、同じID／キーワードの既存エンジンを保持します。削除・編集を次回起動で巻き戻しません。抖音のパス検索は空白を`%20`に変換します。CJK検索語と`+`・`/`・`?`・`&`のURL生成を検証しました。
+Added 219 strings per English/Japanese/Korean/Simplified-Chinese locale, covering home, Settings, sidebar, menus, suggestions, permission/download prompts, and accessibility. User names/page titles are retained. Four-language localeConfig supports Android 13+ per-app languages; commands match translated/English names.
 
-日・英・韓・中（簡体字）各219文言を標準Androidリソースに追加。ホーム、設定、サイドバー、メニュー、検索候補、権限／ダウンロード確認、読み上げ用説明を対象にしています。ユーザーの名前やページタイトルは保持します。`localeConfig`に4言語を宣言し、Android 13以降のアプリ別言語設定に対応。翻訳したコマンド名と英語名の両方で検索できます。
+Four-locale home/dark Settings/command tests passed on API 36, including the four engines. A Compose Activity-management hang during locale changes was resolved by selecting the per-app language before launching the Activity; all four cases passed, and language settings were restored.
 
-4言語のホーム・ダーク設定画面・コマンド操作をAPI 36のエミュレーターで検証。各言語で4エンジンが表示されることを確認しました。言語変更中にActivityを管理するComposeテストが待ち続けたため、端末のアプリ別言語を設定してからActivityを起動する方式にし、4件すべて成功しました。言語はテスト後に復元します。
+Raised custom-color primary/container contrast targets to 5.0 after anti-aliased text narrowly missed the rendered threshold.
 
-カスタムアクセントの描画における文字コントラストの余裕も改善しました。文字のアンチエイリアスを含む描画で基準をわずかに下回ったため、カスタム色のprimary／container文字色の調整目標を5.0に上げています。
+Screenshots: [Japanese home](screenshots/locale-ja-home.png), [Korean Settings](screenshots/locale-ko-settings.png), [Chinese commands](screenshots/locale-zh-CN-commands.png), [English Settings](screenshots/locale-en-settings.png). See [localization](LOCALIZATION.md).
 
-画面: [日本語ホーム](screenshots/locale-ja-home.png)・[韓国語設定](screenshots/locale-ko-settings.png)・[中国語コマンド](screenshots/locale-zh-CN-commands.png)・[英語設定](screenshots/locale-en-settings.png)。[言語設定・検索URL・実装範囲](LOCALIZATION.md)。
+All 44 unit/42 device tests passed with no failures/skips. Debug/unsigned Release succeeded; Lint: 0 errors/25 warnings (new API-33 localeConfig notice). Physical devices, Android 8–15, and remote engine results were not verified.
 
-最終検証: 単体44件・端末42件が全件成功（失敗・スキップ0）。Debug／Releaseビルド成功（Releaseはunsigned）、Lintはエラー0・警告25（追加分はlocaleConfigがAPI 33以降で使われることの通知）。API 36のOrbit_Tablet_QAで実行。物理端末・Android 8–15・各検索サービスでの実検索結果は未検証です。
+## Space icons and theme color — 2026-10-04
 
-## 2026-10-04 — Space icons and theme color
+Space editing adds emoji/Lucide modes, 24-item wrapping grids each, previews, and free-form emoji. Lucide IDs use `lucide:<name>` in the existing icon column; legacy emoji/symbols remain displayable.
 
-Space編集に絵文字／Lucide切り替え、各24種の折り返しグリッド、選択プレビュー、任意の絵文字入力を追加。Lucideは`lucide:<name>`を既存のSpace icon列へ保存し、旧絵文字・記号も表示できます。
+Renamed accent color to theme color and applied it to backgrounds, panels, and selection. Retained DataStore key `accent_color` for existing values. Tested contrast in light/dark and extreme colors.
 
-アクセントカラーをテーマカラーへ改名し、ブラウザーの背景・パネル・選択色にも反映。DataStoreの既存`accent_color`キーを維持して保存済みの色を引き継ぎます。ライト／ダークと極端な色の文字コントラストを検証しました。
+Debug/AndroidTest builds, 44 unit tests, and Lint (0 errors) passed. API-36 `AppearanceUiTest#customThemeColorPersistsAndRemainsReadableInBothThemes` and `#lucideAndEmojiPersistAcrossRecreationAndBothThemes` passed, covering persistence, Lucide restoration, pickers, and custom colors in both themes. No physical-device verification.
 
-検証: Debug APK・AndroidTest APKビルド成功、単体テスト44件成功、Lintエラー0。API 36のOrbit_Tablet_QAで`AppearanceUiTest#customThemeColorPersistsAndRemainsReadableInBothThemes`、`AppearanceUiTest#lucideAndEmojiPersistAcrossRecreationAndBothThemes`成功。Lucide・任意の絵文字の保存、Activity再生成後のLucide復元、両テーマの選択画面とカスタム色表示を確認。実機では未検証です。
+## Theme-derived base palette — 2026-10-05
 
+Removed the fixed green tint before applying the selected theme color while preserving surface lightness. Backgrounds/panels/borders use the chosen color. Root/sidebar Space overlays were removed and the sidebar gradient now follows the theme. Space identity colors remain; stored theme settings/keys are unchanged.
 
-## 2026-10-05 — テーマカラーでベース配色を変更
+Debug/AndroidTest, 45 unit tests, AppearanceUi (13), Lint, and diff checks passed with no failures/skips. Pixel coverage confirms red/blue sidebar colors even with a green Space, light/dark contrast, and recreation persistence. Unit tests ensure red/blue/gray surfaces have no fixed green tint. Inspected light-red/dark-blue captures in `app/build/reports/theme-base-validation/`. No physical-device proof.
 
-固定の緑色パレットへ選択色を重ねる方式を修正。各surfaceの明るさを保ちながら元の色味を除き、選択したテーマカラーで背景・パネル・枠線を生成します。画面全体とサイドバーへ重ねていたSpace色も外し、サイドバーのグラデーションをテーマカラーへ統一。Space色はSpaceの識別表示で維持します。既存のテーマカラー設定と保存キーは変更していません。
+## Rounded overflow menus — 2026-10-05
 
-検証: Debug／AndroidTest APKビルド成功、単体45件・AppearanceUiTest 13件成功（失敗・スキップ0）、Lint成功、git diff --check成功。API 36のOrbit_Tablet_QAで、Spaceが緑のままでも赤・青のテーマカラーがサイドバーの実描画へ反映されること、ライト／ダークでの文字コントラスト、Activity再生成後の色の保持を確認。単体テストでは赤・青・グレーのsurfaceに固定の緑色が残らないことも検査しました。ライト赤／ダーク青の画面全体を目視確認。画面記録は`app/build/reports/theme-base-validation/`。実機では未検証です。
+Unified page/tab/Favorite/Space menus with NagiOverflowMenu/NagiOverflowMenuItem: 24dp outer radius, 16dp inner radius after 8dp inset, 12dp vertical padding, ≥52dp items, 8dp card + 12dp item horizontal padding, surfaceContainerHigh, and 6dp shadow. Material hover/focus/press clips to inner corners. Icons/text align centrally; only delete/remove-Favorite uses error color. Tab/Favorite menus anchor to the ellipsis Box. Settings engine selection/right-pane selection were unchanged at this stage.
 
-## 2026-10-05 — 柔らかい角丸のoverflow menu
+Retained standard [DropdownMenu](https://developer.android.com/reference/kotlin/androidx/compose/material3/DropdownMenu.composable) positioning, scroll, focus, and fade/scale motion. Rows grow for larger text.
 
-ページ・タブ・Favorites・Spaceの3ドットメニューを`NagiOverflowMenu`／`NagiOverflowMenuItem`へ統一。外側24dp、内側は外側から8dpのinsetを引いた16dp、上下12dp、項目52dp以上、左右はカード8dp＋項目12dp。surfaceContainerHighと6dpの影を使い、hover／focus／pressのMaterial indicationを内側の角丸でclipします。アイコンとラベルを中央揃えにし、削除／Favorite除去だけerror色に設定。タブとFavoritesは3ドットのBoxをアンカーに変更しました。設定の検索エンジン選択と右ペインのタブ選択は変更していません。
+OverflowMenuUi (3), BrowserUi (3), and SidebarDrag (5) passed together: 11 tests, no failures/skips. Coverage includes disabled items, click dismissal, Back, corner preservation under light/dark hover, 2× font row growth/wrapping/scroll, and existing right-click/drag. Corrected the Space-editor selector to the current “Custom emoji” label.
 
-[標準DropdownMenu](https://developer.android.com/reference/kotlin/androidx/compose/material3/DropdownMenu.composable)のPopup位置調整、スクロール、focus、fade／scaleアニメーションを保持。行は固定高さにせず拡大文字で伸びるようにしています。
-
-API 36のOrbit_Tablet_QAでOverflowMenuUiTest 3件、BrowserUiTest 3件、SidebarDragTest 5件、計11件が一括成功（失敗・スキップ0）。無効項目、クリック後の閉じる動作、戻るキー、ライト／ダークのhoverで角の背景を保持すること、2倍の文字サイズでの行の伸長と長いラベルの折り返し・項目へのスクロール、既存の右クリックとドラッグ操作を検証。SidebarDragTestのSpace編集用selectorは、既存のアイコンpickerの現在のラベル`Custom emoji`へ修正しました。
-
-実際のページメニューとライト／ダークの共通カード・hover・拡大文字を目視確認。画面記録は`app/build/reports/overflow-validation/`。拡大文字テストはPopup内のLocalDensityを2倍にしたcomponent検証で、OS設定変更の検証ではありません。物理端末・ColorOS上では未検証です。
-
-最終チェック: Debug／Release（unsigned）／AndroidTest APKビルド成功、Lint成功（エラー0、既存警告25）、`git diff --check`成功。ドメイン／保存処理の変更はありません。
+Inspected real menus, cards, hover, and enlarged text in `app/build/reports/overflow-validation/`. Enlarged-text tests double Popup LocalDensity at the component level, not the OS font setting. Physical/ColorOS behavior remains unverified. Debug/unsigned Release/AndroidTest, Lint (0 errors/25 existing warnings), and diff checks passed. No domain/persistence changes.
 
 ## Shared corner geometry (2026-10-05)
 
@@ -258,11 +243,11 @@ API 36のOrbit_Tablet_QAでOverflowMenuUiTest 3件、BrowserUiTest 3件、Sideba
 - The initial combined run had a Japanese test-IME binding failure (passed on targeted rerun) and the unrelated existing settings-engine-name test failed because its `Add search engine` selector assumes the previous settings layout. That test was left unchanged; its settings-editor coverage is not claimed here.
 - Debug lint passed with 0 errors and 25 warnings; Release (unsigned) build and `git diff --check` passed.
 
-## 常用検索エンジン（2026-10-05）
+## Common search engines (2026-10-05)
 
-登録一覧と常用候補を分離。未設定時は中国大陸で百度＋千问、それ以外でGoogle＋ChatGPT。設定のチェックボックスとChatGPTスイッチで組み合わせを保存し、手動変更時は地域自動設定を無効にします。常用外のキーワードは通常検索の文字列として扱います。
+Separated the engine registry from common suggestions. Unconfigured installs use Baidu + Qwen in mainland China and Google + ChatGPT elsewhere. Settings checkboxes and the ChatGPT switch persist the combination; manual changes disable regional automation. Keywords for non-common engines are treated as ordinary search text.
 
-単体61件、API 36エミュレーター対象7件（CommonSearchEnginesUiTest 1件、ChatGptCommandBarUiTest 2件、LocalizationUiTest 4件）が全件成功。Debug / Releaseビルド成功、Lintエラー0・警告25。常用選択の保存・Activity再生成・候補追加と除外・未選択360キーワードの通常検索・4言語設定を確認。物理端末・中国大陸の実ネットワークは未検証。画面記録は `app/build/reports/common-search-validation/`。
+All 61 unit tests and seven targeted API-36 tests passed: CommonSearchEnginesUiTest (1), ChatGptCommandBarUiTest (2), LocalizationUiTest (4). Debug/Release builds succeeded; Lint had 0 errors/25 warnings. Coverage includes persistence/recreation, suggestion inclusion/exclusion, ordinary search for an unselected 360 keyword, and four-locale Settings. Physical devices and mainland-China networking were not tested. Screenshots: `app/build/reports/common-search-validation/`.
 
 ## 2026-10-06 — drag tabs into split view and filled theme presets
 
@@ -302,3 +287,7 @@ API 36のOrbit_Tablet_QAでOverflowMenuUiTest 3件、BrowserUiTest 3件、Sideba
 
 - Live GitHub manifest/APK and takeruf.com/nagi download were re-fetched; both APKs matched SHA-256 `cda3dee9a7aaa83268f745b67a2599dc4774219de824c51735fc42bcc42959f9` and the published 0.1.0 signing certificate.
 - A QA client using the updater code with versionCode 1 and the distribution signature detected the public release, downloaded and verified it, opened the unknown-source setting, and completed Android's Update confirmation. The installed app reported 0.1.1/code 2; the named Space and Bookmark remained visible. The normal Release then displayed “You have the latest version.” Initial emulator DNS failures were resolved by restarting the QA emulator with explicit DNS servers; no update transport was replaced or bypassed.
+
+## English documentation and refreshed README screenshots — 2026-10-06
+
+Repository Markdown, release notes, and update-manifest notes use English. CJK strings remain only as literal IME test examples. README screenshots were captured from the signed 0.1.1 Release on the API-36 emulator: light/dark home, Split with two locally hosted demonstration pages, and the live updater showing the latest version. Images were inspected, and relative document/image links were checked.

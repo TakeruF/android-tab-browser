@@ -1,86 +1,84 @@
-# 横断テストと機能欠落の調査 — 2026-10-06
+# Cross-feature audit and missing functionality — 2026-10-06
 
-対象: `989538a` のcheckoutと作業開始時点の未コミットUI変更。JDK 17.0.20.1、API 36 / Android 16の `Orbit_Tablet_QA` (`emulator-5554`)、WebView 133.0.6943.137。本調査では製品コードを変更せず、テストと検証記録を追加・更新した。
+Historical audit target: checkout `989538a` plus the uncommitted UI changes present at the start. Environment: JDK 17.0.20.1, API 36 / Android 16, `Orbit_Tablet_QA` (`emulator-5554`), WebView 133.0.6943.137. This audit added/updated tests and records without changing product code. The subsequent fixes and successful 0.1.1 validation are recorded in [VALIDATION.md](VALIDATION.md).
 
-## 再現用テストで検査する不具合
+## Bugs reproduced by regression tests
 
-### B1 / 高: Split右タブのキーボード選択と操作対象の不一致
+### B1 / High: right-tab keyboard selection disagrees with the action target
 
-再現: 2タブをSplit表示 → `Ctrl Tab` または右タブに相当する `Ctrl 1–9` → `Ctrl W`。
+Reproduce: display two tabs in Split, press `Ctrl Tab` or the right tab's `Ctrl 1–9` shortcut, then `Ctrl W`.
 
-期待: 選んだ右タブを閉じ、左タブを保持する。実装では選択タブを右へ更新しながら `rightFocused = false` にするため、`focusedTab` が左になる。閉じる・検索・再読み込み・戻る・URL入力などが異なるページを対象にする可能性がある。Command Barの `SelectTab` も同じ経路。
+Expected: close the selected right tab and retain the left. The audited implementation selected the right tab while assigning `rightFocused = false`, leaving `focusedTab` on the left. Close, find, reload, back, and URL input could affect the wrong page. Command Bar `SelectTab` followed the same path.
 
-箇所: `ui/NagiApp.kt` の `focusedTab` と `Shortcut.NEXT_TAB` / `PREVIOUS_TAB` / 数字ショートカット / `SuggestionAction.SelectTab`。
+Locations: `ui/NagiApp.kt`, `focusedTab`, `Shortcut.NEXT_TAB`/`PREVIOUS_TAB`, numbered shortcuts, and `SuggestionAction.SelectTab`.
 
-再現テスト: `CrossFeatureUiTest#nextTabSelectionMakesCloseShortcutCloseRightTab`、`#numberedRightTabSelectionMakesCloseShortcutCloseRightTab`。
+Tests: `CrossFeatureUiTest#nextTabSelectionMakesCloseShortcutCloseRightTab` and `#numberedRightTabSelectionMakesCloseShortcutCloseRightTab`.
 
-### B2 / 中: 表示中のSplit右ページがArchiveで消える
+### B2 / Medium: Archive removes a visible right-hand Split page
 
-再現: 右側タブをSplitに表示し、その最終アクセス日時がArchive期間より古い状態でArchiveを実行。
+Reproduce: display a right-hand tab whose last-access timestamp is older than the archive threshold, then run Archive.
 
-期待: 現在表示している両ページを保持する。`BrowserDao.archiveInactive` は `spaces.activeTabId` だけを保護し、Splitの右タブを認識しない。対象タブに `archivedAt` が設定されると `visibleTabs` から除外され、セッション保持対象からも外れるため、右ペインとlive WebViewが失われる。
+Expected: retain both visible pages. `BrowserDao.archiveInactive` protected only `spaces.activeTabId`, not the right Split tab. Assigning `archivedAt` removed the tab from `visibleTabs` and session retention, losing the right pane/live WebView.
 
-最終アクセス日時はテストで古い値を設定して再現する。フォームやスクロール位置の消失まではこのテストでは検査していない。
+The test injects an old timestamp. It does not directly inspect lost form values or scroll position.
 
-箇所: `data/repository/TabRepository.kt#archiveNow`、`data/room/BrowserDao.kt#archiveInactive`、`ui/NagiApp.kt` の `retainTabIds`。
+Locations: `data/repository/TabRepository.kt#archiveNow`, `data/room/BrowserDao.kt#archiveInactive`, and `retainTabIds` in `ui/NagiApp.kt`.
 
-再現テスト: `CrossFeatureUiTest#archiveDoesNotHideEitherCurrentlyDisplayedSplitPage`。
+Test: `CrossFeatureUiTest#archiveDoesNotHideEitherCurrentlyDisplayedSplitPage`.
 
-### B3 / 中: 保存できる大文字HTTPS検索テンプレートを実行できない
+### B3 / Medium: an accepted uppercase HTTPS template cannot navigate
 
-再現: カスタム検索エンジンに `HTTPS://example.com/?q={query}` を登録し、検索する。
+Reproduce: save `HTTPS://example.com/?q={query}` as a custom search template and search.
 
-`InputResolver.validateEngine` はschemeを大文字小文字を区別せず受理するが、`search` はテンプレートのschemeを正規化せず、`WebViewBrowserEngine.loadUrl` は小文字の `https://` / `http://` だけを受理する。ロードせずに戻り、エラー表示もしない。
+`InputResolver.validateEngine` accepted schemes case-insensitively, but `search` did not normalize the template and `WebViewBrowserEngine.loadUrl` accepted lowercase `https://`/`http://` only. It returned without loading or displaying an error.
 
-再現テスト: `WebViewEngineTest#validatedUppercaseSearchTemplateCanNavigate`。ネットワーク成功ではなく、検証で受理したURLがエンジンへ渡る契約を検査する。
+Test: `WebViewEngineTest#validatedUppercaseSearchTemplateCanNavigate`. This checks the accepted-URL navigation contract, not successful remote network delivery.
 
-### B4 / 中: ファイルアップロードの拡張子指定がpickerで失われる
+### B4 / Medium: extension-based upload filters are discarded
 
-再現: ファイル選択要求のacceptに `.pdf` を指定。
+Reproduce: request file selection with accept `.pdf`.
 
-`NativeBrowserHost.chooseFiles` は `/` を含む値だけをMIMEとして残すため、`.pdf` が落ちてIntentのtypeが `*/*` になる。PDFで絞り込まず、すべてのファイルを表示する。複数の明示MIMEと複数選択の経路は別テストで検査する。
+`NativeBrowserHost.chooseFiles` kept only values containing `/`, discarding `.pdf` and setting the Intent type to `*/*`. The picker showed every file instead of filtering PDFs. Explicit multiple MIME types and multiple selection have separate coverage.
 
-再現テスト: `FilePickerContractTest#pdfExtensionAcceptRestrictsPickerToPdfFiles`。Robolectricで実際に起動要求されたシステムpicker Intentを検査する。物理端末のpicker画面までは検査していない。
+Test: `FilePickerContractTest#pdfExtensionAcceptRestrictsPickerToPdfFiles`, inspecting the real requested picker Intent with Robolectric. Physical-device picker rendering was not tested.
 
-### 要追跡: ChatGPT handoff後の保存URLがabout:blankのまま
+### Follow-up: ChatGPT handoff leaves the stored URL at about:blank
 
-既存の `ChatGptBrowserHandoffUiTest` は初回一括・更新後一括・単独再実行で失敗した。新しい対象タブの表示を待ってから「ChatGPTに聞く」をクリックしても、10秒後のRoom URLが `about:blank` のままであることを単独実行の診断で確認した。候補の生成・選択・callbackのcomponentテストは成功している。
+`ChatGptBrowserHandoffUiTest` failed in the initial suite, the updated suite, and a standalone rerun. Even after waiting for the intended new tab before clicking “Ask ChatGPT,” Room still held `about:blank` after 10 seconds. Suggestion generation, selection, and callback component tests passed.
 
-追加の単独診断では、実際のWebViewは `url=https://chatgpt.com/?q=Nagi+browser+test`、`originalUrl=about:blank`、`progress=10` だった。つまり質問付きURLはWebViewへ渡っているが、ロードが進まず、Roomへの反映も起きていない。引き渡しcallbackの失敗とは断定できない。接続・サイト・エンジンのどこでロードが止まるか、ページ開始前のURLを保存する必要性は要追跡。Cloudflare・ログイン・ネットワークが原因と断定しない。ChatGPTが質問を受理した証拠もない。
+Standalone diagnostics showed WebView `url=https://chatgpt.com/?q=Nagi+browser+test`, `originalUrl=about:blank`, and `progress=10`. The query URL reached WebView, but loading stalled and Room was not updated. This did not establish a handoff-callback failure. Connection/site/engine behavior and saving the requested URL before page-start remained follow-ups. Cloudflare, login, or networking was not established as the cause, and ChatGPT query acceptance was not proved.
 
-## コードと現行UI導線から確認した機能欠落
+## Missing functionality found in code and current navigation
 
-- **通常Bookmarksの保存・閲覧導線**: `LibraryScreen(history = false)` と永続保存処理は残るが、NavHostには `browser` / `settings` / `history` しかなく、SidebarやCommand BarにBookmarksの入口がない。ページメニューの保存操作もなく、既存の通常BookmarkをUIで開けない。Favoritesは利用可能。READMEの「Bookmarks」「ページメニューから保存」と現行UIが不一致。復活させるか、廃止するなら既存データの利用方法と説明の更新が必要。
-- **Cookie・サイトデータの消去**: 設定の消去操作は閲覧履歴だけ。サイトログイン・Cookie・localStorageをユーザーがリセットする操作、サイト別の消去もない。ログインループの調査やサイトからのログアウト操作に不足する。履歴消去がサイトデータも消すとは表記していないため、履歴消去そのもののバグではない。
-- **リンク／画像の長押し・右クリック操作**: WebViewのhit-testを使うコンテキストメニューがなく、リンク単位の新規タブ表示・URLコピー・画像保存の専用操作がない。`target=_blank` と全リンクを新規タブにする設定は別の機能。
+- **Ordinary Bookmarks:** `LibraryScreen(history = false)` and persistence existed, but NavHost exposed only `browser`, `settings`, and `history`. Sidebar/Command Bar had no Bookmarks entry, and the page-save action was missing. Existing Bookmarks could not be opened through the UI, while Favorites remained available. README promises disagreed with the interface; either restore access or document retirement and existing-data access.
+- **Cookie/site-data clearing:** Settings cleared browsing history only. Users could not reset site logins, cookies, or localStorage globally or per site. This impeded login-loop troubleshooting and local logout. History clearing did not claim to clear site data, so its existing action was not itself defective.
+- **Link/image context actions:** no WebView hit-test menu offered per-link new-tab, URL-copy, or image-save actions. `target=_blank` and the global open-links-in-new-tabs setting are different features.
 
-既にREADMEで未対応と明示されているPrivate Browsing、Sync、Reader、Content Blocking、blob/dataダウンロード、カメラ・フォルダーpickerは今回の新規回帰とは扱わない。
+Private Browsing, Sync, Reader, Content Blocking, blob/data downloads, camera capture, and folder picking were already documented as unsupported and were not counted as new regressions.
 
-ドキュメント上の別の不一致: READMEはセッションプールを最大3と説明するが、現行EnginePoolは開いたliveセッションを全て保持し、既存テストも25タブ保持を検査する。多数タブ時のメモリ上限・回収方針は明示する必要がある。今回OOMを再現したわけではない。
+Another documentation mismatch: README claimed a three-session pool, while EnginePool retained every opened live session and tests checked retention of 25 tabs. The retention/memory policy needed clarification; this audit did not reproduce OOM.
 
-## 既存テストの修復
+## Repairs to existing tests
 
-初回全件実行は端末82件中70成功・12失敗。失敗はアプリの不具合と一律には扱わない。
+The initial instrumentation run passed 70 of 82 tests and failed 12. Failures were not all treated as product bugs.
 
-- カスタムエンジン編集・CJKエンジン名入力: 新しい「Customize search engines」画面を経由。カスタムkeywordのテストは常用エンジン選択も実施。
-- 4言語: Settingsから移動したTheme colorを探す処理を、現行のDark選択の検査に変更。
-- ファビコン: 削除されたページメニューのPin項目ではなく、タブのPinアクセシビリティ操作を実行。
-- 新規タブのhomeアイコン: 新規タブの到着とOmniboxを待ち、閉じてから対象タブのアイコンを検査。非表示の別タブの同名アイコンを誤選択しない。
-- Space切替アニメーション: 他テストが残したQA Spacesでボタンが横スクロール範囲の外に出るため、対象Spaceを表示してからアニメーション時計を停止。修正後の単独再実行は成功。
-- ChatGPT handoff: 旧Spaceにも存在するSettingsボタンではなく、新しい対象タブが表示されてから操作。
-- CJK検索: 実InputConnectionのcomposition検査を維持し、device-local HTTP fixtureをテスト用検索先に使用。公開検索サイトのリダイレクトやCAPTCHAが保存URLの検査に混入しないようにした。HTTPS登録の検証は別の既存テストで維持。
+- Engine editing/CJK names: navigate through “Customize search engines”; select the custom engine as common for keyword tests.
+- Four locales: check the current Dark selector rather than Theme color, which moved out of the old Settings location.
+- Favicons: use the tab's Pin accessibility action instead of the removed page-menu item.
+- New-tab home icon: wait for the intended new tab and Omnibox, dismiss it, then inspect that tab rather than an identically named hidden icon.
+- Space animation: scroll the target Space into view before freezing the animation clock; other tests had left QA Spaces outside the horizontal viewport. Standalone rerun passed.
+- ChatGPT handoff: wait for the new target tab instead of acting on a Settings button also present in an older Space.
+- CJK search: retain real InputConnection composition coverage, but use a device-local HTTP search fixture so remote redirects/CAPTCHAs do not alter stored-URL assertions. Separate tests retain HTTPS-registration validation.
 
-## 実行結果・レポート
+## Historical results and reports
 
-初回の既存単体85件は全成功。追加したfile picker契約テストを含む単体87件は86成功・1失敗（B4）。Debug / Release（unsigned）/ AndroidTest APKビルド成功。Lintはエラー0、警告33。`git diff --check` 成功。
+All 85 original unit tests passed. Adding the picker contracts produced 87 unit tests: 86 passed, one failed (B4). Debug, unsigned Release, and AndroidTest APKs built. Lint had 0 errors/33 warnings; `git diff --check` passed.
 
-追加再現4件を含む端末86件の一括実行は **80成功・6失敗・スキップ0**。内訳はB1の2件、B2の1件、B3の1件、ChatGPT handoff、Space切替アニメーション。Space切替の導線修正後、当該テストとChatGPT handoffの2件を個別再実行し、Space切替は成功、ChatGPTは失敗した。更新済み既存テストの全件成功を主張しない。
+The expanded instrumentation run had **80 passed, six failed, zero skipped out of 86**. Failures: two B1 cases, B2, B3, ChatGPT handoff, and Space animation. After repairing the Space navigation, standalone runs passed Space animation and still failed ChatGPT. This stage did not establish a fully passing updated suite.
 
-保存先: `artifacts/cross-feature-audit-2026-10-06/`。初回の全件結果を `baseline-results` / `baseline-report`、追加端末全件結果を `expanded-results` / `expanded-report`、個別再実行を `targeted-results` / `targeted-report`、単体の追加検査結果を `unit-results` / `unit-report` に保存。
+Artifacts are local under `artifacts/cross-feature-audit-2026-10-06/`: initial suite in `baseline-results`/`baseline-report`; expanded suite in `expanded-results`/`expanded-report`; reruns in `targeted-results`/`targeted-report`; unit results in `unit-results`/`unit-report`; ChatGPT diagnostics in `handoff-results`/`handoff-report`.
 
-ChatGPTの追加診断は `handoff-results` / `handoff-report` に保存する。
-
-失敗時の[実画面](../artifacts/cross-feature-audit-2026-10-06/handoff-audit.png)も確認。アドレスバーには質問付きURLが表示され、本文は白紙・進捗表示のまま、タブ名はNew tabである。
+The local diagnostic screenshot `handoff-audit.png` showed the query URL in the address bar, a blank body with progress still visible, and the tab title “New tab.”
 
 ```sh
 JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew :app:testDebugUnitTest
@@ -88,6 +86,4 @@ ANDROID_SERIAL=emulator-5554 JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew
 JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew :app:lintDebug
 ```
 
-再現テストは修正前の不具合を検出するため失敗する。全件成功とは主張しない。
-
-物理端末、API 26–35、実メーカーIME、実トラックパッド、実カメラ／マイク／位置情報、中国大陸の実ネットワーク、ChatGPTの質問受理・回答生成は今回の確認対象外。API 26のエミュレーターイメージはこの環境に未導入。
+Regression tests deliberately failed against the audited pre-fix code. Physical devices, API 26–35 device behavior, manufacturer IMEs, real trackpads/camera/microphone/location, mainland-China networking, and ChatGPT query acceptance/answers were outside this audit. An API-26 emulator image was not installed.

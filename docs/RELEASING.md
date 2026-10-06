@@ -1,39 +1,40 @@
-# 配信とアプリ内アップデート
+# Distribution and in-app updates
 
-配信先は [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases)。packageは `com.takeruf.nagi`。0.1.1は `versionCode=2`、minSdk 26、署名付き・R8最適化済み・debuggable=falseのAPKを配布する。
+Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. Version 0.1.1 has `versionCode=2`, minSdk 26, and a signed, R8-optimized APK with `debuggable=false`.
 
-## 署名
+## Signing
 
-Releaseの署名設定は環境変数 `NAGI_SIGNING_PROPERTIES` が指すPropertiesファイルから読み込む。未設定時は `~/.config/nagi/release-signing.properties`。必要なキーは `storeFile` / `storePassword` / `keyAlias` / `keyPassword`。署名設定がない場合はReleaseビルドを成功させず、unsigned APKを配布しない。
+Release signing reads the Properties file specified by `NAGI_SIGNING_PROPERTIES`, defaulting to `~/.config/nagi/release-signing.properties`. Required fields are `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. A Release build without signing configuration must fail; do not distribute unsigned APKs.
 
-0.1.1は takeruf.com/nagi で配布済みの0.1.0 APKと同じ配布鍵を使用する。元の公開APKからpackage・version・署名fingerprintを検査して、Release keystoreを設定した。同じpackageと署名を維持し、アンインストールせずに更新する。ローカルDebug版は別署名のため、この配布版の上書き更新対象ではない。今後もこの配布鍵を継続使用する。
+Version 0.1.1 uses the same distribution key as the 0.1.0 APK published at takeruf.com/nagi. Verify the original public APK's package, version, and certificate fingerprint when configuring signing. Keeping the same package and signature allows an in-place update without uninstalling. Local Debug builds have a different signature and cannot update to this distribution in place. Keep using the distribution key for future releases.
 
-設定ファイルとkeystoreはGit管理対象外の `~/.config/nagi/` にあり、ファイル権限600。秘密鍵とパスワードを安全な場所へ別途バックアップする。公開するのは証明書fingerprintとAPKのchecksumだけ。
+The signing configuration and keystore are outside Git in `~/.config/nagi/`, with file permissions 600. Back up the private key and passwords securely. Publish only the certificate fingerprint and APK checksum.
 
-署名証明書SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`。
+Signing-certificate SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`.
 
-旧package `com.orbit.browser` と別packageを使うインストールは、Androidの同一アプリ更新の対象ではない。
+The former `com.orbit.browser` package and any other application ID are separate apps under Android's update rules.
 
-## 更新の流れ
+## Update flow
 
-起動時に一度、および設定の「アプリの更新」から、HTTPSで `releases/latest/download/update.json` を取得する。確認失敗でブラウジングを妨げない。新しいversionCodeを検出すると通知ボタンを表示し、ユーザー操作でダウンロードを開始する。
+Once on startup, and when requested from Settings → App updates, the app fetches `releases/latest/download/update.json` over HTTPS. Check failures do not block browsing. A higher version code displays an update button; downloading starts only after user interaction.
 
-APKはアプリprivate cacheへ保存し、サイズとSHA-256、package、versionName、versionCode、minSdk、インストール済みAPKとの署名一致を検査する。別署名・別package・ダウングレード・破損ファイルはインストールへ渡さない。インストール直前にも再検査する。未完成ファイルは成功・失敗・キャンセル後に削除する。
+The APK is stored in the app's private cache. Checks cover size, SHA-256, package, version name/code, minSdk, and the installed app's signing certificate. Different signatures/packages, downgrades, and corrupt files never reach the installer. Verification runs again immediately before installation. Partial files are deleted after completion, failure, or cancellation.
 
-Android 8以降の「この提供元からのインストール」設定へ必要に応じて案内し、許可後にAndroid標準のインストール確認画面を開く。バックグラウンドで勝手にインストールしない。0.1.0にはこの機能がないため、0.1.1への初回更新は配布APKを開いて行う。0.1.1以降の更新をアプリ内で確認できる。
+On Android 8+, the app opens the install-from-this-source setting when needed, then Android's standard installation confirmation. Installation is not automatic in the background. Version 0.1.0 has no updater: install 0.1.1 manually, then use in-app checks for future versions.
 
-Google Play版を将来作る場合は、GitHub用の `REQUEST_INSTALL_PACKAGES` とAPK配信ではなく、Playの更新方式を使う別flavorに分ける。
+A future Google Play distribution should use a separate flavor with Play's update mechanism instead of the GitHub APK channel and `REQUEST_INSTALL_PACKAGES`.
 
-## 公開手順
+## Publication
 
-1. versionNameとversionCodeを上げ、Release notesを作成する。
-2. 単体・端末テスト、Lint、署名付きReleaseを検証する。
-3. 関連変更のみcommitし、同じcommitのclean checkoutからRelease APKを生成する。
-4. `scripts/prepare_release.py APK --notes RELEASE_NOTES --out OUTPUT_DIR` でAPKと `update.json` / `SHA256SUMS` を生成する。
-5. commitをpushし、タグ `v<versionName>` のGitHub ReleaseへAPK、JSON、checksumを同時にアップロードする。
-6. 公開JSONとAPKを再取得し、checksum・署名・package・versionを検査。アプリからの更新確認も行う。
+1. Increment version name/code and write English release notes.
+2. Verify unit/instrumentation tests, Lint, and the signed Release.
+3. Commit only relevant changes and generate the APK from a clean checkout of that commit.
+4. Run `scripts/prepare_release.py APK --notes RELEASE_NOTES --out OUTPUT_DIR` to produce the APK, `update.json`, and `SHA256SUMS`.
+5. Push the commit and upload all three assets to a GitHub Release tagged `v<versionName>`.
+6. Re-fetch the public JSON/APK and verify checksum, signature, package, and version. Check the app's update flow too.
+7. Update the website's APK, displayed version/size/checksum, feature descriptions, and installation guidance; verify the deployed page and downloaded bytes.
 
-`update.json` のスキーマ:
+`update.json` schema:
 
 ```json
 {
@@ -44,8 +45,8 @@ Google Play版を将来作る場合は、GitHub用の `REQUEST_INSTALL_PACKAGES`
   "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v0.1.1/nagi-0.1.1.apk",
   "sha256": "64 lowercase hexadecimal characters",
   "size": 123,
-  "notes": "Release notes"
+  "notes": "English release notes"
 }
 ```
 
-更新チェックは公開GitHubのHTTPS配信を使用し、API keyやGitHub tokenをアプリへ埋め込まない。接続先には接続元IPとNagiのバージョン付きUser-Agentが見えるが、閲覧履歴や検索語を送らない。利用ネットワークからGitHubへ到達できない場合はエラー表示後に再試行する。
+The updater uses public GitHub HTTPS assets with no embedded API key or GitHub token. The host sees the source IP and Nagi-version User-Agent, but receives no browsing history or search queries. When GitHub is unreachable, display an error and allow retry.

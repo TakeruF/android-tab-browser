@@ -18,7 +18,7 @@ Known request details:
 - Android package: `com.takeruf.nagi`
 - Purpose: a general Android tablet web browser handling passkey registration and authentication for the HTTPS website displayed in WebView
 - Integration: AndroidX WebKit native browser mode and Android Credential Manager; the WebView validates the website origin and relying-party ID
-- Production signing-certificate SHA-256 and distribution details: still required
+- Production signing-certificate SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`; signed GitHub/website APK distribution is documented in [RELEASING.md](RELEASING.md). Provider browser approval is still required.
 
 After approval, verify registration, authentication, cancellation, screen-lock/biometric handling and recreation on a physical device with the intended provider. Conditional/autofill mediation is not claimed; the Android WebView guide currently documents conditional mediation as unsupported.
 
