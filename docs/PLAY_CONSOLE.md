@@ -2,6 +2,15 @@
 
 Prepared 2026-10-06 for Nagi 0.1.1 (`com.takeruf.nagi`, versionCode 2, targetSdk 36). This file contains submission copy and source-backed declaration guidance; it does not claim that Console forms have been saved, a release has been submitted, or a test is active.
 
+## 0.1.3 update — 2026-10-06
+
+- Version `4 (0.1.3)` was uploaded and submitted to the existing **Alpha** closed-testing track with release notes in all four languages. Publishing overview confirms **Changes in review** with automated checks running.
+- After submission Alpha remains **Active**, 0.1.3 is **In review**, and 0.1.2 remains **Available to selected testers**. No pause, promotion, tester-list change, signing-key change or region change was performed.
+- `AndroidClosedJP@googlegroups.com`, `support@takeruf.com`, 178 countries/regions and both opt-in links remain unchanged. Dashboard count was 5 before the update and 6 afterwards. No 14-day completion is claimed.
+- Console reports no loss of supported devices. The sole release warning is the optional native debug-symbol recommendation.
+- Uploaded AAB SHA-256: `edd15232849edeb9c57f91ce3e17a96bfac166bd231e3c4d39f79d3a20a5ce6a`.
+- Evidence: [review submission](play-store/console-013-review.png), [active Alpha and both releases](play-store/console-013-alpha-active.png).
+
 ## 0.1.2 update — 2026-10-06
 
 - Version `3 (0.1.2)` was uploaded to the existing **Alpha** closed-testing track and submitted with English, Japanese, Simplified Chinese and Korean release notes. Publishing overview shows **Changes in review**; quick checks are still running, so this is not approval or confirmation that 0.1.2 is already delivered.
