@@ -161,6 +161,8 @@ class SidebarDragTest {
     }
     @Test fun tappingSpaceSlidesContentAndCanBeReversedBeforeSettling() {
         val previous = runBlocking { container.workspace.dao.spaces().let { it[it.indexOfFirst { space -> space.id == spaceId } - 1] } }
+        // Other classes retain QA Spaces. Reveal this pair before freezing animations.
+        compose.onNodeWithContentDescription("Switch to Research").performScrollTo()
         val before = tab("Project notes").fetchSemanticsNode().boundsInRoot
         compose.mainClock.autoAdvance = false
         try {
@@ -391,11 +393,19 @@ class SidebarDragTest {
         compose.onNodeWithText("Custom emoji").performTextReplacement("🧑‍💻")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.icon == "🧑‍💻" } }
+        val previous = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId }
         compose.onNode(hasText("New tab") and hasContentDescription("Tab New tab").not()).performClick()
-        compose.onAllNodesWithContentDescription("New tab home", useUnmergedTree = true).onFirst().assertIsDisplayed()
+        compose.waitUntil { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId != previous } }
+        val newId = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        compose.waitUntil { compose.onAllNodesWithText("Esc").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Esc").performClick()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("sidebar-tab-$newId"))
+        val homeIcon = hasContentDescription("New tab home") and hasAnyAncestor(hasTestTag("sidebar-tab-$newId"))
+        compose.onNode(homeIcon, useUnmergedTree = true).assertIsDisplayed()
         compose.activityRule.scenario.recreate()
         compose.waitUntil { compose.onAllNodesWithText("🧑‍💻").fetchSemanticsNodes().isNotEmpty() }
-        compose.onAllNodesWithContentDescription("New tab home", useUnmergedTree = true).onFirst().assertIsDisplayed()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("sidebar-tab-$newId"))
+        compose.onNode(homeIcon, useUnmergedTree = true).assertIsDisplayed()
         saveScreen("sidebar-custom-emoji-home")
     }
 

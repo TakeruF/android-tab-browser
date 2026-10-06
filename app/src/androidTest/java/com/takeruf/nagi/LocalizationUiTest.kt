@@ -80,7 +80,7 @@ class LocalizationUiTest {
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithTag("settings-list").assertIsDisplayed()
         compose.onNodeWithTag("search-engines-list").assertDoesNotExist()
-        list.performScrollToNode(hasText(strings(R.string.ui_theme_color)))
+        list.performScrollToNode(hasText(strings(R.string.ui_dark)))
         compose.onNodeWithText(strings(R.string.ui_dark)).performScrollTo().performClick()
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().theme == ThemeMode.DARK } }
         screenshot("$language-settings")

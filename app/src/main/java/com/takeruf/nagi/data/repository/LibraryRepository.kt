@@ -20,6 +20,7 @@ class LibraryRepository(private val workspace: WorkspaceRepository) {
         if (!tab.url.startsWith("http")) return
         workspace.ready.await()
         workspace.database.withTransaction {
+            if (dao.observeBookmarks().first().any { it.url == tab.url && it.isFavorite == favorite }) return@withTransaction
             if (favorite) {
                 val favorites = dao.observeBookmarks().first().filter { it.isFavorite }
                 if (favorites.any { it.url == tab.url }) return@withTransaction

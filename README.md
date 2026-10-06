@@ -14,7 +14,9 @@ Androidタブレット向けのサイドバー中心のワークスペースブ�
 - 日本語・中国語・韓国語のIME入力、キーボード操作、マウス／トラックパッドのスクロール。
 - ページ内検索、Desktop Mode、通常のHTTPダウンロード、システムファイル選択。
 
-バージョンは**0.1.0 / MVP**です。対応範囲と制限は下記に記載しています。
+[0.1.1をダウンロード](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.1.1)。以後は設定の「アプリの更新」から確認・ダウンロード・インストールできます。
+
+バージョンは**0.1.1 / MVP**です。対応範囲と制限は下記に記載しています。
 
 ## 起動
 
@@ -42,7 +44,7 @@ adb shell am start -n com.takeruf.nagi/.MainActivity
 
 複数端末を接続している場合は`adb -s <serial>`で対象を指定してください。
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`。Releaseは`./gradlew :app:assembleRelease`で生成できますが、現在は署名設定を含めていないためunsignedです。
+APK: `app/build/outputs/apk/debug/app-debug.apk`。署名付きReleaseは`./gradlew :app:assembleRelease`で生成できます。署名鍵の設定と公開手順は[配信・アプリ内更新](docs/RELEASING.md)を参照してください。
 
 ## 操作
 
@@ -51,7 +53,8 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`。Releaseは`./gradlew :app:ass
 - 検索候補は設定で選んだ「常用検索エンジン」だけを表示。初期値はGoogle＋ChatGPT、中国大陸では百度＋千问。Google＋百度＋ChatGPTなども選択でき、選択後は地域が変わっても組み合わせを保持します。常用から外したエンジンはキーワード検索の対象にもなりません。登録一覧ではエンジンの追加・編集・削除ができます。
 - タブ行を長押ししてドラッグ＆ドロップで並び替え。マウス、またはタブのアイコンからは直接ドラッグ。挿入線とプレビューを表示し、リスト端で自動スクロール。
 - 区切り線の上下にドロップして固定・解除。最上部にドロップしてFavorites化、Favoritesを下に戻してタブ化。下部のSpaceアイコンへドロップして移動。タブの`…`から保存・右ペイン表示などの操作。
-- ページの`…`からSplit、Desktop Mode、ページ内検索、保存操作。
+- ページの`…`からSplit、Desktop Mode、ページ内検索、Bookmarks／Favorites保存。サイドバーのBookmarksから保存ページを閲覧・削除。
+- ページ内リンク／画像の長押し・右クリックで、新規タブ表示、URLコピー／共有、画像保存。
 - Splitの中央の仕切りをドラッグして比率変更。右ペインの`Choose tab`で表示タブを選択。ページメニューから左右入れ替え・Split解除。
 - サイドバー境界を右にドラッグして幅変更・展開、大きく左にスワイプして折りたたみ。
 
@@ -69,7 +72,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`。Releaseは`./gradlew :app:ass
 
 ## 設計
 
-[アーキテクチャとRoom schema](docs/ARCHITECTURE.md)を参照してください。WebViewの設定・API操作は`WebViewBrowserEngine`に閉じ込め、ComposeはAndroid用描画アダプターからViewを接続します。セッションプールは最大3つで、非表示タブを無制限に保持しません。
+[アーキテクチャとRoom schema](docs/ARCHITECTURE.md)を参照してください。WebViewの設定・API操作は`WebViewBrowserEngine`に閉じ込め、ComposeはAndroid用描画アダプターからViewを接続します。セッションプールは、開いたタブのlive WebViewをActivity終了まで保持します。非表示タブはpauseしますが、現時点では自動回収の上限はありません。
 
 ## 対応範囲と制限
 
@@ -77,7 +80,7 @@ Archiveは起動時と手動実行です。
 
 - Spacesはタブのグループです。Favoritesは全Space共通です。Cookie・Web Storage・サイトログインは共有します。
 - アプリ再起動時はRoomのURL・タイトル・順序・選択タブを復元します。同じActivityでは開いたタブのWebViewを保持し、タブやSpaceの切り替えによる自動破棄・再読み込みを行いません。Activityやプロセス終了後のフォーム値・スクロール位置・ページ内履歴の復元は保証しません。
-- Cookieは有効、サードパーティCookieは無効。証明書エラーはキャンセルし、サイト権限は毎回確認します。
+- Cookieは有効、サードパーティCookieは無効。設定の「Cookie・サイトデータを消去」で全Spaceのサイトログイン・ストレージ・ページキャッシュをリセットできます。タブ・Bookmarks・履歴は保持します。証明書エラーはキャンセルし、サイト権限は毎回確認します。
 - `target="_blank"`とユーザー操作によるURL付き`window.open`に対応。`about:blank`へJavaScriptで文書を書き込むポップアップは未対応です。
 - ダウンロードはDownloadManagerを使用。blob / data URLは未対応です。Android 8–9ではアプリ専用Downloads、Android 10以降では公開Downloadsに保存します。
 - アップロードはシステムのドキュメントピッカーを使用。直接撮影するカメラピッカーとフォルダーアップロードは未実装です。

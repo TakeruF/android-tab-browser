@@ -25,7 +25,11 @@ class WebViewEngineTest {
     private val downloads = CopyOnWriteArrayList<DownloadRequest>()
     private val uploads = CopyOnWriteArrayList<FileSelectionRequest>()
     private val fullscreenRequests = CopyOnWriteArrayList<View>()
+    private val contextActions = CopyOnWriteArrayList<List<PageContextAction>>()
+    private val copiedLinks = CopyOnWriteArrayList<String>()
     private val host = object : BrowserHost, FullscreenHost {
+        override fun showContextMenu(title: String, actions: List<PageContextAction>) { contextActions.add(actions) }
+        override fun copyLink(url: String) { copiedLinks.add(url) }
         override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) { uploads.add(request); result(null) }
         override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) { result(emptySet()) }
         override fun download(request: DownloadRequest) { downloads.add(request) }
@@ -102,6 +106,14 @@ class WebViewEngineTest {
         await { it.url == "${server.origin}/one" && !it.isLoading }
         assertEquals("Fixture One", engine.state.value.title)
     }
+    @Test fun validatedUppercaseSearchTemplateCanNavigate() {
+        val provider = com.takeruf.nagi.domain.model.SearchEngine("case-qa", "Case QA", "caseqa", "HTTPS://example.com/?q={query}")
+        assertNull(com.takeruf.nagi.browser.search.InputResolver.validateEngine(provider))
+        val url = com.takeruf.nagi.browser.search.InputResolver.search(provider, "tablet").url
+        main { engine.loadUrl(url) }
+        // The navigation contract must accept every scheme admitted by provider validation.
+        assertEquals(url, engine.state.value.url)
+    }
     @Test fun webPageFieldsKeepJapaneseChineseAndKoreanComposition() {
         main { engine.loadUrl("${server.origin}/one") }; await { it.title == "Fixture One" && !it.isLoading }
         main {
@@ -143,5 +155,60 @@ class WebViewEngineTest {
         assertFalse(uploads.first().multiple)
         clickElement("fullscreen")
         runBlocking { withTimeout(10_000) { while (fullscreenRequests.isEmpty()) delay(25) } }
+    }
+    private fun longPressElement(id: String) {
+        main { engine.evaluateJavascript("var r=document.getElementById('$id').getBoundingClientRect();document.title='$id:'+JSON.stringify({x:r.x+r.width/2,y:r.y+r.height/2,w:innerWidth})") }
+        val rect = JSONObject(await { it.title.startsWith("$id:") }.title.removePrefix("$id:"))
+        var x = 0f; var y = 0f
+        val now = SystemClock.uptimeMillis()
+        main {
+            val view = (engine as AndroidEngineSurface).surface
+            val scale = view.width / rect.getDouble("w")
+            x = (rect.getDouble("x") * scale).toFloat(); y = (rect.getDouble("y") * scale).toFloat()
+            MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0).let { view.dispatchTouchEvent(it); it.recycle() }
+        }
+        runBlocking { withTimeout(5_000) { while (contextActions.isEmpty()) delay(25) } }
+        main { MotionEvent.obtain(now, SystemClock.uptimeMillis(), MotionEvent.ACTION_CANCEL, x, y, 0).let {
+            (engine as AndroidEngineSurface).surface.dispatchTouchEvent(it); it.recycle()
+        } }
+    }
+    @Test fun linkAndImageLongPressExposeCopyNewTabAndDownloadActions() = runBlocking {
+        main { engine.loadUrl("${server.origin}/one") }; await { it.title == "Fixture One" && !it.isLoading }
+        longPressElement("next")
+        val linkActions = contextActions.last()
+        main { linkActions.first { it.label == "Copy link" }.execute() }
+        assertEquals("${server.origin}/two", copiedLinks.last())
+        val opened = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(5_000) { engine.events.first { it is EngineEvent.OpenTab } as EngineEvent.OpenTab } }
+        main { linkActions.first { it.label == "Open link in new tab" }.execute() }
+        assertEquals("${server.origin}/two", opened.await().url)
+        contextActions.clear()
+        longPressElement("context-image")
+        main { contextActions.last().first { it.label == "Save image" }.execute() }
+        assertEquals("${server.origin}/custom-icon.png", downloads.last().url)
+        assertTrue(downloads.last().cookies?.contains("nagi=cookie") == true)
+    }
+    @Test fun siteDataClearRemovesCookieLocalStorageAndIndexedDbAcrossNewEngines() = runBlocking {
+        main { engine.loadUrl("${server.origin}/one") }; await { it.title == "Fixture One" && !it.isLoading }
+        main { engine.evaluateJavascript("var timer=setInterval(()=>{if(window.idbReady){clearInterval(timer);document.title='storage-ready'}},20)") }
+        await { it.title == "storage-ready" }
+        main { engine.destroy() }
+        BrowserDataCleaner.clear(InstrumentationRegistry.getInstrumentation().targetContext)
+        scenario.onActivity {
+            engine = WebViewBrowserEngine(it, host, host, { false }, false)
+            it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
+            engine.loadUrl("${server.origin}/two")
+        }
+        await { it.title == "Fixture Two" && !it.isLoading }
+        main { engine.evaluateJavascript("indexedDB.databases().then(d=>document.title=JSON.stringify([document.cookie,localStorage.getItem('nagi'),d.map(x=>x.name)]))") }
+        assertEquals("[\"\",null,[]]", await { it.title.startsWith("[") }.title)
+    }
+    @Test fun stalledInitialRequestKeepsUrlTimesOutAndCanNavigateAgain() = runBlocking {
+        val url = "${server.origin}/stall"
+        main { engine.loadUrl(url) }
+        val timedOut = withTimeout(40_000) { engine.state.first { it.error?.contains("taking too long") == true } }
+        assertEquals(url, timedOut.url); assertFalse(timedOut.isLoading)
+        main { engine.loadUrl("${server.origin}/two") }
+        val recovered = await { it.title == "Fixture Two" && !it.isLoading }
+        assertNull(recovered.error)
     }
 }

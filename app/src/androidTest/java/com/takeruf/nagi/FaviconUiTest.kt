@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.takeruf.nagi.data.room.entity
 import com.takeruf.nagi.domain.model.*
@@ -65,8 +66,9 @@ class FaviconUiTest {
         compose.waitUntil(15_000) { runBlocking {
             container.workspace.dao.tabs(spaceId).any { it.title == "Favicon Fixture" && it.faviconUrl != null }
         } }
-        compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("Pin to sidebar").performClick()
+        val pin = compose.onNodeWithContentDescription("Tab Favicon Fixture")
+            .fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == "Pin tab" }
+        compose.runOnIdle { assertTrue(pin.action()) }
         compose.waitUntil(10_000) { runBlocking { container.workspace.dao.tabs(spaceId).any { it.isPinned } } }
         compose.waitUntil(15_000) { hasColor("Favorite Remote icon", Color.CYAN) }
         compose.waitUntil(15_000) { hasColor("Tab Favicon Fixture", Color.CYAN) }

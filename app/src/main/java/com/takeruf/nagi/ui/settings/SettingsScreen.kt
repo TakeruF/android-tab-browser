@@ -39,7 +39,7 @@ import com.takeruf.nagi.ui.theme.NagiSystemBars
 import java.util.UUID
 
 @Composable
-fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit) {
+fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
     var customizingEngines by rememberSaveable { mutableStateOf(false) }
     val settingsListState = rememberLazyListState()
@@ -49,6 +49,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
         return
     }
     var clearHistory by remember { mutableStateOf(false) }
+    var clearSiteData by remember { mutableStateOf(false) }
     val prefs = state.settings
     Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -158,12 +159,19 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Un
                 Text(strings(R.string.ui_history_tabs_and_bookmarks_are_stored_locally_sites_ask_5d51ee23),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }
+                TextButton(shape = NagiShapes.Rounded, onClick = { clearSiteData = true }) { Text(strings(R.string.ui_clear_site_data)) }
                 Text(strings(R.string.ui_private_browsing_and_content_blocking_are_planned_for_a_later_release), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } }
-        item { Text(strings(R.string.ui_nagi_0_1_0_made_for_a_little_more_room), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { updateSection() }
+        item { Text("Nagi ${com.takeruf.nagi.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
+    if (clearSiteData) AlertDialog(onDismissRequest = { clearSiteData = false },
+        title = { Text(strings(R.string.ui_clear_site_data)) },
+        text = { Text(strings(R.string.ui_clear_site_data_description)) },
+        confirmButton = { TextButton(onClick = { clearSiteData = false; onClearSiteData() }) { Text(strings(R.string.ui_clear_data)) } },
+        dismissButton = { TextButton(onClick = { clearSiteData = false }) { Text(strings(R.string.ui_cancel)) } })
     if (clearHistory) AlertDialog(onDismissRequest = { clearHistory = false }, title = { NagiSystemBars(); Text(strings(R.string.ui_clear_browsing_history_199567)) },
         text = { Text(strings(R.string.ui_this_removes_saved_visits_from_this_device)) }, confirmButton = { TextButton(shape = NagiShapes.Rounded, onClick = { vm.clearHistory(); clearHistory = false }) { Text(strings(R.string.ui_clear_history)) } },
         dismissButton = { TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = false }) { Text(strings(R.string.ui_cancel)) } })

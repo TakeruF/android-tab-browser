@@ -23,6 +23,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     if (line.isNullOrEmpty()) break
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
                 }
+                if (path == "/stall") Thread.sleep(35_000)
                 if (path == "/favicon.ico" && !rootIconAvailable) {
                     client.getOutputStream().write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
                     return@use
@@ -76,6 +77,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     <h1>Nagi browser fixture</h1><p>JavaScript, storage and navigation.</p>
                     <a id="next" href="/two">Open second page</a><br><br>
                     <a id="popup" href="/two" target="_blank">Open popup</a><br><br>
+                    <img id="context-image" src="/custom-icon.png" width="64" height="64"><br>
                     <input type="file" id="upload"><p>Find this needle in the page.</p>
                     <button id="fullscreen" onclick="document.body.requestFullscreen()">Fullscreen</button>
                     <textarea id="editor" aria-label="CJK editor" style="width:90%;height:100px"></textarea>

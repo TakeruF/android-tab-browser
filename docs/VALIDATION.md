@@ -1,5 +1,7 @@
 # 検証記録
 
+2026-10-06の横断テスト: [不具合・機能欠落・再現条件と結果](CROSS_FEATURE_AUDIT_2026-10-06.md)。追加前の単体85件は全成功。追加後は単体87件中86成功、端末86件中80成功。再現テストでSplitの選択／操作先、Archive、大文字scheme、upload accept拡張子の4種類の不具合を確認。古いテスト導線を更新し、Space切替は個別再実行で成功。ChatGPTは正しいURLがWebViewへ渡るが読み込み10%・Roomはabout:blankで停滞し、原因は未確定。製品コードの修正はこの調査に含まない。
+
 検証日: 2026-10-03。JDK 17 / Android SDK 36 / Gradle 8.13。端末テストはAPI 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で実行。
 
 ## 最新の検証結果

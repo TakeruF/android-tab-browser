@@ -103,11 +103,13 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
         }
         return true
     }
-    fun cycleTab(forward: Boolean) {
+    fun cycleTab(forward: Boolean): String? {
         val tabs = state.value.visibleTabs
-        if (tabs.isEmpty()) return
+        if (tabs.isEmpty()) return null
         val index = tabs.indexOfFirst { it.id == state.value.activeTab?.id }.coerceAtLeast(0)
-        selectTab(tabs[Math.floorMod(index + if (forward) 1 else -1, tabs.size)].id)
+        val id = tabs[Math.floorMod(index + if (forward) 1 else -1, tabs.size)].id
+        selectTab(id)
+        return id
     }
     class Factory(private val container: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

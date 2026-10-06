@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 class MainActivity : ComponentActivity() {
     var shortcutHandler: ((Shortcut) -> Boolean)? = null
     private lateinit var host: NativeBrowserHost
+    lateinit var updateInstaller: com.takeruf.nagi.updates.UpdateInstaller
+        private set
     private val incomingUrls = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 4)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) handleIntent(intent)
         val container = (application as NagiApplication).container
+        updateInstaller = com.takeruf.nagi.updates.UpdateInstaller(this, container.updates)
         setContent { NagiApp(this, host, container, incomingUrls) }
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }

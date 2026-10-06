@@ -86,17 +86,35 @@ class ChatGptBrowserHandoffUiTest {
                 container.spaces.create("ChatGPT QA ${System.nanoTime()}")
                 spaceId = container.settings.settings.first().selectedSpaceId
             }
-            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Settings").fetchSemanticsNodes().isNotEmpty() }
+            val tabId = kotlinx.coroutines.runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("browser-pane-left-$tabId").fetchSemanticsNodes().isNotEmpty() }
             compose.runOnIdle {
                 compose.activity.window.callback.dispatchKeyEvent(android.view.KeyEvent(0, 0,
                     android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_L, 0, android.view.KeyEvent.META_CTRL_ON))
             }
             compose.onNode(hasSetTextAction()).performTextReplacement("Nagi browser test")
             compose.onNodeWithTag("suggestion:ai:chatgpt").performClick()
-            compose.waitUntil(10_000) {
-                kotlinx.coroutines.runBlocking {
-                    container.workspace.dao.tabs(spaceId).any { it.url == ChatGptSearch.url("Nagi browser test") }
+            try {
+                compose.waitUntil(10_000) {
+                    kotlinx.coroutines.runBlocking {
+                        container.workspace.dao.tabs(spaceId).any { it.url == ChatGptSearch.url("Nagi browser test") }
+                    }
                 }
+            } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+                val actual = kotlinx.coroutines.runBlocking { container.workspace.dao.tabs(spaceId).map { it.url } }
+                val views = mutableListOf<String>()
+                fun inspect(view: android.view.View) {
+                    if (view is android.webkit.WebView) views += "url=${view.url}, original=${view.originalUrl}, progress=${view.progress}"
+                    if (view is android.view.ViewGroup) for (i in 0 until view.childCount) inspect(view.getChildAt(i))
+                }
+                compose.runOnIdle { inspect(compose.activity.window.decorView) }
+                val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+                val outputDirectory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+                    ?.let(::File) ?: compose.activity.getExternalFilesDir(null)!!
+                outputDirectory.mkdirs()
+                File(outputDirectory, "handoff-audit.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                bitmap.recycle()
+                throw AssertionError("ChatGPT handoff URL not observed; actual tab URLs: $actual; WebViews: $views", failure)
             }
             compose.onNodeWithTag("suggestion:ai:chatgpt").assertDoesNotExist()
         } finally {

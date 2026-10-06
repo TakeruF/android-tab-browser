@@ -48,6 +48,7 @@ class WebViewBrowserEngine(
     private var documentPage = mutableState.value
     private var downloadUrl: String? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var loadingTimeout: Job? = null
 
     init {
         webView.settings.apply {
@@ -73,6 +74,8 @@ class WebViewBrowserEngine(
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
         applyUserAgent(desktopDefault)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
+        webView.setOnLongClickListener { showPageContextMenu() }
+        webView.setOnContextClickListener { showPageContextMenu() }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
@@ -90,6 +93,7 @@ class WebViewBrowserEngine(
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                if (url == "about:blank" && state.value.url != "about:blank") return
                 navigationGeneration++
                 faviconJob?.cancel()
                 failedNavigation = false
@@ -97,6 +101,7 @@ class WebViewBrowserEngine(
                     faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
                 if (favicon != null) saveFavicon(url, favicon)
                 metadata()
+                watchLoading()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 if (url == downloadUrl) return
@@ -104,7 +109,9 @@ class WebViewBrowserEngine(
                 metadata()
             }
             override fun onPageFinished(view: WebView, url: String) {
+                if (url == "about:blank" && state.value.url != "about:blank") return
                 if (url == downloadUrl) return
+                loadingTimeout?.cancel()
                 update { it.copy(url = url, title = if (url == "about:blank") "New tab" else view.title?.takeIf { t -> t.isNotBlank() } ?: url,
                     isLoading = false, progress = 100, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 documentPage = state.value
@@ -114,6 +121,7 @@ class WebViewBrowserEngine(
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) {
+                    loadingTimeout?.cancel()
                     failedNavigation = true
                     update { it.copy(isLoading = false, error = error.description.toString()) }
                 }
@@ -219,6 +227,55 @@ class WebViewBrowserEngine(
         popup.post { popup.stopLoading(); popup.destroy() }
     }
     private fun update(change: (PageState) -> PageState) { if (!destroyed) mutableState.update(change) }
+    private fun watchLoading() {
+        loadingTimeout?.cancel()
+        loadingTimeout = scope.launch {
+            delay(30_000)
+            if (state.value.isLoading) {
+                failedNavigation = true
+                webView.stopLoading()
+                update { it.copy(isLoading = false, error = strings(R.string.ui_loading_timeout)) }
+                metadata()
+            }
+        }
+    }
+    private fun showPageContextMenu(): Boolean {
+        val hit = webView.hitTestResult ?: return false
+        val extra = hit.extra ?: return false
+        fun http(value: String?) = value?.takeIf { it.startsWith("http://", true) || it.startsWith("https://", true) }
+        fun show(link: String?, image: String?) {
+            if (destroyed) return
+            val actions = buildList {
+                http(link)?.let { url ->
+                    add(PageContextAction(strings(R.string.ui_open_link_new_tab)) { eventChannel.trySend(EngineEvent.OpenTab(url)) })
+                    add(PageContextAction(strings(R.string.ui_copy_link)) { host.copyLink(url) })
+                    add(PageContextAction(strings(R.string.ui_share_link)) { host.shareLink(url) })
+                }
+                http(image)?.let { url ->
+                    add(PageContextAction(strings(R.string.ui_open_image_new_tab)) { eventChannel.trySend(EngineEvent.OpenTab(url)) })
+                    add(PageContextAction(strings(R.string.ui_copy_image_link)) { host.copyLink(url) })
+                    add(PageContextAction(strings(R.string.ui_save_image)) {
+                        host.download(DownloadRequest(url, webView.settings.userAgentString, null, null,
+                            CookieManager.getInstance().getCookie(url), URLUtil.guessFileName(url, null, null)))
+                    })
+                }
+            }
+            if (actions.isNotEmpty()) host.showContextMenu(link ?: image.orEmpty(), actions)
+        }
+        return when (hit.type) {
+            WebView.HitTestResult.SRC_ANCHOR_TYPE -> { if (http(extra) == null) false else { show(extra, null); true } }
+            WebView.HitTestResult.IMAGE_TYPE -> { if (http(extra) == null) false else { show(null, extra); true } }
+            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                val generation = navigationGeneration
+                val handler = android.os.Handler(android.os.Looper.getMainLooper()) { message ->
+                    if (generation == navigationGeneration) show(http(message.data.getString("url")), http(message.data.getString("src")))
+                    true
+                }
+                webView.requestFocusNodeHref(handler.obtainMessage()); true
+            }
+            else -> false
+        }
+    }
     private fun metadata() { eventChannel.trySend(EngineEvent.Metadata(state.value)) }
     private fun saveFavicon(pageUrl: String, icon: Bitmap) {
         val navigation = navigationGeneration
@@ -257,16 +314,20 @@ class WebViewBrowserEngine(
     }
     override fun loadUrl(url: String) {
         if (destroyed) return
-        if (url != "about:blank" && !url.startsWith("http://") && !url.startsWith("https://")) return
+        if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
         downloadUrl = null
         navigationGeneration++
         faviconJob?.cancel()
         update { it.copy(url = url, isLoading = url != "about:blank", progress = 0,
-            error = null, faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }; webView.loadUrl(url)
+            title = if (url == "about:blank") "New tab" else url, error = null,
+            faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
+        metadata() // Persist the requested URL even when the initial network request stalls.
+        if (url != "about:blank") watchLoading() else loadingTimeout?.cancel()
+        webView.loadUrl(url)
     }
-    override fun reload() { if (!destroyed) { update { it.copy(isLoading = true, progress = 0, error = null) }; webView.reload() } }
-    override fun goBack() { if (canGoBack()) { update { it.copy(isLoading = true) }; webView.goBack() } }
-    override fun goForward() { if (canGoForward()) { update { it.copy(isLoading = true) }; webView.goForward() } }
+    override fun reload() { if (!destroyed) { update { it.copy(isLoading = true, progress = 0, error = null) }; watchLoading(); webView.reload() } }
+    override fun goBack() { if (canGoBack()) { update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack() } }
+    override fun goForward() { if (canGoForward()) { update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goForward() } }
     override fun canGoBack() = !destroyed && webView.canGoBack()
     override fun canGoForward() = !destroyed && webView.canGoForward()
     override fun evaluateJavascript(script: String) { if (!destroyed) webView.evaluateJavascript(script, null) }

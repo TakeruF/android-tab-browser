@@ -10,6 +10,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.takeruf.nagi.domain.model.BrowserSettings
+import com.takeruf.nagi.domain.model.SearchEngine
+import com.takeruf.nagi.data.room.entity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.*
@@ -22,17 +24,27 @@ class CjkInputTest {
     private lateinit var container: AppContainer
     private lateinit var spaceId: String
     private lateinit var ime: TestIme
+    private lateinit var server: FixtureServer
     @Before fun setup() {
         ime = TestIme()
+        server = FixtureServer()
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
-            container.workspace.ready.await(); container.settings.update { BrowserSettings() }
+            container.workspace.ready.await()
+            // A device-local provider avoids redirects/CAPTCHAs rewriting the asserted query.
+            // Insert at the test seam; HTTPS provider validation has separate coverage.
+            container.workspace.dao.putEngine(SearchEngine("cjk-fixture", "CJK Fixture", "cjkfixture", "${server.origin}/one?q={query}").entity())
+            container.settings.update { BrowserSettings(defaultSearchEngineId = "cjk-fixture", automaticSearchRegion = false) }
             container.spaces.create("CJK ${System.nanoTime()}")
             spaceId = container.settings.settings.first().selectedSpaceId
         }
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Search or enter URL").fetchSemanticsNodes().isNotEmpty() }
+        val tabId = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("browser-pane-left-$tabId").fetchSemanticsNodes().isNotEmpty() }
     }
-    @After fun cleanup() { ime.close() }
+    @After fun cleanup() {
+        ime.close(); server.close()
+        runBlocking { container.engines.delete("cjk-fixture") }
+    }
     private fun connection(action: Int = EditorInfo.IME_ACTION_GO): InputConnection {
         compose.waitForIdle()
         return ime.connection(action = action)
@@ -79,6 +91,7 @@ class CjkInputTest {
     @Test fun koreanJamoCompositionAndEnter() = exercise(listOf("ㅎ", "하", "한", "한구", "한국어 검색"), "한국어 검색", false)
     @Test fun engineNameKeepsJapaneseChineseAndKoreanComposition() {
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithTag("customize-search-engines").performScrollTo().performClick()
         compose.onNodeWithText("Add search engine").performScrollTo().performClick()
         compose.onNodeWithText("Name").performClick()
         val ic = connection(EditorInfo.IME_ACTION_DONE)

@@ -14,6 +14,7 @@ import com.takeruf.nagi.ui.components.NagiIcons
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,7 +57,7 @@ private fun EmptyLibrary(text: String) {
 @Composable
 private fun LibraryRow(title: String, url: String, icon: String?, detail: String, onOpen: () -> Unit, onDelete: () -> Unit) {
     val strings = rememberNagiStrings()
-    Row(Modifier.fillMaxWidth().clip(NagiShapes.Rounded).clickable(onClick = onOpen).padding(12.dp).heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically,
+    Row(Modifier.fillMaxWidth().testTag("library-row:$url").clip(NagiShapes.Rounded).clickable(onClick = onOpen).padding(12.dp).heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Favicon(icon, siteUrl = url)
         Column(Modifier.weight(1f)) {

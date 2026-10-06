@@ -27,6 +27,20 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     val fullscreen = fullscreenView.asStateFlow()
     private var fullscreenExit: (() -> Unit)? = null
     private val downloads = DownloadService(activity.applicationContext)
+    override fun showContextMenu(title: String, actions: List<PageContextAction>) {
+        AlertDialog.Builder(activity).setTitle(title).setItems(actions.map { it.label }.toTypedArray()) { _, index -> actions[index].execute() }
+            .setNegativeButton(strings(R.string.ui_cancel), null).show()
+    }
+    override fun copyLink(url: String) {
+        activity.getSystemService(android.content.ClipboardManager::class.java)
+            .setPrimaryClip(android.content.ClipData.newPlainText("URL", url))
+        if (android.os.Build.VERSION.SDK_INT < 33) showMessage(strings(R.string.ui_link_copied))
+    }
+    override fun shareLink(url: String) {
+        activity.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url)
+        }, strings(R.string.ui_share_link)))
+    }
     private val fileLauncher = activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uris = if (result.resultCode == android.app.Activity.RESULT_OK) {
             result.data?.clipData?.let { clip -> (0 until clip.itemCount).map { clip.getItemAt(it).uri.toString() } }
@@ -43,7 +57,14 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     }
     override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) {
         fileResult?.invoke(null); fileResult = result
-        val types = request.mimeTypes.filter { it.contains('/') }.distinct()
+        val types = request.mimeTypes.flatMap { it.split(',') }.mapNotNull { value ->
+            val type = value.trim().lowercase()
+            when {
+                type.startsWith('.') -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(type.drop(1))
+                type.contains('/') -> type
+                else -> null
+            }
+        }.distinct()
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = if (types.size == 1) types.first() else "*/*"

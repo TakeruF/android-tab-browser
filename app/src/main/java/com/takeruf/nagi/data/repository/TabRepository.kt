@@ -10,6 +10,8 @@ import java.util.UUID
 class TabRepository(private val workspace: WorkspaceRepository, private val settings: SettingsStore) {
     private val dao = workspace.dao
     private val db = workspace.database
+    @Volatile private var protectedTabIds: Set<String> = emptySet()
+    fun protectFromArchive(ids: Set<String>) { protectedTabIds = ids.toSet() }
 
     suspend fun create(spaceId: String, url: String = "about:blank", select: Boolean = true, parentTabId: String? = null): String {
         workspace.ready.await()
@@ -158,6 +160,6 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
         workspace.ready.await()
         val days = settings.settings.first().archivePeriod.days ?: return
         val now = System.currentTimeMillis()
-        dao.archiveInactive(now - days * 86_400_000L, now)
+        dao.archiveInactive(now - days * 86_400_000L, now, protectedTabIds.toList())
     }
 }

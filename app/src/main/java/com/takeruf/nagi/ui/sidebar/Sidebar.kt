@@ -331,9 +331,11 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 }
             }
             if (collapsed) {
+                ToolButton(NagiIcons.Bookmark, strings(R.string.ui_bookmarks)) { onNavigate("bookmarks") }
                 ToolButton(NagiIcons.History, strings(R.string.ui_history)) { onNavigate("history") }
                 ToolButton(NagiIcons.Settings, strings(R.string.ui_settings)) { onNavigate("settings") }
             } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                ToolButton(NagiIcons.Bookmark, strings(R.string.ui_bookmarks)) { onNavigate("bookmarks") }
                 ToolButton(NagiIcons.History, strings(R.string.ui_history)) { onNavigate("history") }
                 ToolButton(NagiIcons.Settings, strings(R.string.ui_settings)) { onNavigate("settings") }
             }

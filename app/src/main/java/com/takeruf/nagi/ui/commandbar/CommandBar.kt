@@ -139,6 +139,7 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                                         BrowserCommand.FIND -> NagiIcons.Search
                                         BrowserCommand.SETTINGS -> NagiIcons.Settings
                                         BrowserCommand.HISTORY -> NagiIcons.History
+                                        BrowserCommand.BOOKMARKS -> NagiIcons.Bookmark
                                         BrowserCommand.DESKTOP -> NagiIcons.Monitor
                                         null -> when (item.category) {
                                             SuggestionCategory.SEARCH -> NagiIcons.Search

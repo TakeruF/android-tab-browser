@@ -44,8 +44,12 @@ enum class SitePermission { CAMERA, MICROPHONE, LOCATION }
 data class FileSelectionRequest(val mimeTypes: List<String>, val multiple: Boolean)
 data class DownloadRequest(val url: String, val userAgent: String, val contentDisposition: String?,
     val mimeType: String?, val cookies: String?, val suggestedName: String)
+data class PageContextAction(val label: String, val execute: () -> Unit)
 
 interface BrowserHost {
+    fun showContextMenu(title: String, actions: List<PageContextAction>) {}
+    fun copyLink(url: String) {}
+    fun shareLink(url: String) {}
     fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit)
     fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit)
     fun download(request: DownloadRequest)

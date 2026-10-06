@@ -14,6 +14,7 @@ class BrowserSessionController(private val container: AppContainer,
     private val collectors = mutableMapOf<String, Job>()
     private val mutablePages = MutableStateFlow<Map<String, PageState>>(emptyMap())
     val pages = mutablePages.asStateFlow()
+    val generation = MutableStateFlow(0)
     val openedTabs = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val pool = EnginePool(factory = factory, onCreate = { id, engine ->
         collectors[id] = scope.launch {
@@ -41,4 +42,5 @@ class BrowserSessionController(private val container: AppContainer,
         acquire(tab, desktopDefault).loadUrl(url)
     }
     fun dispose() { pool.destroyAll(); scope.cancel() }
+    fun reset() { pool.destroyAll(); generation.value++ }
 }

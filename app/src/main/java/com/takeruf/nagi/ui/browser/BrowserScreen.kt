@@ -16,7 +16,8 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
     leftTabId: String? = null) {
     val left = state.visibleTabs.firstOrNull { it.id == leftTabId } ?: state.activeTab ?: return
     val right = state.visibleTabs.firstOrNull { it.id == rightTabId && it.id != left.id }
-    val pair = remember(left.id, right?.id, sessions) {
+    val generation by sessions.generation.collectAsState()
+    val pair = remember(left.id, right?.id, sessions, generation) {
         sessions.pool.setVisible(setOfNotNull(left.id, right?.id))
         sessions.acquire(left, state.settings.desktopDefault) to right?.let { sessions.acquire(it, state.settings.desktopDefault) }
     }
@@ -28,8 +29,10 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
         Box(Modifier.fillMaxSize().testTag(if (isRight) "browser-pane-right-${tab.id}" else "browser-pane-left-${tab.id}")) {
             BrowserPane(tab, engine, state, focused = right == null || rightFocused == isRight,
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
-                onFocus = { onFocusRight(isRight); vm.accessTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
-                onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap)
+                onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
+                onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap,
+                onBookmark = { val page = engine.state.value; vm.bookmark(tab.copy(url = page.url, title = page.title, faviconUrl = page.faviconUrl), false) },
+                onFavorite = { val page = engine.state.value; vm.bookmark(tab.copy(url = page.url, title = page.title, faviconUrl = page.faviconUrl), true) })
         }
     }
     Box(Modifier.fillMaxSize()) {

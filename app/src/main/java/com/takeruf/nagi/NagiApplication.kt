@@ -25,6 +25,7 @@ class AppContainer(application: Application) {
     val spaces = SpaceRepository(workspace, settings, tabs)
     val library = LibraryRepository(workspace)
     val engines = SearchEngineRepository(workspace, settings)
+    val updates = com.takeruf.nagi.updates.AppUpdates(application, scope)
     private val region = AndroidSearchRegion(application)
     val regionalSearch = RegionalSearchDefaults(workspace, settings, region::lookup, region::fallback)
     init { scope.launch { runCatching { workspace.initialize(); tabs.archiveNow(); regionalSearch.refresh() } } }

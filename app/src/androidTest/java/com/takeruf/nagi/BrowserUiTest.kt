@@ -55,14 +55,16 @@ class BrowserUiTest {
             up()
         }
         compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().any { it.isFavorite && it.title == "Fixture One" } } }
-        compose.onNodeWithContentDescription("Bookmarks").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Bookmarks").assertExists()
         // Moving a tab to Favorites closes its ordinary-tab entry. Reopen the shortcut
         // before exercising the page menu and the close/restore keyboard flow.
         compose.onNodeWithContentDescription("Favorite Fixture One").performClick()
         awaitTitle("Fixture One")
         compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("Add to favorites").assertDoesNotExist()
-        compose.onNodeWithText("Save bookmark").assertDoesNotExist()
+        compose.onNodeWithText("Add to favorites").assertExists()
+        compose.onNodeWithText("Save bookmark").performClick()
+        compose.waitUntil { runBlocking { container.workspace.dao.observeBookmarks().first().any { !it.isFavorite && it.title == "Fixture One" } } }
+        compose.onNodeWithContentDescription("Page menu").performClick()
         compose.onNodeWithText("Find in page").performClick()
         compose.onNodeWithContentDescription("Close find").performClick()
         shortcut(AndroidKeyEvent.KEYCODE_W)
@@ -91,6 +93,7 @@ class BrowserUiTest {
     }
     @Test fun settingsAllowCustomKeywordSearchAndSurviveActivityRecreation() {
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithTag("customize-search-engines").performScrollTo().performClick()
         compose.onNodeWithText("Add search engine").performScrollTo().performClick()
         compose.onNodeWithText("Name").performTextInput("Fixture Search")
         compose.onNodeWithText("Keyword").performTextInput("fixture")
@@ -100,6 +103,12 @@ class BrowserUiTest {
         compose.onNodeWithText("Use a valid https search URL").assertExists()
         compose.onNodeWithText("Search URL Template").performTextReplacement("https://example.com/?q={query}")
         compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(5_000) { runBlocking { container.workspace.dao.engines().any { it.keyword == "fixture" } } }
+        val customId = runBlocking { container.workspace.dao.engines().first { it.keyword == "fixture" }.id }
+        compose.onNodeWithTag("search-engines-list").performScrollToNode(hasTestTag("common-engine:$customId"))
+        compose.onNodeWithTag("common-engine:$customId").performClick()
+        compose.waitUntil(5_000) { runBlocking { customId in container.settings.settings.first().commonSearchEngineIds.orEmpty() } }
+        compose.onNodeWithContentDescription("Back to settings").performClick()
         compose.onNodeWithContentDescription("Back to browser").performClick()
         shortcut(AndroidKeyEvent.KEYCODE_L)
         compose.onNode(hasSetTextAction()).performTextReplacement("fixture tablet")
