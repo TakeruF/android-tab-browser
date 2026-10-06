@@ -158,7 +158,7 @@ class ReleaseFeaturesUiTest {
         assertEquals("${server.origin}/one", runBlocking { container.workspace.dao.tab(tabId)!!.url })
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("app-updates"))
         compose.onNodeWithText("App updates").assertIsDisplayed()
-        compose.onNodeWithText("Current version: 0.1.1").assertExists()
+        compose.onNodeWithText("Current version: ${BuildConfig.VERSION_NAME}").assertExists()
         if (BuildConfig.APK_UPDATES_ENABLED) {
             compose.onNodeWithText("Check for updates").assertExists()
         } else {

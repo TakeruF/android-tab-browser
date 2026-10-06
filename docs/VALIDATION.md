@@ -2,7 +2,7 @@
 
 The [2026-10-06 cross-feature audit](CROSS_FEATURE_AUDIT_2026-10-06.md) found Split action-target, Archive, uppercase-scheme, and upload-extension bugs. Version 0.1.1 fixes them and adds Bookmarks, site-data clearing, link/image menus, and in-app updates. Navigation immediately stores the requested URL and supports recovery after a 30-second loading timeout. ChatGPT answers/login are not established by these checks.
 
-Current results are in [0.1.1 release validation](#2026-10-06--011-release-validation). The records below are chronological: failures and incomplete checks describe their historical stage, not the final release.
+Current results are in [0.1.2 release validation](#2026-10-06--012-release-validation). The records below are chronological: failures and incomplete checks describe their historical stage, not the final release.
 
 Initial validation date: 2026-10-03. JDK 17 / Android SDK 36 / Gradle 8.13. Instrumentation used the API-36 Pixel Tablet emulator `Orbit_Tablet_QA`, 2560 × 1600 / 320 dpi / landscape.
 
@@ -308,6 +308,11 @@ Repository Markdown, release notes, and update-manifest notes use English. CJK s
 
 - JDK 17: 112 GitHub and 101 Play unit tests passed. Updated the updater test fixture to always offer a newer candidate than the compiled version, retaining signature/checksum/downgrade checks.
 - Signed Github Release APK and Play Release AAB built. Release Lint: GitHub 0 errors / 40 warnings; Play 0 errors / 51 warnings.
-- APK: com.takeruf.nagi, 0.1.2/code 3, API 26+, non-debuggable; distribution certificate remains a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc. SHA-256: 6d87d9056a72855f0774ddc8b1f2ab4f58201e24f94891ea7396ac17493af442.
+- APK: com.takeruf.nagi, 0.1.2/code 3, API 26+, non-debuggable; distribution certificate remains a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc. SHA-256: 61dbb8ad6cbe12c1450be33a896999ca7622f2f37a1257bb2d3effd370283e22.
 - bundletool validated the Play AAB; manifest/DEX inspection confirmed version 0.1.2/code 3 and exclusion of the APK updater, installer permission, update provider and unknown-source action. Play AAB SHA-256: a1c14c534ad3029d0bf91d8d513fe7fb26a97bc9532830f93efe3d8d2e13092a.
 - The existing Console Alpha track was confirmed Active, serving 0.1.1 to selected testers in 178 countries/regions, with 4 testers opted in. The 0.1.2 update uses this same track and its existing Google Group/opt-in links.
+- API-36 / WebView 133 tablet emulator: 49 of 51 selected cases passed in the combined WebViewEngineTest, ReleaseFeaturesUiTest, SidebarDragTest and SplitNewTabUiTest run. The autofill case timed out after offering the system suggestion; the update-section case still asserted the old version text. Changed that assertion to BuildConfig.VERSION_NAME. Both cases passed in a separate two-case rerun (4.926 seconds), completing successful coverage of all 51 selected cases. No production code changed in response to these two failures.
+- A separately booted Nagi_Features_QA emulator encountered a System UI ANR before the targeted rerun; that interrupted run is excluded from pass counts. The existing emulator retained its data and restored its original autofill service and IME through the test harness.
+- GitHub APK was packaged again from clean committed release source e50190b and publicly re-downloaded with matching manifest, size, checksum and distribution signature. The uploaded Play AAB has identical executable code, resources and application manifest to the clean-source rebuild; only build-time Git provenance and the signed JAR metadata differ. The immutable uploaded artifact's checksum above remains the authoritative Play checksum.
+- Website PR #21 merged and production checks verified all four product/privacy locales, SHA-256 text and the downloaded APK; old 0.1.0/0.1.1 downloads remain HTTP 200. Site/GitHub APK SHA-256: 61dbb8ad6cbe12c1450be33a896999ca7622f2f37a1257bb2d3effd370283e22.
+- Play 0.1.2 was submitted and shows Changes in review / quick checks running. Afterwards Alpha remained Active, 0.1.1 remained Available to selected testers, and the tester group, feedback address, 178 countries/regions and opt-in links were verified unchanged.

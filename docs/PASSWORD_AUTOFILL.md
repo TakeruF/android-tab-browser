@@ -21,3 +21,5 @@ This is separate from [passkeys](PASSKEYS.md). Nagi adds no vault, password pers
 On 2026-10-06, all 12 selected instrumentation cases (the complete WebView engine suite and the settings-picker case) passed on an isolated API 36 tablet emulator with WebView 133.0.6943.137. GitHub and Play Debug APK builds, Play Release Kotlin compilation and all 98 GitHub Debug unit tests passed. GitHub Debug lint reported 0 errors and 37 warnings. These checks do not prove access to a real Google password vault.
 
 Sources: [Autofill setup and Activity context](https://developer.android.com/identity/autofill/autofill-optimize), [WebView virtual form structure](https://developer.android.com/reference/android/webkit/WebView), [provider web-domain verification and browser allowlists](https://developer.android.com/reference/android/service/autofill/AutofillService#web-security).
+
+These integrations are included in Nagi 0.1.2. See [0.1.2 release validation](VALIDATION.md#2026-10-06--012-release-validation) for the current release checks.

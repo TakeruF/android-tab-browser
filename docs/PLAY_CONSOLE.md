@@ -2,6 +2,16 @@
 
 Prepared 2026-10-06 for Nagi 0.1.1 (`com.takeruf.nagi`, versionCode 2, targetSdk 36). This file contains submission copy and source-backed declaration guidance; it does not claim that Console forms have been saved, a release has been submitted, or a test is active.
 
+## 0.1.2 update — 2026-10-06
+
+- Version `3 (0.1.2)` was uploaded to the existing **Alpha** closed-testing track and submitted with English, Japanese, Simplified Chinese and Korean release notes. Publishing overview shows **Changes in review**; quick checks are still running, so this is not approval or confirmation that 0.1.2 is already delivered.
+- After submission, the track remains **Active**, the 0.1.2 release is **In review**, and the 0.1.1 release remains **Available to selected testers**. No track pause, tester removal, new track, production promotion, country change or signing-key change was performed.
+- Testers remain `AndroidClosedJP@googlegroups.com`; feedback remains `support@takeruf.com`. The 178 countries/regions and existing Android/web opt-in links are unchanged. The pre-update dashboard showed 4 opted-in testers.
+- Console reports zero devices lost compared with the previous release across all form factors. The only release warning is the optional native debug-symbol file recommendation.
+- Uploaded AAB SHA-256: `a1c14c534ad3029d0bf91d8d513fe7fb26a97bc9532830f93efe3d8d2e13092a`. The APK updater remains excluded from Play. The existing Play app-signing certificate is retained.
+- Website PR [#21](https://github.com/TakeruF/me/pull/21) merged as `2c2a2b7`. Production checks verified all four product/privacy locales and the 0.1.2 APK, matching the GitHub release APK checksum. Older website APK downloads remain available.
+- Evidence: [review submission](play-store/console-012-review.png), [active Alpha and both releases](play-store/console-012-alpha-active.png).
+
 ## Live Console progress (2026-10-06)
 
 - Distribution was expanded to all 178 Console options: 177 named countries/regions plus Rest of World. Store listing contact email was immediately published as `support@takeruf.com`; tester feedback email and support text in all four listing descriptions were saved and submitted in a seven-change update. **Changes in review** verifies acceptance of the updated submission (automated checks running again). Screenshot: `docs/play-store/console-countries-support-review.jpg`. IARC's administrative contact remains `me@takeruf.com`.
