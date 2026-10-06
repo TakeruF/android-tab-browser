@@ -9,6 +9,7 @@ Prepared 2026-10-06 for Nagi 0.1.1 (`com.takeruf.nagi`, versionCode 2, targetSdk
 - `AndroidClosedJP@googlegroups.com`, `support@takeruf.com`, 178 countries/regions and both opt-in links remain unchanged. Dashboard count was 5 before the update and 6 afterwards. No 14-day completion is claimed.
 - Console reports no loss of supported devices. The sole release warning is the optional native debug-symbol recommendation.
 - Uploaded AAB SHA-256: `edd15232849edeb9c57f91ce3e17a96bfac166bd231e3c4d39f79d3a20a5ce6a`.
+- Website PR [#22](https://github.com/TakeruF/me/pull/22) merged as `805f071`. Main CI and Vercel deployment passed; the separate EdgeOne production was verified live in all four product/privacy locales and homepages. Website APK matches the GitHub release checksum; all 0.1.0/0.1.1/0.1.2 downloads remain available.
 - Evidence: [review submission](play-store/console-013-review.png), [active Alpha and both releases](play-store/console-013-alpha-active.png).
 
 ## 0.1.2 update — 2026-10-06
