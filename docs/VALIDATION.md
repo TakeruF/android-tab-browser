@@ -1,6 +1,6 @@
 # 検証記録
 
-2026-10-06の横断テスト: [不具合・機能欠落・再現条件と結果](CROSS_FEATURE_AUDIT_2026-10-06.md)。追加前の単体85件は全成功。追加後は単体87件中86成功、端末86件中80成功。再現テストでSplitの選択／操作先、Archive、大文字scheme、upload accept拡張子の4種類の不具合を確認。古いテスト導線を更新し、Space切替は個別再実行で成功。ChatGPTは正しいURLがWebViewへ渡るが読み込み10%・Roomはabout:blankで停滞し、原因は未確定。製品コードの修正はこの調査に含まない。
+2026-10-06の横断テスト: [当初の不具合・機能欠落・再現条件](CROSS_FEATURE_AUDIT_2026-10-06.md)。そこで確認したSplitの選択／操作先、Archive、大文字scheme、upload accept拡張子の不具合を0.1.1で修正。Bookmarks、サイトデータ消去、リンク／画像メニュー、アプリ内更新を追加した。初回ナビゲーションは要求URLを直ちに保存し、30秒の読み込みタイムアウト後に再試行できる。ChatGPTの応答生成・ログイン成功は確認対象に含めない。
 
 検証日: 2026-10-03。JDK 17 / Android SDK 36 / Gradle 8.13。端末テストはAPI 36のPixel Tabletエミュレーター `Orbit_Tablet_QA`、2560 × 1600 / 320 dpi / 横画面で実行。
 
@@ -287,7 +287,14 @@ API 36のOrbit_Tablet_QAでOverflowMenuUiTest 3件、BrowserUiTest 3件、Sideba
 - System Back and the Back keyboard shortcut use the focused page history first. At the start of a normal tab's history, if another visible tab exists in the space, Back closes the focused tab and selects its opener. A missing/closed/archived/moved opener falls back to a remaining tab in the same space. The final visible tab and pinned tabs retain their existing exit behavior when no page history exists; fullscreen Back still exits fullscreen first.
 - Selected new tabs remember the previously selected tab; page-created tabs explicitly remember their source engine's tab, including split panes. Parent IDs are persisted with a Room version 1-to-2 auto-migration that preserves existing data. Closing an active tab also prefers its live opener.
 - Debug app/test builds and lint passed. All 78 unit tests passed, including nested openers, unrelated neighboring tabs, an unselected split child, unavailable parents, and a populated version-1 database migration. API-36 tablet emulator: all three TabBackUiTest cases passed using device-local pages, covering a real target=_blank link, open-links-in-new-tab with Activity recreation, and in-tab history before child closure. Physical-device gesture validation is not included.
-# 2026-10-06 — Address action spacing and Space selection frame
+## 2026-10-06 — Address action spacing and Space selection frame
 
 - Both address bars use 32dp-wide copy/share buttons instead of 48dp, with unchanged 16dp icons. Space selection frames use 36dp squares inside the existing 48dp click/drop targets.
 - Debug app/test builds and `git diff --check` passed. API-36 tablet emulator: SidebarAddressBarTest and the existing Space tap/drag-to-Space cases passed (3 tests). Inspected the rendered address bars and selection frame in `app/build/reports/address-spacing-validation/sidebar-address-always-visible.png`. Physical-device verification is pending.
+
+## 2026-10-06 — 0.1.1 release validation
+
+- Unit tests: 98 passed, including update manifest validation, APK download/checksum/signature/version checks on API 26 and 35, and file-picker extension contracts.
+- API-36 tablet emulator: all 91 cross-feature instrumentation tests passed. Includes right-pane keyboard focus, visible-page archive protection, bookmark flows, confirmed/canceled site-data clearing, real WebView link/image context menus, cookie/localStorage/IndexedDB removal, and stalled-navigation timeout/recovery.
+- After including the address-action and Space-frame UI changes, all 17 SidebarAddressBarTest/SidebarDragTest cases passed again.
+- Signed, non-debuggable Release build succeeded. Debug Lint: 0 errors, 34 warnings. These checks used the emulator; no physical device was connected.
