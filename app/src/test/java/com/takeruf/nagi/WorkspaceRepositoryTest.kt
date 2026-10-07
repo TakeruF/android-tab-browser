@@ -6,6 +6,7 @@ import com.takeruf.nagi.data.datastore.SettingsStore
 import com.takeruf.nagi.data.repository.*
 import com.takeruf.nagi.data.room.*
 import com.takeruf.nagi.domain.model.*
+import com.takeruf.nagi.ui.browser.BrowserUiState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.*
@@ -59,6 +60,57 @@ class WorkspaceRepositoryTest {
             assertNull(saved.parentTabId)
             assertEquals("saved", migrated.browserDao().spaces().single().activeTabId)
         } finally { migrated.close(); context.deleteDatabase(name) }
+    }
+    @Test fun splitPairsMovePinAndRestoreWithTheirLeftRightIdentity() = runBlocking {
+        val a = tabs.create("personal", "https://example.com/a", false)
+        val b = tabs.create("personal", "https://example.com/b", false)
+        val c = tabs.create("personal", "https://example.com/c", false)
+        val d = tabs.create("personal", "https://example.com/d", false)
+        tabs.pair(a, b); tabs.pair(c, d)
+        tabs.dropPair(c, false, b, after = false)
+        val order = db.browserDao().tabs("personal").map { it.id }
+        assertEquals(listOf(c, d, a, b), order.filter { it in listOf(a, b, c, d) })
+        tabs.dropPair(a, true)
+        assertTrue(db.browserDao().tab(a)!!.isPinned)
+        assertTrue(db.browserDao().tab(b)!!.isPinned)
+        assertEquals(b, db.browserDao().tab(a)!!.model().splitRightTabId)
+        tabs.select(b)
+        val restored = BrowserUiState(workspace.snapshot.first { it.tabs.any { t -> t.id == a && t.isPinned } }, settings.settings.first())
+        assertEquals(b, restored.visibleTabs.first { it.id == a }.splitRightTabId)
+        tabs.dropPair(a, false, c, after = true)
+        assertEquals(listOf(c, d, a, b), db.browserDao().tabs("personal").filter { it.id in listOf(a,b,c,d) }.map { it.id })
+        assertFalse(db.browserDao().tab(b)!!.isPinned)
+    }
+    @Test fun movingOneMemberDetachesWhileMovingPairToSpacePreservesIt() = runBlocking {
+        val a = tabs.create("personal", select = false)
+        val b = tabs.create("personal", select = false)
+        tabs.pair(a, b)
+        tabs.drop(b, true)
+        assertNull(db.browserDao().tab(a)!!.splitRightTabId)
+        tabs.pair(a, b)
+        tabs.movePairToSpace(a, "work")
+        assertEquals("work", db.browserDao().tab(a)!!.spaceId)
+        assertEquals("work", db.browserDao().tab(b)!!.spaceId)
+        assertEquals(b, db.browserDao().tab(a)!!.splitRightTabId)
+        tabs.close(b)
+        assertNull(db.browserDao().tab(a)!!.splitRightTabId)
+    }
+    @Test fun replacingOnePairMemberKeepsOtherPairsAndInvalidDropDoesNotDetach() = runBlocking {
+        val a = tabs.create("personal", select = false)
+        val b = tabs.create("personal", select = false)
+        val c = tabs.create("personal", select = false)
+        val d = tabs.create("personal", select = false)
+        val e = tabs.create("personal", select = false)
+        tabs.pair(a, b); tabs.pair(c, d)
+        tabs.pair(a, e)
+        assertEquals(e, db.browserDao().tab(a)!!.splitRightTabId)
+        assertEquals(d, db.browserDao().tab(c)!!.splitRightTabId)
+        assertNull(db.browserDao().tab(b)!!.splitRightTabId)
+        tabs.drop(e, true, "missing")
+        assertEquals(e, db.browserDao().tab(a)!!.splitRightTabId)
+        tabs.togglePin(e)
+        assertTrue(db.browserDao().tab(a)!!.isPinned)
+        assertTrue(db.browserDao().tab(e)!!.isPinned)
     }
     @Test fun themeColorSurvivesIndependentSettingsUpdatesAndStoreRecreation() = runBlocking {
         settings.update { it.copy(themeColor = 0xFF3568C0) }

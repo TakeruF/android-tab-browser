@@ -13,7 +13,7 @@ import kotlinx.coroutines.delay
 
 enum class SidebarSection { FAVORITES, PINNED, TODAY, SPACE, SPLIT_LEFT, SPLIT_RIGHT, SPLIT_TAB }
 data class SidebarDestination(val section: SidebarSection, val id: String? = null, val after: Boolean = false, val atStart: Boolean = false)
-data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false, val siteUrl: String? = null)
+data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false, val siteUrl: String? = null, val pairRight: com.takeruf.nagi.domain.model.BrowserTab? = null, val pairLeft: com.takeruf.nagi.domain.model.BrowserTab? = null, val pairActiveTabId: String? = null)
 
 data class FavoriteLanding(val item: SidebarDragItem, val topLeft: Offset)
 
@@ -92,10 +92,14 @@ class SidebarDragState {
             }
         }
         if (item?.favorite == true) favoriteOrder = null
+        if (item?.pairRight != null && hit?.first?.section !in listOf(SidebarSection.PINNED, SidebarSection.TODAY, SidebarSection.SPACE)) {
+            destination = null
+            return
+        }
         destination = hit?.let { (target, rect, canSplit, replacementRight) ->
             // The middle combines standalone tabs or replaces a split member; edges reorder.
             if ((canSplit || replacementRight != null) && target.section in listOf(SidebarSection.PINNED, SidebarSection.TODAY) &&
-                target.id != null && target.id != item?.id && item?.favorite == false &&
+                target.id != null && target.id != item?.id && item?.favorite == false && item?.pairRight == null &&
                 position.y >= rect.top + rect.height * 0.25f &&
                 position.y <= rect.bottom - rect.height * 0.25f) {
                 if (replacementRight != null) SidebarDestination(
@@ -121,7 +125,7 @@ fun Modifier.sidebarTarget(drag: SidebarDragState, key: String, destination: Sid
 /** Register rows; the stable sidebar owns the pointer so recycling a row cannot interrupt a drag. */
 @Composable
 fun Modifier.sidebarDraggable(drag: SidebarDragState, item: SidebarDragItem, immediate: Boolean = false): Modifier {
-    val key = "${item.id}-$immediate"
+    val key = "${item.id}-$immediate-${item.pairRight?.id.orEmpty()}"
     DisposableEffect(drag, key) { onDispose { drag.sources.remove(key) } }
     return onGloballyPositioned { drag.sources[key] = Triple(item, immediate, it.boundsInRoot()) }
 }

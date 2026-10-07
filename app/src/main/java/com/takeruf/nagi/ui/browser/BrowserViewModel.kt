@@ -51,6 +51,10 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     }
     fun closeTabOnBack(id: String) = action { container.tabs.close(id, selectNext = true) }
     fun restoreClosed() = action { if (container.tabs.restoreClosed() == null) messages.emit("No closed tabs to restore") }
+    fun pairTabs(leftId: String, rightId: String) = action { container.tabs.pair(leftId, rightId) }
+    fun detachSplit(id: String) = action { container.tabs.detachSplit(id) }
+    fun dropPair(id: String, pinned: Boolean, target: String?, after: Boolean) = action { container.tabs.dropPair(id, pinned, target, after) }
+    fun movePair(id: String, spaceId: String) = action { container.tabs.movePairToSpace(id, spaceId) }
     fun togglePin(id: String) = action { container.tabs.togglePin(id) }
     fun accessTab(id: String) = action { container.tabs.recordAccess(id) }
     fun reorder(id: String, target: String) = action { container.tabs.reorder(id, target) }

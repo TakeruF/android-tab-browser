@@ -83,10 +83,8 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     val splitLeft = state.visibleTabs.firstOrNull { it.id == splitLeftTabId }
     val splitRight = state.visibleTabs.firstOrNull { it.id == splitRightTabId && it.id != splitLeft?.id }
     fun selectTab(tab: BrowserTab) {
-        if (splitRight != null && (tab.id == splitLeft?.id || tab.id == splitRight.id)) {
-            onFocusSplit(tab.id == splitRight.id)
-            vm.accessTab(tab.id)
-        } else vm.selectTab(tab.id)
+        if (splitRight != null && (tab.id == splitLeft?.id || tab.id == splitRight.id)) onFocusSplit(tab.id == splitRight.id)
+        vm.selectTab(tab.id)
         onNavigate("browser")
     }
     val selectedPage = spaces.indexOfFirst { it.id == state.currentSpace?.id }.coerceAtLeast(0)
@@ -123,13 +121,27 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     val sidebarTop = sidebarPalette.surfaceTint.copy(alpha = 0.10f).compositeOver(tint)
     val sidebarBottom = sidebarPalette.surfaceTint.copy(alpha = 0.03f).compositeOver(tint)
     fun detachesSplit(item: SidebarDragItem?, destination: SidebarDestination?): Boolean =
-        item != null && !item.favorite && splitLeft != null && splitRight != null &&
+        item != null && !item.favorite && item.pairRight == null && splitLeft != null && splitRight != null &&
             item.id in listOf(splitLeft.id, splitRight.id) && destination != null &&
             destination.section in listOf(SidebarSection.PINNED, SidebarSection.TODAY) &&
             destination.id != item.id
     fun drop() {
         val item = drag.item ?: return
         val destination = drag.destination ?: return
+        if (item.pairRight != null) {
+            when (destination.section) {
+                SidebarSection.PINNED, SidebarSection.TODAY -> {
+                    val pinned = destination.section == SidebarSection.PINNED
+                    val target = if (destination.atStart) state.visibleTabs.firstOrNull {
+                        it.isPinned == pinned && it.id !in listOf(item.id, item.pairRight.id)
+                    }?.id else destination.id
+                    vm.dropPair(item.id, pinned, target, destination.after)
+                }
+                SidebarSection.SPACE -> destination.id?.let { vm.movePair(item.id, it) }
+                else -> Unit
+            }
+            return
+        }
         if (detachesSplit(item, destination)) onDetachSplit(item.id)
         when (destination.section) {
             SidebarSection.SPLIT_TAB -> if (!item.favorite && destination.id != null && destination.id != item.id)
@@ -205,13 +217,11 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 ToolButton(NagiIcons.Plus, strings(R.string.ui_new_tab), onClick = onNewTab)
                 SpacePages(Modifier.weight(1f)) { state ->
                     val tabs = state.visibleTabs
-                    val pair = if (splitLeft != null && splitRight != null &&
-                        tabs.any { it.id == splitLeft.id } && tabs.any { it.id == splitRight.id }) {
-                        listOf(splitLeft, splitRight)
-                    } else emptyList()
-                    val listedTabs = tabs.filter { it.id != pair.getOrNull(1)?.id }
+                    val pairLefts = tabs.filter { tab -> tabs.any { it.id == tab.splitRightTabId } }
+                    val listedTabs = tabs.filter { tab -> pairLefts.none { it.splitRightTabId == tab.id } }
                     LazyColumn(Modifier.fillMaxSize()) { items(listedTabs, key = { it.id }) { tab ->
-                        val grouped = pair.firstOrNull()?.id == tab.id
+                        val pair = tab.splitRightTabId?.let { id -> tabs.firstOrNull { it.id == id } }?.let { listOf(tab, it) }.orEmpty()
+                        val grouped = pair.size == 2
                         val selected = if (grouped) pair.any { it.id == state.activeTab?.id }
                             else tab.id == state.activeTab?.id
                         Surface(onClick = { selectTab(if (grouped && splitRightFocused) pair[1] else tab) }, shape = NagiShapes.Rounded,
@@ -255,24 +265,30 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark)
                 SpacePages(Modifier.weight(1f)) { state ->
                     val tabs = state.visibleTabs
-                    val grouped = splitRight != null && splitLeft != null && splitLeft.spaceId == state.currentSpace?.id
+                    val pairLefts = tabs.filter { tab -> tabs.any { it.id == tab.splitRightTabId } }
                     val todayStart = SidebarDestination(SidebarSection.TODAY, atStart = true)
                     val pinnedStart = SidebarDestination(SidebarSection.PINNED, atStart = true)
-                    val listedTabs = if (grouped) tabs.filter { it.id != splitRight?.id } else tabs
+                    val listedTabs = tabs.filter { tab -> pairLefts.none { it.splitRightTabId == tab.id } }
                     @Composable
                     fun SidebarTab(tab: BrowserTab, drag: SidebarDragState) {
-                        if (grouped && tab.id == splitLeft?.id) {
-                            Surface(Modifier.fillMaxWidth().padding(vertical = 3.dp).testTag("sidebar-split-group"),
+                        val pairRight = tabs.firstOrNull { it.id == tab.splitRightTabId }
+                        if (pairRight != null) {
+                            val pairItem = SidebarDragItem(tab.id, "${strings.tabTitle(tab)} / ${strings.tabTitle(pairRight)}", tab.faviconUrl,
+                                siteUrl = tab.url, pairRight = pairRight, pairLeft = tab,
+                                pairActiveTabId = state.activeTab?.id.takeIf { !mouseInput })
+                            Surface(Modifier.fillMaxWidth().padding(vertical = 3.dp).testTag("sidebar-split-group")
+                                .alpha(if (drag.item?.id == tab.id && drag.item?.pairRight != null) 0.3f else 1f)
+                                .sidebarDraggable(drag, pairItem, immediate = true)
+                                .sidebarTarget(drag, "pair-${tab.id}", SidebarDestination(if (tab.isPinned) SidebarSection.PINNED else SidebarSection.TODAY, tab.id), canSplit = false),
                                 // Match the inner tab radius plus its inset; keep sidebar groups flat.
                                 shape = RoundedCornerShape(NagiShapes.Radius + 6.dp), color = palette.surface,
                                 contentColor = palette.onSurface) {
                                 Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf(splitLeft!!, splitRight!!).forEachIndexed { index, page ->
+                                    listOf(tab, pairRight).forEachIndexed { index, page ->
                                         TabRow(page, state, vm, drag, page.id in loadingIds, !mouseInput,
                                             { selectTab(page) }, { onSplitTab(page.id) },
                                             modifier = Modifier.weight(1f), compact = true, replacementRight = index == 1, suspended = page.id in suspendedIds,
-                                            selectedOverride = state.activeTab?.id in listOf(splitLeft?.id, splitRight?.id) &&
-                                                splitRightFocused == (index == 1))
+                                            selectedOverride = state.activeTab?.id == page.id)
                                     }
                                 }
                             }
@@ -314,7 +330,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                         if (!pinnedCollapsed || drag.item != null) {
                             items(listedTabs.filter { it.isPinned }, key = { it.id }) { tab -> SidebarTab(tab, drag) }
                             if (listedTabs.none { it.isPinned }) item("empty-pinned") {
-                                Box(Modifier.fillMaxWidth().height(42.dp).sidebarTarget(drag, "empty-pinned", SidebarDestination(SidebarSection.PINNED)), contentAlignment = Alignment.CenterStart) {
+                                Box(Modifier.fillMaxWidth().height(42.dp).testTag("sidebar-empty-pinned-drop").sidebarTarget(drag, "empty-pinned", SidebarDestination(SidebarSection.PINNED)), contentAlignment = Alignment.CenterStart) {
                                     if (drag.item == null) Text(strings(R.string.ui_keep_your_everyday_tabs_here), Modifier.padding(start = 12.dp),
                                         style = MaterialTheme.typography.bodySmall, color = palette.onSurfaceVariant)
                                 }
@@ -537,7 +553,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                 .fillMaxWidth(0.5f).fillMaxHeight().testTag("sidebar-split-drop-${tab.id}")
                 .background(palette.primary.copy(alpha = 0.28f).compositeOver(palette.surfaceContainerHigh), NagiShapes.Rounded))
         }
-        Row(Modifier.fillMaxWidth().alpha(if (drag.item?.id == tab.id) 0.3f else 1f)
+        Row(Modifier.fillMaxWidth().alpha(if (drag.item?.id == tab.id && drag.item?.pairRight == null) 0.3f else 1f)
             .clip(NagiShapes.Rounded).background(if (splitTarget || replacementTarget) Color.Transparent else if (compact) palette.surfaceContainerHigh else if (selected) palette.primaryContainer else Color.Transparent)
             .then(if (selected && !compact && !splitTarget) Modifier.border(1.dp, palette.primary, NagiShapes.Rounded) else Modifier)
             .sidebarDraggable(drag, item).hoverable(interaction).sidebarContextMenu { menu = true }.clickable(onClick = onSelect)
@@ -610,6 +626,36 @@ fun SidebarDragPreview(drag: SidebarDragState) {
                     shadowElevation = 8.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Favicon(item.favicon, siteUrl = item.siteUrl, fallbackText = item.title)
+                    }
+                }
+            } else if (item.pairLeft != null && item.pairRight != null) {
+                val palette = MaterialTheme.colorScheme
+                val strings = rememberNagiStrings()
+                val shape = RoundedCornerShape(NagiShapes.Radius + 6.dp)
+                val lift = with(density) { 12.dp.toPx() }
+                Surface(Modifier.offset {
+                    val topLeft = drag.point - origin - drag.grabOffset
+                    IntOffset(topLeft.x.roundToInt(), (topLeft.y - lift).roundToInt())
+                }.testTag("tab-drag-preview")
+                    .size(with(density) { drag.sourceSize.x.toDp() }, with(density) { drag.sourceSize.y.toDp() })
+                    .shadow(12.dp, shape, clip = false), shape = shape, color = palette.surface,
+                    contentColor = palette.onSurface) {
+                    Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(item.pairLeft, item.pairRight).forEach { page ->
+                            Row(Modifier.weight(1f).fillMaxHeight().testTag("split-drag-preview-${page.id}")
+                                .clip(NagiShapes.Rounded).background(palette.surfaceContainerHigh),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                                    if (page.url == "about:blank") Icon(NagiIcons.House, null, Modifier.size(20.dp))
+                                    else Favicon(page.faviconUrl, siteUrl = page.url)
+                                }
+                                Text(strings.tabTitle(page), Modifier.weight(1f).padding(end = 8.dp),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                                if (item.pairActiveTabId == page.id) Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                                    Icon(NagiIcons.X, null, Modifier.size(16.dp))
+                                }
+                            }
+                        }
                     }
                 }
             } else {

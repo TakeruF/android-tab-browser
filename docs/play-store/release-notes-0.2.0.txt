@@ -1,0 +1,20 @@
+<en-US>
+Open supported links in external apps, including Google Play. An optional setting blocks app launches and lets you allow them from a compact notice.
+Save left/right Split tab pairs, restore them after restarting, and drag both tabs together to reorder, pin, or move them to another Space.
+Improve drag previews, corner radii, and Simplified Chinese wording.
+</en-US>
+<ja-JP>
+Google Playなどの外部アプリで対応リンクを開けるようになりました。設定で起動をブロックし、小さな通知から手動で許可できます。
+分割表示の左右のタブをペアとして保存し、再起動後も復元できます。ペア全体をドラッグして並べ替え、固定、別のSpaceへの移動ができます。
+ドラッグ中の表示、角丸、簡体字中国語の表現を改善しました。
+</ja-JP>
+<zh-CN>
+支持在 Google Play 等外部应用中打开相应链接。可在设置中阻止启动外部应用，并通过简洁提示手动允许。
+支持保存左右分屏标签页组合，重启后恢复。可整体拖动组合，调整顺序、固定或移到其他空间。
+优化拖动预览、圆角和简体中文表述。
+</zh-CN>
+<ko-KR>
+Google Play 등 외부 앱에서 지원되는 링크를 열 수 있습니다. 설정에서 외부 앱 실행을 차단하고 작은 알림에서 직접 허용할 수 있습니다.
+분할 화면의 왼쪽과 오른쪽 탭을 한 쌍으로 저장하고 재시작 후 복원합니다. 탭 쌍 전체를 드래그하여 순서를 바꾸거나 고정하거나 다른 Space로 이동할 수 있습니다.
+드래그 미리보기, 모서리와 간체 중국어 표현을 개선했습니다.
+</ko-KR>

@@ -34,6 +34,6 @@ interface BrowserDao {
     suspend fun trimClosedTabs()
     @Query("DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY visitedAt DESC LIMIT 5000)")
     suspend fun trimHistory()
-    @Query("UPDATE tabs SET archivedAt = :now WHERE closedAt IS NULL AND archivedAt IS NULL AND isPinned = 0 AND lastAccessedAt < :before AND id NOT IN (SELECT activeTabId FROM spaces WHERE activeTabId IS NOT NULL) AND id NOT IN (:protectedIds)")
+    @Query("UPDATE tabs SET archivedAt = :now WHERE closedAt IS NULL AND archivedAt IS NULL AND isPinned = 0 AND lastAccessedAt < :before AND id NOT IN (SELECT activeTabId FROM spaces WHERE activeTabId IS NOT NULL) AND id NOT IN (:protectedIds) AND splitRightTabId IS NULL AND id NOT IN (SELECT splitRightTabId FROM tabs WHERE splitRightTabId IS NOT NULL AND closedAt IS NULL)")
     suspend fun archiveInactive(before: Long, now: Long, protectedIds: List<String> = emptyList())
 }

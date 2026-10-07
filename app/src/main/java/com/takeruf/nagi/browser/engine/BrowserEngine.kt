@@ -60,5 +60,6 @@ interface BrowserHost {
     fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) { result(false) }
     fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File) { file.delete() }
     fun openExternal(url: String)
+    fun openExternalLink(url: String, fallback: (String) -> Unit): Boolean = false
     fun showMessage(message: String)
 }

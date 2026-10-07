@@ -187,7 +187,7 @@
     <string name="ui_this_address_type_is_not_supported">"不支持此网址类型"</string>
     <string name="ui_the_site_s_certificate_could_not_be_verified">"无法验证网站证书。"</string>
     <string name="ui_blank_script_generated_popups_are_not_supported_in_this_mvp">"暂不支持脚本生成的空白弹出窗口"</string>
-    <string name="ui_blob_and_data_downloads_are_not_supported_in_this_mvp">"暂不支持 Blob 和 data 下载"</string>
+    <string name="ui_blob_and_data_downloads_are_not_supported_in_this_mvp">"暂不支持下载此网页生成的文件（Blob/data）"</string>
     <string name="ui_this_popup_address_is_not_supported">"不支持此弹出窗口网址"</string>
     <string name="ui_tab_1_s">"标签页 %1$s"</string>
     <string name="ui_archived_1_s">"已归档 · %1$s"</string>
@@ -287,7 +287,13 @@
     <string name="ui_page_drag">拖放链接和图片</string>
     <string name="ui_page_drag_description">长按网页链接或图片即可拖动。将链接放到窗格地址栏即可打开。右键可打开操作菜单，关闭此设置后也可通过长按打开菜单。</string>
     <string name="ui_sleep_tabs_description">同时运行的网页超过 6 个时，闲置至少 10 分钟且符合休眠条件的后台标签页会自动休眠。正在显示、表单内容已修改或正在播放媒体的页面不会休眠。休眠的标签页再次打开时会重新加载，部分页面状态可能丢失。</string>
-    <string name="ui_sleep_tabs">休眠后台标签页</string>
+    <string name="ui_sleep_tabs">标签页后台休眠</string>
     <string name="ui_tab_suspended">已休眠的标签页</string>
     <string name="ui_release_to_split_tabs">松开以并排显示标签页</string>
+    <string name="ui_block_external_apps">禁止打开外部应用</string>
+    <string name="ui_block_external_apps_description">阻止启动外部应用。需要时可手动允许打开单个链接。</string>
+    <string name="ui_external_apps_blocked">已阻止启动外部应用</string>
+    <string name="ui_allow_once">仅允许一次</string>
+    <string name="ui_allow_always">始终允许</string>
+    <string name="ui_dismiss_external_app_notice">关闭外部应用提示</string>
 </resources>

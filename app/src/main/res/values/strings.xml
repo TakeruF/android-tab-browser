@@ -291,4 +291,10 @@
     <string name="ui_sleep_tabs">Suspend background tabs</string>
     <string name="ui_tab_suspended">Suspended tab</string>
     <string name="ui_release_to_split_tabs">Release to open tabs side by side</string>
+    <string name="ui_block_external_apps">Block external apps</string>
+    <string name="ui_block_external_apps_description">Block app launches. You can manually allow each link when needed.</string>
+    <string name="ui_external_apps_blocked">External app launch blocked</string>
+    <string name="ui_allow_once">Allow once</string>
+    <string name="ui_allow_always">Always allow</string>
+    <string name="ui_dismiss_external_app_notice">Dismiss external app notice</string>
 </resources>

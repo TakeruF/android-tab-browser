@@ -21,6 +21,7 @@ data class BrowserTab(
     val closedAt: Long? = null,
     val archivedAt: Long? = null,
     val parentTabId: String? = null,
+    val splitRightTabId: String? = null,
 )
 
 data class SearchEngine(
@@ -61,6 +62,7 @@ data class BrowserSettings(
     // null follows the regional AI default until explicitly selected.
     val defaultAiEngineId: String? = null,
     val nativePageDrag: Boolean = true,
+    val blockExternalApps: Boolean = false,
 )
 
 data class WorkspaceSnapshot(

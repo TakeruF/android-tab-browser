@@ -90,6 +90,7 @@ class WebViewBrowserEngine(
                 if (!request.isForMainFrame) return false
                 val url = request.url.toString()
                 val scheme = request.url.scheme?.lowercase()
+                if (request.hasGesture() && host.openExternalLink(url, ::loadUrl)) return true
                 if (scheme == "http" || scheme == "https") {
                     if (request.hasGesture() && openLinksInNewTab()) {
                         eventChannel.trySend(EngineEvent.OpenTab(url)); return true
@@ -97,8 +98,7 @@ class WebViewBrowserEngine(
                     return false
                 }
                 if (scheme == "about") return url != "about:blank"
-                if (request.hasGesture() && scheme in setOf("mailto", "tel", "sms", "geo")) host.openExternal(url)
-                else host.showMessage(strings(R.string.ui_this_address_type_is_not_supported))
+                host.showMessage(strings(R.string.ui_this_address_type_is_not_supported))
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
@@ -238,7 +238,8 @@ class WebViewBrowserEngine(
     }
     private fun dispatchPopup(url: String, popup: WebView) {
         if (!popupViews.remove(popup)) return
-        if (url.startsWith("http://") || url.startsWith("https://")) eventChannel.trySend(EngineEvent.OpenTab(url))
+        if (host.openExternalLink(url) { eventChannel.trySend(EngineEvent.OpenTab(it)) }) Unit
+        else if (url.startsWith("http://") || url.startsWith("https://")) eventChannel.trySend(EngineEvent.OpenTab(url))
         else host.showMessage(strings(R.string.ui_this_popup_address_is_not_supported))
         popup.post { popup.stopLoading(); popup.destroy() }
     }

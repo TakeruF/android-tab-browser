@@ -290,4 +290,10 @@
     <string name="ui_sleep_tabs">バックグラウンドのタブを休止</string>
     <string name="ui_tab_suspended">休止中のタブ</string>
     <string name="ui_release_to_split_tabs">離してタブを左右に並べる</string>
+    <string name="ui_block_external_apps">外部アプリを開かない</string>
+    <string name="ui_block_external_apps_description">外部アプリへの起動をブロックします。必要なときはリンクごとに手動で許可できます。</string>
+    <string name="ui_external_apps_blocked">外部アプリへの起動をブロックしました</string>
+    <string name="ui_allow_once">一度だけ許可</string>
+    <string name="ui_allow_always">常に許可</string>
+    <string name="ui_dismiss_external_app_notice">外部アプリの通知を閉じる</string>
 </resources>

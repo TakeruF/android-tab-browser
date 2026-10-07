@@ -78,10 +78,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
+    SideEffect { host.blockExternalApps = { currentSettings.blockExternalApps } }
     val sessions = remember(host) { BrowserSessionController(container) { _, desktop ->
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
             nativePageDrag = { currentSettings.nativePageDrag })
     } }
+    val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()
     DisposableEffect(sessions) { onDispose { sessions.dispose() } }
     val nav = rememberNavController()
@@ -95,8 +97,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     var omniboxOpen by rememberSaveable { mutableStateOf(false) }
     var omniboxInitial by rememberSaveable { mutableStateOf("") }
     var pendingNewTabId by remember { mutableStateOf<String?>(null) }
-    var leftTabId by rememberSaveable { mutableStateOf<String?>(null) }
-    var rightTabId by rememberSaveable { mutableStateOf<String?>(null) }
+    val savedPair = state.visibleTabs.firstOrNull { tab ->
+        tab.splitRightTabId != null && state.visibleTabs.any { it.id == tab.splitRightTabId } &&
+            state.activeTab?.id in listOf(tab.id, tab.splitRightTabId)
+    }
+    val leftTabId = savedPair?.id
+    val rightTabId = savedPair?.splitRightTabId
     var previousSpaceId by rememberSaveable { mutableStateOf<String?>(null) }
     var rightFocused by rememberSaveable { mutableStateOf(false) }
     val sidebarDrag = remember { SidebarDragState() }
@@ -154,16 +160,19 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         }
     }
     fun split() {
-        leftTabId = state.activeTab?.id
-        val candidate = state.visibleTabs.firstOrNull { it.id != state.activeTab?.id }
-        if (candidate != null) rightTabId = candidate.id
-        else scope.launch { rightTabId = vm.createTab(select = false) }
+        val leftId = state.activeTab?.id ?: return
+        val candidate = state.visibleTabs.firstOrNull { tab ->
+            tab.id != leftId && tab.splitRightTabId == null && state.visibleTabs.none { it.splitRightTabId == tab.id }
+        }
+        if (candidate != null) vm.pairTabs(leftId, candidate.id)
+        else scope.launch { vm.createTab(select = false)?.let { vm.pairTabs(leftId, it) } }
         rightFocused = false; navigate("browser")
     }
+    fun closeSplit() { leftTabId?.let(vm::detachSplit); rightFocused = false }
     fun command(value: BrowserCommand) { when (value) {
         BrowserCommand.NEW_TAB -> newTab()
         BrowserCommand.SPLIT -> split()
-        BrowserCommand.CLOSE_SPLIT -> { leftTabId = null; rightTabId = null; rightFocused = false }
+        BrowserCommand.CLOSE_SPLIT -> closeSplit()
         BrowserCommand.RESTORE_TAB -> vm.restoreClosed()
         BrowserCommand.TOGGLE_SIDEBAR -> setSidebarCollapsed(!sidebarCollapsed)
         BrowserCommand.FIND -> { showFind = true; navigate("browser") }
@@ -176,7 +185,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         when (shortcut) {
             Shortcut.OMNIBOX -> openOmnibox()
             Shortcut.NEW_TAB -> command(BrowserCommand.NEW_TAB)
-            Shortcut.CLOSE_TAB -> focusedTab?.let { if (right != null && rightFocused) { leftTabId = null; rightTabId = null; rightFocused = false }; vm.closeTab(it.id) }
+            Shortcut.CLOSE_TAB -> focusedTab?.let { if (right != null && rightFocused) rightFocused = false; vm.closeTab(it.id) }
             Shortcut.RESTORE_TAB -> command(BrowserCommand.RESTORE_TAB)
             Shortcut.NEXT_TAB -> { rightFocused = vm.cycleTab(true) == rightTabId }
             Shortcut.PREVIOUS_TAB -> { rightFocused = vm.cycleTab(false) == rightTabId }
@@ -214,10 +223,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     } }
     LaunchedEffect(state.currentSpace?.id) {
         state.currentSpace?.id?.let { id ->
-            if (previousSpaceId != null && previousSpaceId != id) { leftTabId = null; rightTabId = null; rightFocused = false }
+            if (previousSpaceId != null && previousSpaceId != id) { rightFocused = false }
             previousSpaceId = id
         }
     }
+    LaunchedEffect(state.activeTab?.id, rightTabId) { rightFocused = rightTabId != null && state.activeTab?.id == rightTabId }
     LaunchedEffect(state.workspace.tabs) {
         sessions.pool.retainTabIds(state.workspace.tabs.filter { it.closedAt == null && it.archivedAt == null }.map { it.id }.toSet())
         if (rightTabId != null && right == null) rightFocused = false
@@ -255,27 +265,23 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             pageTitle = pages[focusedTab?.id]?.title ?: focusedTab?.title.orEmpty(),
                             onNavigate = ::navigate, onNewTab = ::newTab, onOmnibox = { openOmnibox(false) },
                             onOpenUrl = { vm.newTab(it); rightFocused = false; navigate("browser") }, onSplitTab = { id ->
-                                if (id == state.activeTab?.id) split() else { leftTabId = state.activeTab?.id; rightTabId = id; rightFocused = true; navigate("browser") }
+                                if (id == state.activeTab?.id) split() else { state.activeTab?.id?.let { vm.pairTabs(it, id) }; rightFocused = true; navigate("browser") }
                             }, splitLeftTabId = splitLeft?.id, splitRightTabId = splitRight?.id, splitRightFocused = rightFocused,
                             onDetachSplit = { id ->
-                                leftTabId = null
-                                rightTabId = null
+                                vm.detachSplit(id)
                                 rightFocused = false
                                 vm.selectTab(id)
                                 navigate("browser")
                             }, onFocusSplit = { rightFocused = it; (if (it) splitRight else splitLeft)?.let { tab -> vm.selectTab(tab.id) } }, drag = sidebarDrag, onSplitDrop = { id, toRight ->
-                                val replacingGroup = sidebarDrag.destination?.id != null
-                                val dropLeft = if (replacingGroup) splitLeft else left
-                                val dropRight = if (replacingGroup) splitRight else right
+                                val targetId = sidebarDrag.destination?.id
+                                val targetLeft = state.visibleTabs.firstOrNull { it.id == targetId && it.splitRightTabId != null || it.splitRightTabId == targetId && targetId != null }
+                                val dropLeft = targetLeft ?: left
+                                val dropRight = targetLeft?.splitRightTabId?.let { rightId -> state.visibleTabs.firstOrNull { it.id == rightId } } ?: right
                                 val leftId = dropLeft?.id
                                 if (leftId != null && state.visibleTabs.any { it.id == id }) {
-                                    if (toRight) {
-                                        if (id != leftId) { leftTabId = leftId; rightTabId = id }
-                                        else dropRight?.let { leftTabId = it.id; rightTabId = id }
-                                    } else if (id != leftId) {
-                                        rightTabId = dropRight?.id?.takeUnless { it == id } ?: leftId
-                                        leftTabId = id; vm.selectTab(id)
-                                    }
+                                    val pairLeft = if (toRight) leftId.takeUnless { it == id } ?: dropRight?.id else id
+                                    val pairRight = if (toRight) id else dropRight?.id?.takeUnless { it == id } ?: leftId
+                                    if (pairLeft != null && pairLeft != pairRight) vm.pairTabs(pairLeft, pairRight)
                                     rightFocused = toRight
                                     vm.selectTab(id)
                                     navigate("browser")
@@ -283,8 +289,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             }, onSplitPair = { targetId, draggedId ->
                                 if (targetId != draggedId && state.visibleTabs.any { it.id == targetId } &&
                                     state.visibleTabs.any { it.id == draggedId }) {
-                                    leftTabId = targetId
-                                    rightTabId = draggedId
+                                    vm.pairTabs(targetId, draggedId)
                                     rightFocused = true
                                     vm.selectTab(draggedId)
                                     navigate("browser")
@@ -348,8 +353,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                 composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
                                     onFocusRight = { rightFocused = it }, splitRatio, onSplitRatio = { splitRatio = it },
                                     showFind, onFind = { showFind = it }, onOmnibox = { openOmnibox() }, onOpenUrl = ::openUrl,
-                                    onSplit = ::split, onCloseSplit = { leftTabId = null; rightTabId = null; rightFocused = false },
-                                    onSwap = { right?.let { val old = left?.id; leftTabId = it.id; vm.selectTab(it.id); rightTabId = old; rightFocused = !rightFocused } },
+                                    onSplit = ::split, onCloseSplit = ::closeSplit,
+                                    onSwap = { right?.let { other -> left?.let { vm.pairTabs(other.id, it.id); vm.selectTab(other.id) } } },
                                     leftTabId = left?.id) }
                                 composable("settings") { SettingsScreen(state, vm,
                                     onSuspendTabs = sessions::suspendBackground,
@@ -385,6 +390,20 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             }
                         }
                     }
+                }
+                if (route == "browser") blockedExternalApp?.let { request ->
+                    ExternalAppNotice(request,
+                        onAllowOnce = { host.allowBlockedExternalApp(request) },
+                        onAllowAlways = {
+                            scope.launch {
+                                if (host.blockedExternalApps.value !== request) return@launch
+                                container.settings.update { it.copy(blockExternalApps = false) }
+                                host.allowBlockedExternalApp(request)
+                            }
+                        },
+                        onDismiss = { host.dismissBlockedExternalApp(request) },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 16.dp)
+                            .widthIn(max = (windowWidthDp - width.value - 32f).coerceIn(200f, 360f).dp))
                 }
                 if (sidebarDrag.item != null) SidebarDragPreview(sidebarDrag)
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))

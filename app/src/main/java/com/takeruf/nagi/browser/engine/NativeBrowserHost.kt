@@ -20,7 +20,21 @@ import com.takeruf.nagi.browser.downloads.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+class BlockedExternalAppRequest(val url: String, internal val launch: () -> Unit)
+
 class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, FullscreenHost {
+    var blockExternalApps: () -> Boolean = { false }
+    private val blockedExternalApp = MutableStateFlow<BlockedExternalAppRequest?>(null)
+    val blockedExternalApps = blockedExternalApp.asStateFlow()
+
+    fun dismissBlockedExternalApp(request: BlockedExternalAppRequest) {
+        if (blockedExternalApp.value === request) blockedExternalApp.value = null
+    }
+    fun allowBlockedExternalApp(request: BlockedExternalAppRequest) {
+        if (disposed || blockedExternalApp.value !== request) return
+        blockedExternalApp.value = null
+        request.launch()
+    }
     private val strings = NagiStrings(activity)
     private var fileResult: ((List<String>?) -> Unit)? = null
     private var permissionResult: ((Set<SitePermission>) -> Unit)? = null
@@ -188,11 +202,43 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         }
     }
     override fun openExternal(url: String) {
-        AlertDialog.Builder(activity).setTitle(strings(R.string.ui_open_another_app)).setMessage(url)
-            .setPositiveButton(strings(R.string.ui_open)) { _, _ ->
-                runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                    .onFailure { showMessage(strings(R.string.ui_no_app_can_open_this_link)) }
-            }.setNegativeButton(strings(R.string.ui_cancel), null).show()
+        openExternalLink(url) { showMessage(strings(R.string.ui_no_app_can_open_this_link)) }
+    }
+    override fun openExternalLink(url: String, fallback: (String) -> Unit): Boolean {
+        val link = ExternalAppLinks.parse(url) ?: return false
+        val intent = link.intent
+        if (intent.`package` == activity.packageName) {
+            if (link.isWebLink) return false
+            link.webFallback?.let(fallback) ?: showMessage(strings(R.string.ui_no_app_can_open_this_link))
+            return true
+        }
+        if (link.isWebLink && intent.`package` == null) {
+            // Do not hand ordinary pages to another browser (or back to Nagi).
+            val targets = activity.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY or PackageManager.GET_RESOLVED_FILTER)
+                .filter { (it.filter?.countDataAuthorities() ?: 0) > 0 && it.activityInfo.exported && it.activityInfo.packageName != activity.packageName }
+                .distinctBy { it.activityInfo.packageName }
+            if (targets.isEmpty()) return false
+            intent.setPackage(targets.first().activityInfo.packageName)
+        }
+        fun webFallbackOrMessage() {
+            val target = link.webFallback ?: if (link.isWebLink) intent.dataString else null
+            target?.let(fallback) ?: showMessage(strings(R.string.ui_no_app_can_open_this_link))
+        }
+        fun stayInBrowser() {
+            val target = if (link.isWebLink) intent.dataString else link.webFallback
+            target?.let(fallback)
+        }
+        fun launch() {
+            if (!disposed) runCatching { activity.startActivity(intent) }.onFailure { webFallbackOrMessage() }
+        }
+        if (blockExternalApps()) {
+            blockedExternalApp.value = BlockedExternalAppRequest(intent.dataString.orEmpty(), ::launch)
+            stayInBrowser()
+        } else {
+            blockedExternalApp.value = null
+            launch()
+        }
+        return true
     }
     override fun showMessage(message: String) { Toast.makeText(activity, message, Toast.LENGTH_SHORT).show() }
     override fun showFullscreen(view: View, exit: () -> Unit) {
@@ -204,6 +250,7 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     }
     fun dispose() {
         disposed = true
+        blockedExternalApp.value = null
         consentDialog?.dismiss(); finishPermission(emptySet())
         fileDialog?.dismiss(); fileDialog = null; finishFiles(null)
         captureFile?.delete(); captureFile = null; captureUri = null

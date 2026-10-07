@@ -75,6 +75,52 @@ class SidebarDragTest {
             if (cancel) cancel() else up()
         }
     }
+    @Test fun wholeSplitPairDragPinsBothMembersAndRestoresTheirSides() {
+        runBlocking { container.tabs.pair(alpha, beta); container.tabs.select(alpha) }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("sidebar-split-group").fetchSemanticsNodes().size == 1 }
+        val group = compose.onNodeWithTag("sidebar-split-group")
+        val source = group.fetchSemanticsNode().boundsInRoot
+        val target = compose.onNodeWithTag("sidebar-empty-pinned-drop").fetchSemanticsNode().boundsInRoot
+        val originalCards = listOf(alpha, beta).map { id ->
+            compose.onNodeWithTag("sidebar-tab-$id").captureToImage().toPixelMap().let { pixels ->
+                pixels[pixels.width / 2, pixels.height - 8]
+            }
+        }
+        group.performTouchInput {
+            val start = Offset(2f, source.height / 2f)
+            down(start)
+            val end = target.center - source.topLeft
+            for (i in 1..20) moveTo(start + (end - start) * (i / 20f), delayMillis = 20)
+        }
+        val preview = compose.onNodeWithTag("tab-drag-preview").fetchSemanticsNode().boundsInRoot
+        assertEquals(source.width, preview.width, 1f)
+        assertEquals(source.height, preview.height, 1f)
+        listOf(alpha, beta).forEachIndexed { index, id ->
+            val original = compose.onNodeWithTag("sidebar-tab-$id")
+            val card = compose.onNodeWithTag("split-drag-preview-$id", useUnmergedTree = true)
+            card.assertIsDisplayed()
+            assertEquals(original.fetchSemanticsNode().boundsInRoot.width, card.fetchSemanticsNode().boundsInRoot.width, 1f)
+            val faded = original.captureToImage().toPixelMap().let { pixels -> pixels[pixels.width / 2, pixels.height - 8] }
+            assertNotEquals("Both source cards should fade during a whole-pair drag", originalCards[index], faded)
+        }
+        saveScreen("split-pair-drag-preview")
+        group.performTouchInput { up() }
+        compose.waitUntil(10_000) { runBlocking { container.workspace.dao.tab(alpha)!!.isPinned && container.workspace.dao.tab(beta)!!.isPinned } }
+        assertEquals(beta, runBlocking { container.workspace.dao.tab(alpha)!!.splitRightTabId })
+        compose.onNodeWithTag("browser-pane-left-$alpha").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$beta").assertIsDisplayed()
+        saveScreen("pinned-split-pair")
+        runBlocking { container.tabs.select(gamma) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-left-$gamma").assertIsDisplayed()
+        runBlocking { container.tabs.select(beta) }
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("browser-pane-right-$beta").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("browser-pane-left-$alpha").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
+        saveScreen("pinned-split-pair-restored")
+    }
     @Test fun droppingOnAnotherTabCombinesThosePagesAndPreservesOrder() {
         val original = runBlocking { container.workspace.dao.tabs(spaceId).map { it.id to it.isPinned } }
         fun centerDrop(cancelled: Boolean = false, mouse: Boolean = false, toRight: Boolean = true) {

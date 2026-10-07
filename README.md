@@ -4,7 +4,7 @@ A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpac
 
 ![Nagi 0.1.1 in the light theme](docs/screenshots/readme-home.png)
 
-[Download Nagi 0.1.3](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.1.3)
+[Download Nagi 0.2.0](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.2.0)
 
 Install the APK over the 0.1.0 version distributed at takeruf.com to keep your workspace. That version does not include an updater; after installing 0.1.2, use **Settings → App updates** for future releases. Local Debug builds and the former `com.orbit.browser` package have different signing or package identities.
 

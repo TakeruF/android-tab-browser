@@ -108,6 +108,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 TextButton(shape = NagiShapes.Rounded, onClick = vm::refreshSearchRegion) { Text(strings(R.string.ui_check_again)) }
             }
             SettingToggle(strings(R.string.ui_open_links_in_new_tab), strings(R.string.ui_page_links_you_tap_open_as_a_new_tab), prefs.openLinksInNewTab) { value -> vm.updateSettings { it.copy(openLinksInNewTab = value) } }
+            SettingToggle(strings(R.string.ui_block_external_apps), strings(R.string.ui_block_external_apps_description), prefs.blockExternalApps) { value -> vm.updateSettings { it.copy(blockExternalApps = value) } }
             SettingToggle(strings(R.string.ui_page_drag), strings(R.string.ui_page_drag_description), prefs.nativePageDrag) { value -> vm.updateSettings { it.copy(nativePageDrag = value) } }
             SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(R.string.ui_keep_your_spaces_and_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
             SettingToggle(strings(R.string.ui_desktop_site_by_default), strings(R.string.ui_use_a_desktop_user_agent_for_newly_created_sessions), prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }

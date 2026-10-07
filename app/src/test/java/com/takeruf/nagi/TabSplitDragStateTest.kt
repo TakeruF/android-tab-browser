@@ -7,6 +7,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TabSplitDragStateTest {
+    @Test fun wholePairDragReordersInsteadOfSplittingAndRejectsFavoriteTargets() {
+        val drag = SidebarDragState()
+        drag.bounds("target", SidebarDestination(SidebarSection.TODAY, "c"), Rect(0f, 0f, 200f, 48f), replacementRight = true)
+        drag.start(SidebarDragItem("a", "A / B", null,
+            pairRight = com.takeruf.nagi.domain.model.BrowserTab("b", "personal")), Offset(50f, 24f))
+        assertEquals(SidebarDestination(SidebarSection.TODAY, "c"), drag.destination)
+        drag.move(Offset(150f, 30f))
+        assertEquals(SidebarDestination(SidebarSection.TODAY, "c", after = true), drag.destination)
+        drag.bounds("favorite", SidebarDestination(SidebarSection.FAVORITES, "favorite"), Rect(210f, 0f, 260f, 48f))
+        drag.move(Offset(230f, 24f))
+        assertNull(drag.destination)
+        drag.bounds("pinned", SidebarDestination(SidebarSection.PINNED), Rect(0f, 55f, 200f, 100f))
+        drag.move(Offset(50f, 75f))
+        assertEquals(SidebarSection.PINNED, drag.destination?.section)
+    }
     @Test fun groupedTabsOnlyOfferReorderingAcrossTheWholeRow() {
         for (section in listOf(SidebarSection.TODAY, SidebarSection.PINNED)) {
             val drag = SidebarDragState()
