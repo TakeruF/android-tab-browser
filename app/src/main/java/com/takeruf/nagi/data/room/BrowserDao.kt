@@ -19,7 +19,9 @@ interface BrowserDao {
     @Upsert suspend fun putTab(tab: TabEntity)
     @Upsert suspend fun putEngine(engine: SearchEngineEntity)
     @Upsert suspend fun putBookmark(bookmark: BookmarkEntity)
-    @Insert suspend fun addHistory(entry: HistoryEntity)
+    @Insert suspend fun addHistory(entry: HistoryEntity): Long
+    @Query("UPDATE history SET title = :title, faviconUrl = COALESCE(:favicon, faviconUrl) WHERE id = :id AND url = :url")
+    suspend fun updateHistoryMetadata(id: Long, url: String, title: String, favicon: String?): Int
     @Query("UPDATE tabs SET faviconUrl = CASE WHEN :favicon IS NOT NULL THEN :favicon WHEN url = :url THEN faviconUrl ELSE NULL END, url = :url, title = :title WHERE id = :id AND closedAt IS NULL")
     suspend fun updatePage(id: String, url: String, title: String, favicon: String?)
     @Query("UPDATE bookmarks SET faviconUrl = :favicon WHERE RTRIM(url, '/') = RTRIM(:url, '/')")

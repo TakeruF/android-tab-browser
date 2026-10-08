@@ -8,11 +8,19 @@ import kotlinx.coroutines.flow.first
 
 class LibraryRepository(private val workspace: WorkspaceRepository) {
     private val dao = workspace.dao
-    suspend fun recordVisit(url: String, title: String, favicon: String?) {
+    // Application-owned, so configuration changes cannot turn the currently displayed
+    // document into another visit. Access is serialized by Room transactions.
+    private val lastVisitByTab = mutableMapOf<String, Pair<String, Long>>()
+    suspend fun recordVisit(url: String, title: String, favicon: String?, tabId: String) {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
         workspace.ready.await()
         workspace.database.withTransaction {
-            dao.addHistory(HistoryEntry(url = url, title = title, faviconUrl = favicon).entity())
+            val previous = lastVisitByTab[tabId]
+            if (previous?.first == url && dao.updateHistoryMetadata(previous.second, url, title, favicon) > 0) {
+                return@withTransaction
+            }
+            val id = dao.addHistory(HistoryEntry(url = url, title = title, faviconUrl = favicon).entity())
+            lastVisitByTab[tabId] = url to id
             dao.trimHistory()
         }
     }
@@ -32,6 +40,15 @@ class LibraryRepository(private val workspace: WorkspaceRepository) {
     }
 
     suspend fun removeBookmark(id: String) { workspace.ready.await(); dao.deleteBookmark(id) }
-    suspend fun clearHistory() { workspace.ready.await(); dao.clearHistory() }
-    suspend fun deleteHistory(id: Long) { workspace.ready.await(); dao.deleteHistory(id) }
+    suspend fun clearHistory() {
+        workspace.ready.await()
+        workspace.database.withTransaction { dao.clearHistory(); lastVisitByTab.clear() }
+    }
+    suspend fun deleteHistory(id: Long) {
+        workspace.ready.await()
+        workspace.database.withTransaction {
+            dao.deleteHistory(id)
+            lastVisitByTab.entries.removeAll { it.value.second == id }
+        }
+    }
 }

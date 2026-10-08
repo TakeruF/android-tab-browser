@@ -24,7 +24,7 @@ class BrowserSessionController(private val container: AppContainer,
                     container.tabs.updatePage(id, event.page.url, event.page.title, event.page.faviconUrl)
                 }
                 is EngineEvent.Visited -> withContext(Dispatchers.IO) {
-                    container.library.recordVisit(event.page.url, event.page.title, event.page.faviconUrl)
+                    container.library.recordVisit(event.page.url, event.page.title, event.page.faviconUrl, id)
                 }
                 is EngineEvent.OpenTab -> {
                     val tab = container.workspace.dao.tab(id)

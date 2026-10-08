@@ -21,13 +21,15 @@ import com.takeruf.nagi.browser.favicon.faviconOrigin
 import org.json.JSONArray
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
-private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int) : EngineSnapshot
+private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String) : EngineSnapshot
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebViewBrowserEngine(
     context: Context, private val host: BrowserHost, private val fullscreenHost: FullscreenHost,
     private val openLinksInNewTab: () -> Boolean, desktopDefault: Boolean,
     private val nativePageDrag: () -> Boolean = { false },
+    private val siteDisplayModes: SiteDisplayModeStore = SiteDisplayModeStore(context),
+    private val defaultDesktopMode: () -> Boolean = { desktopDefault },
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webView = WebView(context)
@@ -45,6 +47,7 @@ class WebViewBrowserEngine(
     private val favicons = FaviconStore.get(context)
     private var faviconJob: Job? = null
     private var navigationGeneration = 0L
+    private var navigationRequestGeneration = 0L
     private var iconGeneration = 0L
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val popupViews = mutableSetOf<WebView>()
@@ -88,6 +91,7 @@ class WebViewBrowserEngine(
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
+                val requestGeneration = ++navigationRequestGeneration
                 val url = request.url.toString()
                 val scheme = request.url.scheme?.lowercase()
                 if (request.hasGesture() && host.openExternalLink(url, ::loadUrl)) return true
@@ -95,6 +99,21 @@ class WebViewBrowserEngine(
                     if (request.hasGesture() && openLinksInNewTab()) {
                         eventChannel.trySend(EngineEvent.OpenTab(url)); return true
                     }
+                    val desktop = desktopModeFor(url)
+                    if (request.method.equals("GET", true) && desktop != null && desktop != state.value.desktopMode) {
+                        // The UA setter can reload the old visible URL while WebView is
+                        // processing a link or redirect. Cancel this request first, then
+                        // start the target with its chosen UA after the callback returns.
+                        val referer = request.requestHeaders?.entries?.firstOrNull {
+                            it.key.equals("Referer", true)
+                        }?.value?.takeIf(String::isNotBlank)
+                        val headers = referer?.let { mapOf("Referer" to it) }.orEmpty()
+                        view.post {
+                            if (!destroyed && requestGeneration == navigationRequestGeneration) loadUrl(url, headers)
+                        }
+                        return true
+                    }
+                    // POST navigations keep their method/body and the current document UA.
                     return false
                 }
                 if (scheme == "about") return url != "about:blank"
@@ -120,6 +139,8 @@ class WebViewBrowserEngine(
                 metadata()
             }
             override fun onPageFinished(view: WebView, url: String) {
+                // Redirects/cancelled loads can finish after a newer document has started.
+                if (url != view.url || url != state.value.url) return
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 if (url == downloadUrl) return
                 loadingTimeout?.cancel()
@@ -348,9 +369,12 @@ class WebViewBrowserEngine(
             }
         }
     }
-    override fun loadUrl(url: String) {
+    override fun loadUrl(url: String) = loadUrl(url, emptyMap())
+    private fun loadUrl(url: String, extraHeaders: Map<String, String>) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
+        navigationRequestGeneration++
+        applySiteDisplayMode(url)
         restoringScroll = null
         downloadUrl = null
         navigationGeneration++
@@ -360,11 +384,23 @@ class WebViewBrowserEngine(
             faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
         metadata() // Persist the requested URL even when the initial network request stalls.
         if (url != "about:blank") watchLoading() else loadingTimeout?.cancel()
-        webView.loadUrl(url)
+        if (extraHeaders.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, extraHeaders)
     }
-    override fun reload() { if (!destroyed) { update { it.copy(isLoading = true, progress = 0, error = null) }; watchLoading(); webView.reload() } }
-    override fun goBack() { if (canGoBack()) { update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack() } }
-    override fun goForward() { if (canGoForward()) { update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goForward() } }
+    override fun reload() { if (!destroyed) {
+        navigationRequestGeneration++
+        applySiteDisplayMode(state.value.url)
+        update { it.copy(isLoading = true, progress = 0, error = null) }; watchLoading(); webView.reload()
+    } }
+    override fun goBack() { if (canGoBack()) {
+        navigationRequestGeneration++
+        applyHistoryDisplayMode(-1)
+        update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
+    } }
+    override fun goForward() { if (canGoForward()) {
+        navigationRequestGeneration++
+        applyHistoryDisplayMode(1)
+        update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goForward()
+    } }
     override fun canGoBack() = !destroyed && webView.canGoBack()
     override fun canGoForward() = !destroyed && webView.canGoForward()
     override fun evaluateJavascript(script: String) { if (!destroyed) webView.evaluateJavascript(script, null) }
@@ -373,9 +409,27 @@ class WebViewBrowserEngine(
         webView.settings.userAgentString = if (desktop)
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$version Safari/537.36" else mobileUa
     }
+    private fun desktopModeFor(url: String): Boolean? =
+        if (SiteDisplayModeStore.siteHost(url) == null) null else siteDisplayModes.desktopMode(url) ?: defaultDesktopMode()
+    private fun applySiteDisplayMode(url: String) {
+        val desktop = desktopModeFor(url) ?: return
+        if (state.value.desktopMode == desktop) return
+        webView.stopLoading()
+        update { it.copy(desktopMode = desktop) }
+        applyUserAgent(desktop)
+    }
+    private fun applyHistoryDisplayMode(offset: Int) {
+        val history = webView.copyBackForwardList()
+        history.getItemAtIndex(history.currentIndex + offset)?.url?.let(::applySiteDisplayMode)
+    }
     override fun setDesktopMode(enabled: Boolean) {
+        if (destroyed) return
+        siteDisplayModes.remember(state.value.url, enabled)
         if (state.value.desktopMode == enabled) return
-        applyUserAgent(enabled); update { it.copy(desktopMode = enabled) }; reload()
+        // Changing the UA during a load already restarts WebView's request. Stop it first
+        // so this explicit reload is the only request triggered by the display toggle.
+        webView.stopLoading()
+        update { it.copy(desktopMode = enabled) }; applyUserAgent(enabled); reload()
     }
     override fun findInPage(query: String) { webView.findAllAsync(query) }
     override fun findNext(forward: Boolean) { webView.findNext(forward) }
@@ -384,10 +438,12 @@ class WebViewBrowserEngine(
     override fun saveState(): EngineSnapshot? {
         if (destroyed) return null
         val bundle = Bundle()
-        return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY) else null
+        return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY, state.value.url) else null
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
+        navigationRequestGeneration++
+        applySiteDisplayMode(snapshot.url)
         restoringScroll = snapshot.scrollX to snapshot.scrollY
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
         if (!restored) restoringScroll = null

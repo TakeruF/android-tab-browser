@@ -81,7 +81,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     SideEffect { host.blockExternalApps = { currentSettings.blockExternalApps } }
     val sessions = remember(host) { BrowserSessionController(container) { _, desktop ->
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
-            nativePageDrag = { currentSettings.nativePageDrag })
+            nativePageDrag = { currentSettings.nativePageDrag }, siteDisplayModes = container.siteDisplayModes,
+            defaultDesktopMode = { currentSettings.desktopDefault })
     } }
     val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()

@@ -5,6 +5,7 @@ import android.graphics.Color
 import java.io.ByteArrayOutputStream
 import java.net.ServerSocket
 import java.util.concurrent.Executors
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** Device-local HTTP fixture. Integration tests never depend on a public website. */
 class FixtureServer(private val rootIconAvailable: Boolean = true, private val homeIconMarkup: String = "",
@@ -12,6 +13,8 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
     private val socket = ServerSocket(0)
     private val executor = Executors.newSingleThreadExecutor()
     val origin = "http://127.0.0.1:${socket.localPort}"
+    data class Request(val path: String, val userAgent: String, val referer: String?)
+    val requests = CopyOnWriteArrayList<Request>()
     init { executor.execute {
         while (!socket.isClosed) runCatching {
             socket.accept().use { client ->
@@ -22,6 +25,11 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     val line = reader.readLine()
                     if (line.isNullOrEmpty()) break
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
+                }
+                requests.add(Request(path, headers["user-agent"].orEmpty(), headers["referer"]))
+                if (path == "/mode-redirect") {
+                    client.getOutputStream().write(("HTTP/1.1 302 Found\r\nLocation: http://localhost:${socket.localPort}/ua-redirect-target\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").toByteArray())
+                    return@use
                 }
                 if (path == "/stall") Thread.sleep(35_000)
                 if (path == "/favicon.ico" && !rootIconAvailable) {
@@ -58,7 +66,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     return@use
                 }
                 val body = if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
-                else if (path.startsWith("/ua")) "<html><head><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Mobile")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
+                else if (path.startsWith("/ua")) "<html><head><meta name='referrer' content='unsafe-url'><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Android")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
                 else if (path.startsWith("/features")) """
                     <html><head><title>Fixture Features</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body style="font:18px sans-serif"><style>input,textarea{display:block;max-width:90%;margin:8px 0}</style><a id="drag-link" href="/two" style="display:inline-block;margin:16px 0">Drag link</a>

@@ -20,6 +20,7 @@ class AppContainer(application: Application) {
     // Keep the existing database filename so installed Nagi builds retain their data.
     val database = Room.databaseBuilder(application, NagiDatabase::class.java, "orbit.db").build()
     val settings = SettingsStore(application)
+    val siteDisplayModes = com.takeruf.nagi.browser.engine.SiteDisplayModeStore(application)
     val workspace = WorkspaceRepository(database, settings)
     val tabs = TabRepository(workspace, settings)
     val spaces = SpaceRepository(workspace, settings, tabs)

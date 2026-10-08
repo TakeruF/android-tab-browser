@@ -1,12 +1,12 @@
 # Distribution and in-app updates
 
-Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. Version 0.2.0 has `versionCode=5`, minSdk 26, and a signed, R8-optimized APK with `debuggable=false`.
+Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. Version 0.2.1 has `versionCode=6`, minSdk 26, and a signed, R8-optimized APK with `debuggable=false`.
 
 ## Signing
 
 Release signing reads the Properties file specified by `NAGI_SIGNING_PROPERTIES`, defaulting to `~/.config/nagi/release-signing.properties`. Required fields are `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. A Release build without signing configuration must fail; do not distribute unsigned APKs.
 
-Version 0.2.0 uses the same distribution key as the 0.1.0 APK published at takeruf.com/nagi. Verify the original public APK's package, version, and certificate fingerprint when configuring signing. Keeping the same package and signature allows an in-place update without uninstalling. Local Debug builds have a different signature and cannot update to this distribution in place. Keep using the distribution key for future releases.
+Version 0.2.1 uses the same distribution key as the 0.1.0 APK published at takeruf.com/nagi. Verify the original public APK's package, version, and certificate fingerprint when configuring signing. Keeping the same package and signature allows an in-place update without uninstalling. Local Debug builds have a different signature and cannot update to this distribution in place. Keep using the distribution key for future releases.
 
 The signing configuration and keystore are outside Git in `~/.config/nagi/`, with file permissions 600. Back up the private key and passwords securely. Publish only the certificate fingerprint and APK checksum.
 
@@ -57,10 +57,10 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest -Pandr
 ```json
 {
   "applicationId": "com.takeruf.nagi",
-  "versionCode": 5,
-  "versionName": "0.2.0",
+  "versionCode": 6,
+  "versionName": "0.2.1",
   "minSdk": 26,
-  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v0.2.0/nagi-0.2.0.apk",
+  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v0.2.1/nagi-0.2.1.apk",
   "sha256": "64 lowercase hexadecimal characters",
   "size": 123,
   "notes": "English release notes"

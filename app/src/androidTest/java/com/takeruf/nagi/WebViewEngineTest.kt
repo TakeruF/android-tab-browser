@@ -29,6 +29,7 @@ class WebViewEngineTest {
     private lateinit var server: FixtureServer
     private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var engine: BrowserEngine
+    private lateinit var siteDisplayModes: SiteDisplayModeStore
     private lateinit var ime: TestIme
     private val downloads = CopyOnWriteArrayList<DownloadRequest>()
     private val uploads = CopyOnWriteArrayList<FileSelectionRequest>()
@@ -71,9 +72,13 @@ class WebViewEngineTest {
     }
     @Before fun setup() {
         ime = TestIme()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val displayPreferences = context.getSharedPreferences("engine_test_site_modes", android.content.Context.MODE_PRIVATE)
+        displayPreferences.edit().clear().commit()
+        siteDisplayModes = SiteDisplayModeStore(context, displayPreferences)
         server = FixtureServer(); scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity {
-            engine = WebViewBrowserEngine(it, host, host, { false }, false)
+            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes)
             (engine as AndroidEngineSurface).surface.id = View.generateViewId()
             it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
@@ -281,7 +286,7 @@ class WebViewEngineTest {
         main { snapshot = engine.saveState(); engine.destroy() }
         assertNotNull(snapshot)
         scenario.onActivity {
-            engine = WebViewBrowserEngine(it, host, host, { false }, false)
+            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes)
             it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
         main { assertTrue(engine.restoreState(snapshot!!)) }

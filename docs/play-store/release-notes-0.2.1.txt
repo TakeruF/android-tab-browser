@@ -1,0 +1,20 @@
+<en-US>
+Fix duplicate history entries after rotating the device, reloading, or switching between desktop and mobile display.
+Remember each website's display choice across links, restored tabs, and app restarts.
+Avoid unnecessary reloads when links or redirects change display mode.
+</en-US>
+<ja-JP>
+端末の回転、再読み込み、PC版・モバイル版の切り替えで履歴が重複する問題を修正しました。
+サイトごとの表示設定を保存し、リンク移動、タブの復元、アプリの再起動後も維持します。
+リンク移動やリダイレクト時の不要な再読み込みを防止しました。
+</ja-JP>
+<zh-CN>
+修复旋转设备、重新加载或切换电脑版与手机版时，浏览记录重复增加的问题。
+记住各网站的显示方式，在打开链接、恢复标签页或重启应用后继续使用。
+避免打开链接或重定向时因切换显示方式而触发不必要的重新加载。
+</zh-CN>
+<ko-KR>
+기기 회전, 새로고침, 데스크톱·모바일 보기 전환 시 방문 기록이 중복되는 문제를 수정했습니다.
+사이트별 보기 설정을 저장하여 링크 이동, 탭 복원, 앱 재시작 후에도 유지합니다.
+링크 이동이나 리디렉션 중 보기 전환으로 발생하던 불필요한 새로고침을 방지했습니다.
+</ko-KR>
