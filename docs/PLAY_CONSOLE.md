@@ -4,6 +4,8 @@ Prepared 2026-10-06 for Nagi 0.1.1 (`com.takeruf.nagi`, versionCode 2, targetSdk
 
 ## 0.1.3 update — 2026-10-06
 
+- Follow-up Chinese copy correction: saved the revised zh-CN short and full descriptions below and submitted those two listing changes. Publishing overview confirms **Changes in review**, with quick checks running; this is submission evidence, not confirmation that the corrected listing is live. Screenshot: [Chinese copy review submission](play-store/console-zh-copy-review.jpg).
+- Updated only the zh-CN release notes for both 0.1.2 and 0.1.3 through **Edit release details**, preserving the release names and other three languages. Console confirmed **Release details updated**. The live Alpha detail page now shows 0.1.3 as **Available to selected testers**, and 0.1.2 as superseded. No new APK/AAB upload or rollout change was made for these text corrections.
 - Version `4 (0.1.3)` was uploaded and submitted to the existing **Alpha** closed-testing track with release notes in all four languages. Publishing overview confirms **Changes in review** with automated checks running.
 - After submission Alpha remains **Active**, 0.1.3 is **In review**, and 0.1.2 remains **Available to selected testers**. No pause, promotion, tester-list change, signing-key change or region change was performed.
 - `AndroidClosedJP@googlegroups.com`, `support@takeruf.com`, 178 countries/regions and both opt-in links remain unchanged. Dashboard count was 5 before the update and 6 afterwards. No 14-day completion is claimed.
@@ -137,19 +139,21 @@ Nagiは初期リリースです。Cookieとサイトへのログイン状態はS
 
 应用名称：Nagi Browser
 
-简短说明：为 Android 平板打造的工作空间浏览器，支持 Space、标签页整理与双窗格浏览。
+简短说明：专为 Android 平板打造，支持空间（Space）管理、标签页整理和双窗格浏览。
 
 完整说明：
 
-Nagi 是为 Android 平板打造的工作空间浏览器。用侧边栏整理标签页，通过 Space 切换任务，使用可调整大小的双窗格并排浏览两个网页。
+Nagi 是专为 Android 平板打造的工作空间浏览器。你可以在侧边栏中整理标签页，用空间（Space）分别管理不同任务的标签页，并通过可调整宽度的双窗格并排浏览两个网页。空间是 Nagi 用来组织不同任务的工作区，在应用内显示为“空间”。
 
-将常用页面保存为收藏或固定标签页，通过历史记录打开页面。使用命令栏输入网址、搜索、切换标签页与 Space。可选择搜索引擎；“询问 ChatGPT”会将您输入的问题在 ChatGPT 网站中打开。
+将常用页面加入收藏或固定为标签页，也可以从历史记录中重新打开页面。通过命令栏输入网址、搜索内容，或切换标签页和空间。你可以选择搜索引擎；向 ChatGPT 提问时，会在 ChatGPT 网站中打开你输入的内容。
 
-支持触控、鼠标、触控板及外接键盘快捷键，提供英语、日语、韩语和简体中文界面。可选择浅色、深色或跟随系统的主题并调整主题色。通过 Android 文档选择器上传选定文件，下载文件，在网页中查找文字，或使用桌面模式。
+支持触控、鼠标、触控板和外接键盘快捷键，提供英语、日语、韩语和简体中文界面。你可以选择浅色或深色主题，也可以让主题跟随系统，并调整主题色。通过 Android 文件选择器上传文件，或拍摄照片后上传。还可以下载文件、在页面中查找文字，以及使用桌面版网站。
 
-工作空间数据保存在设备上。可在设置中清除浏览历史、Cookie 和网站数据。无需注册 Nagi 账号或订阅，不提供云同步。Google Play 版通过 Google Play 接收更新。
+支持保存网页生成的文件（Blob/data），确认后即可下载，单个文件上限为 32 MB。可开启标签页后台休眠，让符合条件的闲置标签页自动休眠；再次打开时会重新加载，部分页面状态可能丢失。
 
-Nagi 处于早期发布阶段。不同 Space 共享 Cookie 和网站登录状态。目前不支持无痕浏览、内容拦截、云同步或应用内 AI 聊天。网站兼容性、第三方登录和 AI 服务行为取决于对应服务及 Android WebView 版本。
+工作空间数据保存在你的设备上。你可以在设置中清除历史记录、Cookie 和网站数据。无需注册 Nagi 账号或付费订阅。目前不提供云同步。Google Play 版通过 Google Play 接收更新。
+
+Nagi 目前处于早期发布阶段。不同空间共享 Cookie 和网站登录状态。目前不支持无痕浏览、内容拦截、云同步或应用内 AI 聊天。网站兼容性、第三方登录以及 AI 服务的可用情况，取决于对应服务和 Android WebView 版本。
 
 隐私政策：https://takeruf.com/zh/nagi/privacy
 联系邮箱：support@takeruf.com

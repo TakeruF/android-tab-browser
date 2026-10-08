@@ -29,3 +29,20 @@
 - XML解析、キー照合、書式引数と `{query}` の照合は成功。
 - `./gradlew :app:processGithubDebugResources --console=plain` 成功（Androidリソースのコンパイル・リンク）。
 - `git diff --check` 成功。実機の表示・折り返しは未確認。
+
+## Play ストアを含む追加フィードバック
+
+- `docs/PLAY_CONSOLE.md` の簡体字中国語原稿を修正。Space はアプリ内の「空间」と対応付け、初出でタスク別の工作区として説明した。サイドバーは「侧边栏」、テーマは「跟随系统」、AI サービスは「可用情况」に統一した。「您」も既存 UI に合わせて「你」とした。
+- ダウンロード説明は「网页生成的文件（Blob/data）」とし、32 MB の上限を併記した。休眠後の再読み込みと状態喪失の可能性も残した。
+- アプリ内の `ui_sleep_tabs` を「标签页后台休眠」に修正。旧 Blob/data 未対応メッセージにも一般向けの補足を加えた。旧メッセージのリソースキーと呼び出し仕様は維持した。
+- `docs/play-store/zh-CN-release-notes.md` に 0.1.2 と 0.1.3 の原稿を用意した。分屏・侧边栏は「优化」、0.1.2 の地区 AI 選択肢は実際の追加内容に合わせて「新增」とした。
+- 290 件の翻訳キー、置換引数、`{query}` の照合成功。ストアの簡単な説明は 42/80 字、詳細説明は 746/4000 字、更新説明は 0.1.2 が 270/500 字、0.1.3 が 136/500 字。
+- `./gradlew :app:processGithubDebugResources :app:processPlayDebugResources --console=plain` と `git diff --check` 成功。
+- この追加修正はローカルの原稿・リソースのみ。Play Console への保存・審査提出、APK/AAB の公開、実機表示の確認は未実施。
+
+## 続行依頼によるストア反映
+
+- ユーザーの「アプリアップデートが不必要な部分についてはすぐ反映させて」に従い、2026-10-06 に zh-CN の簡単な説明・詳細説明を Play Console へ保存し、2 件の変更を審査へ提出した。「2 changes sent for review」「Changes in review」を確認。公開は審査完了待ち。
+- 0.1.2 と 0.1.3 の zh-CN 更新説明も保存した。各操作で「Release details updated」を確認し、0.1.3 は保存後の言語別一覧で修正文を確認した。
+- 新規ビルドのアップロード・配信設定の変更は行っていない。アプリ内リソースの変更は次回のアプリ更新で反映する。
+- 証跡：`docs/play-store/console-zh-copy-review.jpg`。
