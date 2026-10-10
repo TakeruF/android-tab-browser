@@ -6,25 +6,27 @@ A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpac
 
 [Download Nagi 0.3.0](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.3.0)
 
-Install the APK over the 0.1.0 version distributed at takeruf.com to keep your workspace. That version does not include an updater; after installing 0.1.2, use **Settings → App updates** for future releases. Local Debug builds and the former `com.orbit.browser` package have different signing or package identities.
+Install the APK over an existing GitHub/website installation to keep your workspace. Version 0.1.0 does not include an updater; install a newer APK manually, then use **Settings → App updates** for future releases. Google Play installations receive updates through Play. Local Debug builds, Play installations, and the former `com.orbit.browser` package have different signing or package identities; see [channel requirements](docs/RELEASING.md).
 
 ## Features
 
-Version 0.1.2 adds camera uploads, generated downloads, native page drag, sleeping background tabs, and system password autofill.
+Version 0.3.0 adds advertisement/tracker blocking, private browsing on supported WebViews, Reader mode, video PiP/pop-out playback, trackpad history gestures, and responsive address actions. See [release notes](docs/play-store/release-notes-0.3.0.txt).
 
 - Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
 - A Command Bar for URLs, search, tabs, Spaces, and commands.
 - Standard search and “Ask ChatGPT” actions, selected with arrow keys and Enter or by touch/click. Questions and requests for explanations or comparisons, and input of at least 80 characters, prioritize ChatGPT. Explicit URLs and engine keywords take precedence.
-- Resizable Split panes, a resizable/collapsible sidebar, and drag-and-drop organization.
+- Resizable Split panes with saved left/right tab pairs, a resizable/collapsible sidebar, and drag-and-drop organization for tabs and pairs.
 - Light, dark, and system themes with adjustable theme colors and selection contrast.
 - Japanese, Chinese, and Korean IME composition, keyboard shortcuts, and mouse/trackpad scrolling.
 - Video picture-in-picture when returning Home, plus draggable/resizable in-browser pop-out videos across tabs and Spaces. Both are independently configurable under **Settings → Video**, enabled by default.
-- Find in page, desktop mode, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
+- Find in page, remembered desktop/mobile display choices per website, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
 - Bookmark management, link/image context menus, site-data clearing, and verified in-app APK updates.
 - Website password autofill through the selected Android system provider; see [password autofill](docs/PASSWORD_AUTOFILL.md).
+- Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).
+- Supported external app links with an optional launch-blocking setting, disabled by default.
 
-Nagi **0.1.2** is an MVP. See the supported behavior and limitations below.
+See the supported behavior and limitations below, including WebView requirements and device-validation coverage.
 
 ## Build and run
 
@@ -38,12 +40,12 @@ Open this directory in Android Studio, sync Gradle, and run `app` on an Android 
 ```sh
 git clone https://github.com/TakeruF/android-tab-browser.git
 cd android-tab-browser
-./gradlew :app:assembleGithubDebug
+./gradlew :app:assembleGithubDebug --no-parallel
 adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 adb shell am start -n com.takeruf.nagi/.MainActivity
 ```
 
-Set `ANDROID_HOME` or add `sdk.dir` to the Git-ignored `local.properties`. With multiple devices, use `adb -s <serial>`.
+Set `ANDROID_HOME` or add `sdk.dir` to the Git-ignored `local.properties`. Debug development needs no release keystore; Release signing is configured separately outside Git. With multiple devices, use `adb -s <serial>`.
 
 The Debug APK is `app/build/outputs/apk/github/debug/app-github-debug.apk`. Generate the signed Release with `./gradlew :app:assembleGithubRelease`; see [distribution and in-app updates](docs/RELEASING.md) for signing and publication.
 
@@ -58,7 +60,8 @@ Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), al
 - Suggestions and keyword searches use the selected common search engines. Initial choices are Google + ChatGPT, or Baidu + Qwen in mainland China. Your chosen combination persists across region changes. Add, edit, or delete engines in the customization screen.
 - Hold a tab row to drag it; mouse and favicon dragging start directly. Insertion lines and a preview show the destination, with edge auto-scrolling.
 - Drop across the divider to pin/unpin, at the top to create a Favorite, below Favorites to restore a tab, or on a Space icon to move it. Tab menus include save and right-pane actions.
-- Use the page menu for Split, desktop mode, find, or saving to Bookmarks/Favorites. Open and remove saved pages from the sidebar's Bookmarks button.
+- Use the page menu for Split, desktop mode, find, Reader, private browsing, or saving to Bookmarks/Favorites. Open and remove saved pages from the sidebar's Bookmarks button.
+- Use the address-bar shield to inspect blocked requests, pause/resume blocking for the visit, or save a site exception. Settings → Privacy controls blocking globally. On narrow panes, hidden Share, Copy link, and blocking controls move to the top of the page menu.
 - Long-press a link/image to drag it, and drop a link on either pane address bar to navigate that pane. Images can be dragged to Android drop targets. Right-click for Nagi link/image actions. Turn off “Drag links and images” in Settings to restore the long-press action menu.
 - Drag the Split divider to resize. Drop a tab onto either pane or use the tab menu to show it on the right; swap or exit Split from the page menu.
 - Drag the sidebar boundary right to expand/resize, or far left to collapse.
@@ -110,26 +113,24 @@ See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains 
 ## Tests and screenshots
 
 ```sh
-./gradlew :app:testGithubDebugUnitTest :app:lintGithubDebug
-./gradlew :app:assembleGithubDebug :app:assembleGithubRelease :app:assembleGithubDebugAndroidTest
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest
+./gradlew :app:testGithubDebugUnitTest :app:testPlayDebugUnitTest :app:lintGithubDebug :app:lintPlayDebug --no-parallel
+./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest --no-parallel
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest --no-parallel
 ```
 
-Version 0.1.2: GitHub unit tests 112 passed; Play unit tests 101 passed. Release Lint: 0 errors, 40 GitHub warnings and 51 Play warnings. Both signed Release artifacts built successfully.
+Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md).
 
-Replace `emulator-5554` with your device serial. For the earlier 0.1.1 release on 2026-10-06, JDK 17 / SDK 36 / the API-36 tablet emulator passed:
+The recorded [0.3.0 verification on 2026-10-10](docs/RELEASE_0.3.0_VERIFICATION.md) used JDK 17 / SDK 36 and an API-36 ARM64 emulator:
 
 | Check | Result |
 | --- | --- |
-| Unit tests | 98 passed |
-| Cross-feature instrumentation | 91 passed |
-| UI adjustments: sidebar address bar and drag | 17 passed in a separate rerun |
-| Signed Release, Debug, and test APK builds | Successful |
-| Debug Lint | 0 errors, 34 warnings |
-| Published 0.1.0 → 0.1.1 upgrade | Space and Bookmark retained |
-| Public in-app update flow | Detection, download, verification, Android confirmation, installation, and data retention verified with a version-code-1 QA client |
+| Unit tests | GitHub 145 and Play 134 passed; no failures, errors, or skips |
+| Targeted instrumentation | 32 cases passed in the final combined run |
+| Release Lint | 0 errors; 48 GitHub and 59 Play warnings |
+| Signed GitHub APK / Play AAB | Built from a clean release-source checkout; signatures, alignment, and bundle validation checked |
+| Public 0.2.1 → 0.3.0 APK upgrade | Saved tab and full URL retained after cold launch |
 
-[Validation records](docs/VALIDATION.md) distinguish historical runs, source/build checks, emulator evidence, and live distribution checks. Physical devices, manufacturer-specific IMEs, real camera/microphone/location/trackpad hardware, and Android 8–15 device behavior remain unverified; updater unit tests cover API 26 and 35 with Robolectric.
+Replace `emulator-5554` with your device serial. These are recorded release results, not a claim that the entire instrumentation suite ran for 0.3.0. [Validation records](docs/VALIDATION.md) distinguish historical runs, source/build checks, emulator evidence, and distribution checks. Physical devices, manufacturer-specific IMEs, real camera/microphone/location/trackpad hardware, Android 8–15 device behavior, and general production video compatibility remain unverified; updater unit tests cover API 26 and 35 with Robolectric.
 
 | Dark theme | Split browsing |
 | --- | --- |
@@ -137,7 +138,7 @@ Replace `emulator-5554` with your device serial. For the earlier 0.1.1 release o
 
 ![App updates in Nagi 0.1.1](docs/screenshots/readme-updates.png)
 
- README screenshots are captures of the signed 0.1.1 Release on the API-36 tablet emulator; the Split image uses local demonstration pages.
+README screenshots are historical captures of the signed 0.1.1 Release on the API-36 tablet emulator; they do not show all 0.3.0 controls. The Split image uses local demonstration pages.
 
 ## License
 

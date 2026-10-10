@@ -33,8 +33,11 @@ app/src/main/java/com/takeruf/nagi/
 │   ├── engine/            BrowserEngine, WebView implementation, Android rendering bridge, native host
 │   ├── tabs/              EnginePool, BrowserSessionController
 │   ├── search/            InputResolver, seeds, SuggestionProvider
-│   └── downloads/         DownloadService, Content-Disposition filename policy
-├── updates/               release manifest, APK verification, installer, update UI
+│   ├── downloads/         DownloadService, Content-Disposition filename policy
+│   ├── blocking/          native adblock engine policy, lists, site exceptions
+│   ├── privacy/           isolated WebView profiles, memory-only preferences
+│   └── reader/            sanitized Readability article model
+├── updates/               shared update-state model
 └── ui/
     ├── NagiApp.kt        navigation composition and activity-scoped sessions
     ├── browser/           ViewModel, panes, new-tab page, shortcuts, surface adapter
@@ -47,14 +50,14 @@ app/src/main/java/com/takeruf/nagi/
     └── theme/             independent light / dark palette
 ```
 
-The debug source set contains an IME used only by instrumentation tests. It is absent from the release variant.
+The `github` source set owns release metadata, APK verification, and installation under `updates/`; `play` supplies the Play listing action without the APK transport or installer. Both flavors share the browser code. The debug source set contains an IME and autofill provider used only by instrumentation tests. They are absent from release variants.
 
-## Room schema v2
+## Room schema v3
 
 | Table | Primary key | Fields / indexes |
 | --- | --- | --- |
 | spaces | id: String | name, icon, color, position, activeTabId |
-| tabs | id: String | spaceId FK cascade, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt, parentTabId; indexes on spaceId / closedAt / lastAccessedAt |
+| tabs | id: String | spaceId FK cascade, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt, parentTabId, splitRightTabId; indexes on spaceId / closedAt / lastAccessedAt |
 | search_engines | id: String | name, keyword unique index, urlTemplate, iconUrl |
 | history | id: Long auto | url, title, faviconUrl, visitedAt; indexes on url / visitedAt |
 | bookmarks | id: String | url, title, faviconUrl, nullable spaceId FK cascade, isFavorite, createdAt; indexes on spaceId / url |
@@ -63,9 +66,11 @@ The debug source set contains an IME used only by instrumentation tests. It is a
 
 The 30 most recently closed tabs are retained. History stores up to 5,000 records, exposing the latest 2,000 to suggestions and the history screen. Favicons refer to PNG files in app cache and are fetched again on the next visit after cache removal.
 
-Room JSON schemas are exported to `app/schemas/`. Schema v2 adds nullable `parentTabId` through a tested, non-destructive auto-migration from v1. Future schema changes require explicit migration coverage; destructive migration is not used.
+Room JSON schemas are exported to `app/schemas/`. Schema v2 adds nullable `parentTabId`; v3 adds nullable `splitRightTabId` for saved left/right pairs. Non-destructive auto-migrations cover v1 → v2 → v3. The normal workspace retains the database filename `orbit.db` for upgrade continuity. Future schema changes require explicit migration coverage; destructive migration is not used.
 
-DataStore persists theme, sidebarWidth, sidebarCollapsed, defaultSearchEngineId, selectedSpaceId, restoreTabs, desktopDefault, openLinksInNewTab, and archivePeriod, along with theme-color and search preferences. Changes read and apply the current value inside atomic `edit` operations.
+`LibraryRepository` tracks the last URL and history-row ID per tab for the application lifetime. Reloading or updating the same URL updates its metadata without creating another visit; visiting a different URL then returning creates a new row. `SiteDisplayModeStore` separately persists explicit desktop/mobile choices by normalized host in `site_display_modes` SharedPreferences and applies them before page loads and restoration.
+
+DataStore persists theme, sidebarWidth, sidebarCollapsed, defaultSearchEngineId, selectedSpaceId, restoreTabs, desktopDefault, openLinksInNewTab, and archivePeriod, along with theme-color, search, native page-drag, external-app blocking, video PiP/pop-out, and content-blocking preferences. Changes read and apply the current value inside atomic `edit` operations.
 
 ## Navigation
 
@@ -74,12 +79,20 @@ Navigation starts at `browser` and includes `settings` and `history`. The sideba
 ## Engine lifecycle
 
 1. A Compose pane retrieves a session by tab ID.
-2. EnginePool retains opened live sessions without automatic eviction based on tab count or time hidden.
+2. EnginePool retains opened live sessions and tracks access with a monotonic clock. Once per minute, eligible hidden pages idle for at least 10 minutes can be suspended when more than 6 engines are live. Settings can request immediate background suspension.
 3. Both visible Split IDs are provided. Hidden sessions receive `onPause`, visible sessions `onResume`; leaving the browser screen or stopping the Activity also pauses sessions.
-4. Returning to a tab or Space reuses its engine/page without reloading the URL or restoring a snapshot.
+4. Returning to a live tab or Space reuses its engine/page. A suspended tab recreates its engine and restores a history/scroll snapshot where available, otherwise loading the last URL. At most 32 full snapshots are retained in memory.
 5. Closing, archiving, or deleting a tab detaches and destroys its native surface/session. Ending the Activity destroys all sessions.
 
-WebView `pauseTimers()` affects the entire process and is not called. `onPause()` does not guarantee that every JavaScript timer stops. Memory use grows with opened pages. After Activity/process termination, pages reload from their Room URLs.
+Selected and Split tabs remain protected during Settings and Activity stops. Suspension checks reject unsafe pages, including edited forms, active media, pending uploads/downloads, and permission requests; eligibility is rechecked before disposal. WebView `pauseTimers()` affects the entire process and is not called. `onPause()` does not guarantee that every JavaScript timer stops. Snapshots do not preserve live DOM or arbitrary JavaScript state. After Activity/process termination, pages reload from their Room URLs. See [browser integrations](BROWSER_INTEGRATIONS.md).
+
+## Private workspace, blocking, and Reader
+
+`PrivateActivity` owns a separate `AppContainer` with in-memory Room, memory-only settings and site display choices, and a fresh WebView profile assigned before loading pages or scripts. Normal history recording and favicon files are disabled. Both `MULTI_PROFILE` and `DELETE_BROWSING_DATA` must be available. Closing the workspace destroys its surfaces and clears profile data; stale profile directories are removed on the next cold startup. Active WebView storage can still use disk. See [private browsing guarantees](PRIVACY_READER_BLOCKING.md).
+
+`AdBlocker` wraps the native Brave engine and bundled/downloaded lists. EnginePool applies global blocking preferences and persistent exceptions to live/new engines. Visit pauses use registrable site names, apply across that site's tabs, and expire when its last tab leaves or the workspace ends. Normal and private pools keep separate visit pauses.
+
+Reader runs Mozilla Readability on a clone of the current document, sanitizes the extracted HTML with jsoup, and renders it in a separate restricted WebView. The original engine remains alive; closing Reader returns to its existing DOM, form fields, scroll position, and history.
 
 ## Chromium migration seam
 
@@ -107,4 +120,4 @@ References: [TextFieldValue and composition](https://developer.android.com/refer
 
 `SidebarDragState` registers visible row / section / Space rectangles in root coordinates. The stable sidebar owns the pointer gesture, so `LazyColumn` recycling the source row during edge scrolling does not cancel the drag. Touch holds a row; the favicon and mouse use touch-slop-based immediate dragging. Cancel only clears the preview. A drop uses an explicit insertion side, removes the source before calculating its new index, and updates pin status and positions in one Room transaction. Favorite conversion and removal are transactional; Favorites remain a shared shortcut model and do not preserve an active WebView session.
 
-`RegionalSearchDefaults` runs outside workspace initialization, on launch and foreground transitions. An injectable IP lookup and fallback provider make the country policy testable without external requests. A mutex serializes checks; the DataStore atomic edit rechecks the automatic-mode flag so manual choices made during a request win. Region/source/timestamp and the one-time Baidu seed marker are DataStore preferences. The regional-search implementation did not change Room schema v1; current schema v2 is described above. An existing saved default from older versions is treated as manual because the old schema had no manual-choice flag. Fresh installs default to automatic mode; existing users can enable it in Settings.
+`RegionalSearchDefaults` runs outside workspace initialization, on launch and foreground transitions. An injectable IP lookup and fallback provider make the country policy testable without external requests. A mutex serializes checks; the DataStore atomic edit rechecks the automatic-mode flag so manual choices made during a request win. Region/source/timestamp and the one-time Baidu seed marker are DataStore preferences. The regional-search implementation did not change Room schema v1; current schema v3 is described above. An existing saved default from older versions is treated as manual because the old schema had no manual-choice flag. Fresh installs default to automatic mode; existing users can enable it in Settings.

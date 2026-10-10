@@ -2,7 +2,7 @@
 
 The [2026-10-06 cross-feature audit](CROSS_FEATURE_AUDIT_2026-10-06.md) found Split action-target, Archive, uppercase-scheme, and upload-extension bugs. Version 0.1.1 fixes them and adds Bookmarks, site-data clearing, link/image menus, and in-app updates. Navigation immediately stores the requested URL and supports recovery after a 30-second loading timeout. ChatGPT answers/login are not established by these checks.
 
-Current results are in [0.1.2 release validation](#2026-10-06--012-release-validation). The records below are chronological: failures and incomplete checks describe their historical stage, not the final release.
+Latest release results are in [0.3.0 publication verification](RELEASE_0.3.0_VERIFICATION.md), with feature details in [privacy, Reader, and blocking](PRIVACY_READER_BLOCKING.md). Earlier publication records cover [0.2.1](RELEASE_0.2.1_VERIFICATION.md) and [0.2.0](RELEASE_0.2.0_VERIFICATION.md). The records below are chronological: failures, incomplete checks, and “unreleased” labels describe their historical stage, not the final release.
 
 Initial validation date: 2026-10-03. JDK 17 / Android SDK 36 / Gradle 8.13. Instrumentation used the API-36 Pixel Tablet emulator `Orbit_Tablet_QA`, 2560 × 1600 / 320 dpi / landscape.
 
