@@ -63,6 +63,8 @@ data class BrowserSettings(
     val defaultAiEngineId: String? = null,
     val nativePageDrag: Boolean = true,
     val blockExternalApps: Boolean = false,
+    val autoVideoPip: Boolean = true,
+    val videoPopups: Boolean = true,
 )
 
 data class WorkspaceSnapshot(

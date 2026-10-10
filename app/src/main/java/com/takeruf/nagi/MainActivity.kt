@@ -57,5 +57,16 @@ class MainActivity : ComponentActivity() {
         if (shortcut != null && shortcutHandler?.invoke(shortcut) == true) return true
         return false
     }
+    override fun onUserLeaveHint() { super.onUserLeaveHint(); host.video.onUserLeave() }
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        host.video.onPipChanged(isInPictureInPictureMode)
+    }
+    @androidx.annotation.RequiresApi(35)
+    override fun onPictureInPictureUiStateChanged(pipState: android.app.PictureInPictureUiState) {
+        super.onPictureInPictureUiStateChanged(pipState)
+        if (pipState.isTransitioningToPip) host.video.onPipTransition()
+    }
+    override fun onStop() { host.video.onStopped(); super.onStop() }
     override fun onDestroy() { host.dispose(); super.onDestroy() }
 }

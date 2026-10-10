@@ -18,10 +18,8 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
     val right = state.visibleTabs.firstOrNull { it.id == rightTabId && it.id != left.id }
     val generation by sessions.generation.collectAsState()
     val pair = remember(left.id, right?.id, sessions, generation) {
-        sessions.pool.setVisible(setOfNotNull(left.id, right?.id))
         sessions.acquire(left, state.settings.desktopDefault) to right?.let { sessions.acquire(it, state.settings.desktopDefault) }
     }
-    DisposableEffect(Unit) { onDispose { sessions.pool.setVisible(emptySet()) } }
     @Composable
     fun Pane(isRight: Boolean) {
         val tab = if (isRight) right!! else left

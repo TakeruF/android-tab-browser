@@ -296,4 +296,17 @@
     <string name="ui_allow_once">仅允许一次</string>
     <string name="ui_allow_always">始终允许</string>
     <string name="ui_dismiss_external_app_notice">关闭外部应用提示</string>
+    <string name="ui_video">视频</string>
+    <string name="ui_video_auto_pip">返回主屏幕时自动进入画中画</string>
+    <string name="ui_video_auto_pip_description">返回主屏幕后，继续在小窗口中播放全屏或弹出的视频。</string>
+    <string name="ui_video_popups">视频小窗播放</string>
+    <string name="ui_video_popups_description">在播放中的视频上显示小窗按钮，便于浏览其他标签页时观看视频。</string>
+    <string name="ui_video_popout">小窗播放</string>
+    <string name="ui_video_play">播放</string>
+    <string name="ui_video_pause">暂停</string>
+    <string name="ui_video_resize">大小</string>
+    <string name="ui_video_close">关闭视频</string>
+    <string name="ui_video_fullscreen">全屏</string>
+    <string name="ui_video_return">返回标签页</string>
+    <string name="ui_video_popup_failed">无法在小窗口中打开此视频。请先尝试视频的全屏按钮。</string>
 </resources>

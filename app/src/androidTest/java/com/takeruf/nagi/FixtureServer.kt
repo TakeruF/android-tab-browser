@@ -32,6 +32,12 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     return@use
                 }
                 if (path == "/stall") Thread.sleep(35_000)
+                if (path == "/video.mp4") {
+                    val bytes = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets.open("video.mp4").use { it.readBytes() }
+                    client.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                    client.getOutputStream().write(bytes)
+                    return@use
+                }
                 if (path == "/favicon.ico" && !rootIconAvailable) {
                     client.getOutputStream().write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
                     return@use
@@ -67,6 +73,23 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                 }
                 val body = if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
                 else if (path.startsWith("/ua")) "<html><head><meta name='referrer' content='unsafe-url'><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Android")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
+                else if (path.startsWith("/video-frame")) """
+                    <html><head><title>Video Frame</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                    <body style="margin:0"><iframe id="player-frame" allow="fullscreen; autoplay" src="http://localhost:${socket.localPort}/video"
+                    style="width:100%;height:440px;border:0"></iframe><script>window.videoTicks=0;
+                    addEventListener('message',e=>{if(e.data.type==='ticks')window.videoTicks=e.data.ticks;if(e.data.type==='rects')window.frameRects=e.data.rects;});</script></body></html>
+                """
+                else if (path.startsWith("/video")) """
+                    <html><head><title>Video Fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                    <body style="margin:8px;font:18px sans-serif"><video id="player" src="/video.mp4" controls loop playsinline style="width:100%;max-width:640px"></video>
+                    <p><button id="start-video" onclick="document.getElementById('player').play()">Play video</button>
+                    <button id="fullscreen-video" onclick="document.getElementById('player').requestFullscreen()">Fullscreen video</button></p>
+                    <script>window.videoTicks=0;document.getElementById('player').addEventListener('timeupdate',()=>{
+                    window.videoTicks++;parent.postMessage({type:'ticks',ticks:window.videoTicks},'*');});
+                    if(parent!==window)setInterval(()=>{let rects={};for(const [key,selector] of Object.entries({start:'#start-video',assistant:'[data-nagi-video-assistant]'})){
+                    let e=document.querySelector(selector);if(e&&e.getBoundingClientRect().width){let r=e.getBoundingClientRect();rects[key]={x:r.x+r.width/2,y:r.y+r.height/2};}}
+                    parent.postMessage({type:'rects',rects},'*');},250);</script></body></html>
+                """
                 else if (path.startsWith("/features")) """
                     <html><head><title>Fixture Features</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body style="font:18px sans-serif"><style>input,textarea{display:block;max-width:90%;margin:8px 0}</style><a id="drag-link" href="/two" style="display:inline-block;margin:16px 0">Drag link</a>

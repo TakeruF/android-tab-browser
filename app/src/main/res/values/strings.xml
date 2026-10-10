@@ -297,4 +297,17 @@
     <string name="ui_allow_once">Allow once</string>
     <string name="ui_allow_always">Always allow</string>
     <string name="ui_dismiss_external_app_notice">Dismiss external app notice</string>
+    <string name="ui_video">Video</string>
+    <string name="ui_video_auto_pip">Automatically enter picture-in-picture</string>
+    <string name="ui_video_auto_pip_description">Keep fullscreen or pop-out videos playing in a small window when you go Home.</string>
+    <string name="ui_video_popups">Pop-out videos</string>
+    <string name="ui_video_popups_description">Show a pop-out button on playing videos so you can watch while browsing other tabs.</string>
+    <string name="ui_video_popout">Pop out video</string>
+    <string name="ui_video_play">Play</string>
+    <string name="ui_video_pause">Pause</string>
+    <string name="ui_video_resize">Resize</string>
+    <string name="ui_video_close">Close video</string>
+    <string name="ui_video_fullscreen">Fullscreen</string>
+    <string name="ui_video_return">Return to tab</string>
+    <string name="ui_video_popup_failed">Could not open this video in a small window. Try the full-screen button on the video first.</string>
 </resources>

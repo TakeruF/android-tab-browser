@@ -113,6 +113,10 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(R.string.ui_keep_your_spaces_and_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
             SettingToggle(strings(R.string.ui_desktop_site_by_default), strings(R.string.ui_use_a_desktop_user_agent_for_newly_created_sessions), prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
         } }
+        item { SettingsSection(strings(R.string.ui_video), NagiIcons.Monitor) {
+            SettingToggle(strings(R.string.ui_video_auto_pip), strings(R.string.ui_video_auto_pip_description), prefs.autoVideoPip) { value -> vm.updateSettings { it.copy(autoVideoPip = value) } }
+            SettingToggle(strings(R.string.ui_video_popups), strings(R.string.ui_video_popups_description), prefs.videoPopups) { value -> vm.updateSettings { it.copy(videoPopups = value) } }
+        } }
         item { SettingsSection(strings(R.string.ui_common_search_engines), NagiIcons.Search) {
             Row(Modifier.fillMaxWidth().testTag("customize-search-engines").clip(NagiShapes.Rounded).clickable { customizingEngines = true }
                 .padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

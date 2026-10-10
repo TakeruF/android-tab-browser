@@ -18,6 +18,7 @@ Version 0.1.2 adds camera uploads, generated downloads, native page drag, sleepi
 - Resizable Split panes, a resizable/collapsible sidebar, and drag-and-drop organization.
 - Light, dark, and system themes with adjustable theme colors and selection contrast.
 - Japanese, Chinese, and Korean IME composition, keyboard shortcuts, and mouse/trackpad scrolling.
+- Video picture-in-picture when returning Home, plus draggable/resizable in-browser pop-out videos across tabs and Spaces. Both are independently configurable under **Settings → Video**, enabled by default.
 - Find in page, desktop mode, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
 - Bookmark management, link/image context menus, site-data clearing, and verified in-app APK updates.

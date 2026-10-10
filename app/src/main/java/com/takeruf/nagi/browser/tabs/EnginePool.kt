@@ -16,6 +16,12 @@ class EnginePool(
     private val accessed = mutableMapOf<String, Long>()
     private val checking = mutableSetOf<String>()
     private var visible = emptySet<String>()
+    private var videoPopupsEnabled = true
+    fun setVideoPopupsEnabled(enabled: Boolean) {
+        if (videoPopupsEnabled == enabled) return
+        videoPopupsEnabled = enabled
+        engines.values.forEach { it.setVideoPopupEnabled(enabled) }
+    }
     private var protected = emptySet<String>()
     val size get() = engines.size
     val suspendedIds get() = saved.keys.toSet()
@@ -34,6 +40,7 @@ class EnginePool(
         val previous = saved.remove(id)
         val engine = factory(id, previous?.page?.desktopMode ?: desktop)
         engines[id] = engine
+        engine.setVideoPopupEnabled(videoPopupsEnabled)
         onCreate(id, engine)
         if (previous?.snapshot == null || !engine.restoreState(previous.snapshot)) engine.loadUrl(previous?.page?.url ?: url)
         engine.setVisible(id in visible)

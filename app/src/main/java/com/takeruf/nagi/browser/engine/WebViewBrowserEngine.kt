@@ -30,9 +30,11 @@ class WebViewBrowserEngine(
     private val nativePageDrag: () -> Boolean = { false },
     private val siteDisplayModes: SiteDisplayModeStore = SiteDisplayModeStore(context),
     private val defaultDesktopMode: () -> Boolean = { desktopDefault },
+    private val tabId: String = java.util.UUID.randomUUID().toString(),
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webView = WebView(context)
+    private val pageVideo = PageVideo(webView, host, fullscreenHost, tabId)
     private val pageDownloads = com.takeruf.nagi.browser.downloads.PageDownloads(webView, host)
     private var mediaPermissionGranted = false
     private var fullscreenActive = false
@@ -122,6 +124,8 @@ class WebViewBrowserEngine(
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
+                if (fullscreenActive) fullscreenHost.hideVideo(tabId)
+                pageVideo.invalidate()
                 navigationGeneration++
                 pageDownloads.invalidate()
                 mediaPermissionGranted = false
@@ -148,6 +152,7 @@ class WebViewBrowserEngine(
                     isLoading = false, progress = 100, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 documentPage = state.value
                 pageDownloads.installFallback()
+                pageVideo.installFallback()
                 restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
                 CookieManager.getInstance().flush(); metadata()
                 if (!failedNavigation) discoverFavicon(view, url)
@@ -211,9 +216,14 @@ class WebViewBrowserEngine(
             }
             override fun onShowCustomView(view: android.view.View, callback: CustomViewCallback) {
                 fullscreenActive = true
-                fullscreenHost.showFullscreen(view) { callback.onCustomViewHidden() }
+                pageVideo.active = true
+                fullscreenHost.showVideo(view, tabId, pageVideo.playback, pageVideo.popupRequested, pageVideo::control) {
+                    fullscreenActive = false
+                    pageVideo.release()
+                    callback.onCustomViewHidden()
+                }
             }
-            override fun onHideCustomView() { fullscreenActive = false; fullscreenHost.hideFullscreen() }
+            override fun onHideCustomView() { fullscreenActive = false; pageVideo.release(); fullscreenHost.hideVideo(tabId) }
             override fun onPermissionRequest(request: PermissionRequest) {
                 if (request.origin.scheme != "https") { request.deny(); return }
                 val supported = request.resources.mapNotNull { resource -> when (resource) {
@@ -477,9 +487,12 @@ class WebViewBrowserEngine(
             !state.value.isLoading && fileCallback == null && pendingPermissions.isEmpty() && !mediaPermissionGranted &&
             !fullscreenActive && !pageDownloads.isBusy) }
     }
+    override fun setVideoPopupEnabled(enabled: Boolean) { pageVideo.setEnabled(enabled) }
     override fun destroy() {
         if (destroyed) return
         destroyed = true
+        if (fullscreenActive) fullscreenHost.hideVideo(tabId)
+        pageVideo.destroy()
         pageDownloads.destroy()
         fileCallback?.onReceiveValue(null); fileCallback = null
         pendingPermissions.forEach { it.deny() }; pendingPermissions.clear()

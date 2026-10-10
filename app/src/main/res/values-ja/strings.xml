@@ -296,4 +296,17 @@
     <string name="ui_allow_once">一度だけ許可</string>
     <string name="ui_allow_always">常に許可</string>
     <string name="ui_dismiss_external_app_notice">外部アプリの通知を閉じる</string>
+    <string name="ui_video">動画</string>
+    <string name="ui_video_auto_pip">ホームに戻ったときにPiPで再生</string>
+    <string name="ui_video_auto_pip_description">全画面や小窓の動画を、ホームに戻ったあとも小さなウィンドウで再生します。</string>
+    <string name="ui_video_popups">動画の小窓再生</string>
+    <string name="ui_video_popups_description">再生中の動画に小窓ボタンを表示し、別のタブを見ながら動画を再生できます。</string>
+    <string name="ui_video_popout">小窓で再生</string>
+    <string name="ui_video_play">再生</string>
+    <string name="ui_video_pause">一時停止</string>
+    <string name="ui_video_resize">サイズ</string>
+    <string name="ui_video_close">動画を閉じる</string>
+    <string name="ui_video_fullscreen">全画面</string>
+    <string name="ui_video_return">タブに戻る</string>
+    <string name="ui_video_popup_failed">この動画を小窓で開けませんでした。動画の全画面ボタンからお試しください。</string>
 </resources>

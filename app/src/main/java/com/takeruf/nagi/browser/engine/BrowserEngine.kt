@@ -35,6 +35,7 @@ interface BrowserEngine {
     fun findInPage(query: String)
     fun findNext(forward: Boolean)
     fun clearFind()
+    fun setVideoPopupEnabled(enabled: Boolean) {}
     fun setVisible(visible: Boolean)
     fun saveState(): EngineSnapshot?
     fun restoreState(snapshot: EngineSnapshot): Boolean

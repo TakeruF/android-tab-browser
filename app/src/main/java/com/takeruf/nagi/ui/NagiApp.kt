@@ -79,13 +79,21 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
     SideEffect { host.blockExternalApps = { currentSettings.blockExternalApps } }
-    val sessions = remember(host) { BrowserSessionController(container) { _, desktop ->
+    val sessions = remember(host) { BrowserSessionController(container) { tabId, desktop ->
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
             nativePageDrag = { currentSettings.nativePageDrag }, siteDisplayModes = container.siteDisplayModes,
-            defaultDesktopMode = { currentSettings.desktopDefault })
+            defaultDesktopMode = { currentSettings.desktopDefault }, tabId = tabId)
     } }
     val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()
+    val video by host.video.presentation.collectAsState()
+    val systemPip by host.video.systemPip.collectAsState()
+    val fullscreen = video?.takeUnless { it.popup }?.view
+    SideEffect {
+        host.video.autoPipEnabled = state.settings.autoVideoPip
+        host.video.popupEnabled = state.settings.videoPopups
+        sessions.pool.setVideoPopupsEnabled(state.settings.videoPopups)
+    }
     DisposableEffect(sessions) { onDispose { sessions.dispose() } }
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
@@ -119,12 +127,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val focusedTab = if (rightFocused && right != null) right else left
     val focusedEngine = focusedTab?.let { sessions.pool.peek(it.id) }
     SideEffect {
-        val protectedIds = setOfNotNull(left?.id, right?.id)
+        val protectedIds = setOfNotNull(left?.id, right?.id, video?.tabId)
         container.tabs.protectFromArchive(protectedIds)
         sessions.pool.protect(protectedIds)
     }
     DisposableEffect(container) { onDispose { container.tabs.protectFromArchive(emptySet()) } }
-    val fullscreen by host.fullscreen.collectAsStateWithLifecycle()
     fun navigate(destination: String) {
         if (destination == "browser") nav.popBackStack("browser", inclusive = false)
         else nav.navigate(destination) { launchSingleTop = true; popUpTo("browser") }
@@ -230,11 +237,17 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     LaunchedEffect(state.activeTab?.id, rightTabId) { rightFocused = rightTabId != null && state.activeTab?.id == rightTabId }
     LaunchedEffect(state.workspace.tabs) {
-        sessions.pool.retainTabIds(state.workspace.tabs.filter { it.closedAt == null && it.archivedAt == null }.map { it.id }.toSet())
+        val retained = state.workspace.tabs.filter { it.closedAt == null && it.archivedAt == null }.map { it.id }.toSet()
+        video?.tabId?.takeUnless { it in retained }?.let { host.video.close(it, pause = true) }
+        sessions.pool.retainTabIds(retained)
         if (rightTabId != null && right == null) rightFocused = false
     }
     val lifecycleOwner = LocalLifecycleOwner.current
-    val visibleIds by rememberUpdatedState(if (route == "browser") setOfNotNull(left?.id, right?.id) else emptySet())
+    val visibleIds by rememberUpdatedState(
+        (if (route == "browser") setOfNotNull(left?.id, right?.id) else emptySet()) + setOfNotNull(video?.tabId))
+    SideEffect {
+        sessions.pool.setVisible(if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) || systemPip) visibleIds else emptySet())
+    }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event -> when (event) {
             Lifecycle.Event.ON_STOP -> sessions.pool.setVisible(emptySet())
@@ -249,7 +262,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     NagiTheme(state.settings.theme, state.currentSpace?.color ?: state.settings.themeColor) {
         Surface(color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
-            if (!state.ready) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (systemPip) Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
+            else if (!state.ready) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (state.startupError != null) Text(strings(R.string.ui_workspace_could_not_be_opened_1_s, strings.translate(state.startupError.orEmpty()))) else CircularProgressIndicator()
             } else Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 val density = LocalDensity.current
@@ -427,9 +441,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     }
                 })
             }
-            fullscreen?.let { view -> Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
-                NativeSurface(view, Modifier.fillMaxSize())
-                TextButton(shape = NagiShapes.Rounded, onClick = host::hideFullscreen, modifier = Modifier.align(Alignment.TopEnd).padding(24.dp)) { Text(strings(R.string.ui_exit_fullscreen), color = androidx.compose.ui.graphics.Color.White) }
+            video?.let { presentation -> VideoOverlay(presentation, host.video, systemPip) { id ->
+                state.workspace.tabs.firstOrNull { it.id == id }?.let {
+                    vm.selectTab(id)
+                    navigate("browser")
+                }
             } }
         }
     }

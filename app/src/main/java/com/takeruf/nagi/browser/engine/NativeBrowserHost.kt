@@ -40,9 +40,7 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     private var permissionResult: ((Set<SitePermission>) -> Unit)? = null
     private var requestedPermissions = emptySet<SitePermission>()
     private var consentDialog: AlertDialog? = null
-    private val fullscreenView = MutableStateFlow<View?>(null)
-    val fullscreen = fullscreenView.asStateFlow()
-    private var fullscreenExit: (() -> Unit)? = null
+    val video = VideoPresentationController(activity)
     private val downloads = DownloadService(activity.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var fileDialog: AlertDialog? = null
@@ -242,12 +240,16 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     }
     override fun showMessage(message: String) { Toast.makeText(activity, message, Toast.LENGTH_SHORT).show() }
     override fun showFullscreen(view: View, exit: () -> Unit) {
-        hideFullscreen(); fullscreenExit = exit; fullscreenView.value = view
+        video.show(view, null, exit = exit)
     }
     override fun hideFullscreen() {
-        fullscreenView.value = null
-        val exit = fullscreenExit; fullscreenExit = null; exit?.invoke()
+        video.close()
     }
+    override fun showVideo(view: View, tabId: String, playback: VideoPlayback, popup: Boolean,
+        control: (String) -> Unit, exit: () -> Unit) = video.show(view, tabId, playback, popup, control, exit)
+    override fun updateVideo(tabId: String, playback: VideoPlayback) = video.update(tabId, playback)
+    override fun minimizeVideo(tabId: String) = video.minimize(tabId)
+    override fun hideVideo(tabId: String) = video.close(tabId)
     fun dispose() {
         disposed = true
         blockedExternalApp.value = null
@@ -257,6 +259,6 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         capturedFiles.forEach { it.delete() }; capturedFiles.clear()
         generatedDialogs.toMap().forEach { (dialog, callback) -> dialog.dismiss(); callback(false) }
         generatedDialogs.clear()
-        scope.cancel(); hideFullscreen()
+        scope.cancel(); video.dispose()
     }
 }

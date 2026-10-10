@@ -328,3 +328,26 @@ Repository Markdown, release notes, and update-manifest notes use English. CJK s
 - Website PR #22 merged as `805f071`; CI and preview/main Vercel deployments passed. EdgeOne production was independently checked at takeruf.com in all four product, homepage and privacy locales. Downloaded site/GitHub APKs match SHA-256 d6ac27a0c91edd6f3eecc76dfdab0fa9857b6e97a4cc9771ddebfd281980c918; older APK URLs remain HTTP 200. Live rendered screenshot: [website 0.1.3](screenshots/website-013-live.png).
 - Site publication exposed two build-time Google Fonts parsing errors. Existing font subsets, weights, Unicode ranges and fallback metrics were bundled with upstream OFL license texts; four webpack exports and 60-page validation passed. All 126 bundled font references per locale were checked. This repair is scoped to the website release worktree, preserving the original website checkout's unrelated work.
 - Final Play refresh confirms automated checks finished and 0.1.3 remains Changes in review. This does not claim approval or 0.1.3 tester delivery.
+
+
+## Video PiP and pop-out playback — 2026-10-10 (unreleased)
+
+Settings → Video has two independent persistent switches, both enabled by default for new and existing installations: automatic PiP on Home, and in-browser pop-out video playback. English, Japanese, Simplified Chinese, and Korean labels are included.
+
+Playing HTML5 videos have a pop-out assistant button. Fullscreen video also has a pop-out action. Both keep the existing WebView custom view, including videos in cross-origin frames, instead of extracting video URLs or creating a second player. The popup supports dragging, size changes, play/pause, fullscreen, returning to its tab, and closing. Size and position survive fullscreen/PiP round trips. Its source tab stays visible to the engine and protected from automatic suspension/archive across tabs, Spaces, and settings. Closing the source tab, resetting site data, or closing the popup releases the presentation; closing the popup pauses playback.
+
+System PiP uses manual entry on Android 8–11 and automatic entry on Android 12+, with playback gating, aspect-ratio bounds, a cropped video transition rectangle, and a play/pause RemoteAction. Android 15+ hides non-video UI at transition start. Generic page fullscreen and paused videos do not automatically enter PiP. Configuration changes retain the Activity so the original player survives size/orientation changes. Implementation follows [Android's Compose PiP setup](https://developer.android.com/develop/ui/compose/system/pip-setup) and [PiP playback lifecycle guidance](https://developer.android.com/develop/ui/views/picture-in-picture).
+
+JDK 17 / SDK 36: `:app:assembleGithubDebug`, `:app:assembleGithubDebugAndroidTest`, `:app:testGithubDebugUnitTest`, and `:app:lintGithubDebug --no-parallel` passed. Unit tests: **138 passed**, including independent settings persistence and controller eligibility/ownership/reentrant cleanup/aspect bounds at API 26 and 35. Lint: **0 errors, 44 warnings**; no new warnings in the video implementation.
+
+On the dedicated API-36 `Nagi_Video_QA` emulator, **VideoUiTest: 5 passed** at the phone's native size/density, then **BrowserUiTest: 3 passed** at a 2560×1600 / 240-dpi tablet layout. The earlier phone run of BrowserUiTest failed two assertions that require the expanded tablet sidebar; both passed at the intended size. Video tests cover real playback-time advancement across Home/PiP/restore, the actual RemoteAction PendingIntent for play/pause, popup dragging/resizing, size retention after PiP/fullscreen, tab and Space changes, cross-origin iframe playback, source-tab closure, paused/non-video exclusion, independent off switches, and settings after Activity recreation.
+
+Local evidence is under `app/build/reports/video-validation/`: `video-final-instrumentation.txt`, `tablet-regression-instrumentation.txt`, `apk-sha256.txt`, and three inspected screenshots (`video-fullscreen.png`, `video-system-pip.png`, `video-popup-other-tab.png`). The installed app APK's SHA-256 matched the final Debug build. These prove this emulator and local HTML5 fixtures, not production website compatibility.
+
+The device-local fixture uses a generated six-second looping H.264 video; its cross-origin iframe uses localhost versus 127.0.0.1. Regenerate `app/src/androidTest/assets/video.mp4` with:
+
+```sh
+ffmpeg -f lavfi -i testsrc2=size=320x180:rate=15 -t 6 -an -c:v libx264 -profile:v baseline -pix_fmt yuv420p -crf 32 -movflags +faststart video.mp4
+```
+
+Physical devices, Android 8–15 system PiP transitions, production video-site policies, DRM, and embedded players inside closed shadow roots remain unverified. The assistant requires an HTML5 video and fullscreen permission; its failure message directs users to the site's fullscreen button. No release was published.

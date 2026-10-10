@@ -25,6 +25,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val desktop = booleanPreferencesKey("desktop_default")
         val newLinks = booleanPreferencesKey("open_links_new_tab")
         val blockExternal = booleanPreferencesKey("block_external_apps")
+        val autoVideoPip = booleanPreferencesKey("auto_video_pip")
+        val videoPopups = booleanPreferencesKey("video_popups")
         val pageDrag = booleanPreferencesKey("native_page_drag")
         val aiEnginesSeeded = booleanPreferencesKey("ai_engines_seeded_v1")
         val additionalEnginesSeeded = booleanPreferencesKey("additional_engines_seeded_v1")
@@ -47,6 +49,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         openLinksInNewTab = p[Keys.newLinks] ?: false,
         nativePageDrag = p[Keys.pageDrag] ?: true,
         blockExternalApps = p[Keys.blockExternal] ?: false,
+        autoVideoPip = p[Keys.autoVideoPip] ?: true,
+        videoPopups = p[Keys.videoPopups] ?: true,
         archivePeriod = enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
         automaticSearchRegion = p[Keys.automaticRegion] ?: true,
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
@@ -73,8 +77,12 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
                 p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
                 nativePageDrag = p[Keys.pageDrag] ?: true,
-                blockExternalApps = p[Keys.blockExternal] ?: false)
+                blockExternalApps = p[Keys.blockExternal] ?: false,
+                autoVideoPip = p[Keys.autoVideoPip] ?: true,
+                videoPopups = p[Keys.videoPopups] ?: true)
             val next = change(current)
+            p[Keys.autoVideoPip] = next.autoVideoPip
+            p[Keys.videoPopups] = next.videoPopups
             p[Keys.pageDrag] = next.nativePageDrag
             p[Keys.blockExternal] = next.blockExternalApps
             next.defaultAiEngineId?.let { p[Keys.aiEngine] = it } ?: p.remove(Keys.aiEngine)

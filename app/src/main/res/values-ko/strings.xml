@@ -296,4 +296,17 @@
     <string name="ui_allow_once">한 번만 허용</string>
     <string name="ui_allow_always">항상 허용</string>
     <string name="ui_dismiss_external_app_notice">외부 앱 알림 닫기</string>
+    <string name="ui_video">동영상</string>
+    <string name="ui_video_auto_pip">홈으로 돌아갈 때 자동으로 PIP 실행</string>
+    <string name="ui_video_auto_pip_description">홈으로 돌아간 후에도 전체 화면 또는 팝업 동영상을 작은 창에서 계속 재생합니다.</string>
+    <string name="ui_video_popups">동영상 팝업 재생</string>
+    <string name="ui_video_popups_description">재생 중인 동영상에 팝업 버튼을 표시하여 다른 탭을 탐색하면서 시청할 수 있습니다.</string>
+    <string name="ui_video_popout">팝업으로 재생</string>
+    <string name="ui_video_play">재생</string>
+    <string name="ui_video_pause">일시정지</string>
+    <string name="ui_video_resize">크기</string>
+    <string name="ui_video_close">동영상 닫기</string>
+    <string name="ui_video_fullscreen">전체 화면</string>
+    <string name="ui_video_return">탭으로 돌아가기</string>
+    <string name="ui_video_popup_failed">이 동영상을 작은 창으로 열 수 없습니다. 먼저 동영상의 전체 화면 버튼을 사용해 보세요.</string>
 </resources>
