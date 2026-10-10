@@ -54,8 +54,22 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingUrls: Flow<String>) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        NagiAppContent(activity, host, container, incomingUrls, maxWidth.value)
+    Column(Modifier.fillMaxSize().then(if (container.isPrivate) Modifier.statusBarsPadding() else Modifier)) {
+        if (container.isPrivate) {
+            val strings = rememberNagiStrings()
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(strings(R.string.ui_private_mode), Modifier.weight(1f))
+                    TextButton(onClick = { activity.finish() }, modifier = Modifier.testTag("close-private-mode")) {
+                        Text(strings(R.string.ui_close_private_mode))
+                    }
+                }
+            }
+        }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            NagiAppContent(activity, host, container, incomingUrls, maxWidth.value)
+        }
     }
 }
 
@@ -82,7 +96,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val sessions = remember(host) { BrowserSessionController(container) { tabId, desktop ->
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
             nativePageDrag = { currentSettings.nativePageDrag }, siteDisplayModes = container.siteDisplayModes,
-            defaultDesktopMode = { currentSettings.desktopDefault }, tabId = tabId)
+            defaultDesktopMode = { currentSettings.desktopDefault }, tabId = tabId,
+            adBlocker = container.adBlocker, privateProfileName = container.privateProfileName)
     } }
     val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()
@@ -93,8 +108,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         host.video.autoPipEnabled = state.settings.autoVideoPip
         host.video.popupEnabled = state.settings.videoPopups
         sessions.pool.setVideoPopupsEnabled(state.settings.videoPopups)
+        sessions.pool.configureContentBlocking(state.settings.adBlockingEnabled, state.settings.adBlockExcludedHosts)
     }
-    DisposableEffect(sessions) { onDispose { sessions.dispose() } }
+    DisposableEffect(sessions) {
+        activity.disposeSessions = sessions::dispose
+        onDispose { sessions.dispose(); activity.disposeSessions = null }
+    }
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "browser"
@@ -102,7 +121,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val snackbar = remember { SnackbarHostState() }
     val updateState by container.updates.state.collectAsStateWithLifecycle()
     var updateDialog by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(container.updates) { if (com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && container.updates.state.value.status == com.takeruf.nagi.updates.UpdateStatus.IDLE) container.updates.check() }
+    LaunchedEffect(container.updates) { if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && container.updates.state.value.status == com.takeruf.nagi.updates.UpdateStatus.IDLE) container.updates.check() }
     var omniboxOpen by rememberSaveable { mutableStateOf(false) }
     var omniboxInitial by rememberSaveable { mutableStateOf("") }
     var pendingNewTabId by remember { mutableStateOf<String?>(null) }
@@ -160,7 +179,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     val canCloseTabOnBack = focusedTab != null && !focusedTab.isPinned && state.visibleTabs.size > 1
     fun back() {
-        if (focusedEngine?.canGoBack() == true) focusedEngine.goBack()
+        if (pages[focusedTab?.id]?.readerArticle != null) focusedEngine?.toggleReader()
+        else if (focusedEngine?.canGoBack() == true) focusedEngine.goBack()
         else if (canCloseTabOnBack) focusedTab?.let { tab ->
             vm.closeTabOnBack(tab.id)
             rightFocused = false
@@ -239,7 +259,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     LaunchedEffect(state.workspace.tabs) {
         val retained = state.workspace.tabs.filter { it.closedAt == null && it.archivedAt == null }.map { it.id }.toSet()
         video?.tabId?.takeUnless { it in retained }?.let { host.video.close(it, pause = true) }
-        sessions.pool.retainTabIds(retained)
+        sessions.pool.retainTabIds(retained, state.workspace.tabs.filter { it.id in retained }.associate { it.id to it.url })
         if (rightTabId != null && right == null) rightFocused = false
     }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -251,14 +271,14 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event -> when (event) {
             Lifecycle.Event.ON_STOP -> sessions.pool.setVisible(emptySet())
-            Lifecycle.Event.ON_START -> { sessions.pool.setVisible(visibleIds); container.scope.launch { container.regionalSearch.refresh() } }
+            Lifecycle.Event.ON_START -> { sessions.pool.setVisible(visibleIds); if (!container.isPrivate) container.scope.launch { container.regionalSearch.refresh() } }
             else -> Unit
         } }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
-    BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
+    BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
     NagiTheme(state.settings.theme, state.currentSpace?.color ?: state.settings.themeColor) {
         Surface(color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
@@ -375,11 +395,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                     onSuspendTabs = sessions::suspendBackground,
                                     onClearSiteData = { scope.launch {
                                         sessions.reset()
-                                        BrowserDataCleaner.clear(activity)
+                                        if (container.isPrivate) com.takeruf.nagi.browser.privacy.PrivateProfiles.clearAwait(container.privateProfileName!!)
+                                        else BrowserDataCleaner.clear(activity)
                                         sessions.reset()
                                         snackbar.showSnackbar(strings(R.string.ui_site_data_cleared))
                                     } },
-                                    updateSection = { com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) }) { navigate("browser") } }
+                                    updateSection = { if (!container.isPrivate) com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) }) { navigate("browser") } }
                                 composable("history") { LibraryScreen(state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
                             }
                             if (route == "browser" && state.activeTab != null) {
@@ -422,12 +443,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 }
                 if (sidebarDrag.item != null) SidebarDragPreview(sidebarDrag)
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
-                if (com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
+                if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
                     TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
                         Text(strings(R.string.ui_update_banner, updateState.release!!.versionName))
                     }
                 }
-                if (com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateDialog) AlertDialog(onDismissRequest = { updateDialog = false },
+                if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateDialog) AlertDialog(onDismissRequest = { updateDialog = false },
                     title = { Text(strings(R.string.ui_app_updates)) },
                     text = { com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) },
                     confirmButton = { TextButton(onClick = { updateDialog = false }) { Text(strings(R.string.ui_cancel)) } })

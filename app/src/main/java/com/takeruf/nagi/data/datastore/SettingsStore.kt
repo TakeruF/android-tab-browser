@@ -27,6 +27,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val blockExternal = booleanPreferencesKey("block_external_apps")
         val autoVideoPip = booleanPreferencesKey("auto_video_pip")
         val videoPopups = booleanPreferencesKey("video_popups")
+        val adBlocking = booleanPreferencesKey("ad_blocking")
+        val adBlockExcluded = stringSetPreferencesKey("ad_block_excluded_hosts")
         val pageDrag = booleanPreferencesKey("native_page_drag")
         val aiEnginesSeeded = booleanPreferencesKey("ai_engines_seeded_v1")
         val additionalEnginesSeeded = booleanPreferencesKey("additional_engines_seeded_v1")
@@ -51,6 +53,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         blockExternalApps = p[Keys.blockExternal] ?: false,
         autoVideoPip = p[Keys.autoVideoPip] ?: true,
         videoPopups = p[Keys.videoPopups] ?: true,
+        adBlockingEnabled = p[Keys.adBlocking] ?: true,
+        adBlockExcludedHosts = p[Keys.adBlockExcluded] ?: emptySet(),
         archivePeriod = enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
         automaticSearchRegion = p[Keys.automaticRegion] ?: true,
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
@@ -79,8 +83,12 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 nativePageDrag = p[Keys.pageDrag] ?: true,
                 blockExternalApps = p[Keys.blockExternal] ?: false,
                 autoVideoPip = p[Keys.autoVideoPip] ?: true,
-                videoPopups = p[Keys.videoPopups] ?: true)
+                videoPopups = p[Keys.videoPopups] ?: true,
+                adBlockingEnabled = p[Keys.adBlocking] ?: true,
+                adBlockExcludedHosts = p[Keys.adBlockExcluded] ?: emptySet())
             val next = change(current)
+            p[Keys.adBlocking] = next.adBlockingEnabled
+            p[Keys.adBlockExcluded] = next.adBlockExcludedHosts
             p[Keys.autoVideoPip] = next.autoVideoPip
             p[Keys.videoPopups] = next.videoPopups
             p[Keys.pageDrag] = next.nativePageDrag

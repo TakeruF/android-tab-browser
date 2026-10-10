@@ -49,6 +49,12 @@ fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClic
 @Composable
 fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = null, fallbackText: String? = null) {
     val context = LocalContext.current
+    if ((context as? com.takeruf.nagi.MainActivity)?.isPrivateBrowsing == true) {
+        Box(modifier.size(24.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Icon(NagiIcons.Globe, null, Modifier.size(16.dp))
+        }
+        return
+    }
     val store = remember(context.applicationContext) { FaviconStore.get(context) }
     val shared by store.icons.collectAsState()
     val origin = remember(siteUrl) { faviconOrigin(siteUrl) }

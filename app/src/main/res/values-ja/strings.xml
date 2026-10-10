@@ -309,4 +309,25 @@
     <string name="ui_video_fullscreen">全画面</string>
     <string name="ui_video_return">タブに戻る</string>
     <string name="ui_video_popup_failed">この動画を小窓で開けませんでした。動画の全画面ボタンからお試しください。</string>
+    <string name="ui_ad_blocking">"広告・トラッカーブロック"</string>
+    <string name="ui_ad_blocking_description">"EasyListとEasyPrivacyを使用します。変更後はページを再読み込みしてください。"</string>
+    <string name="ui_enable_site_blocking">"このサイトでブロックを有効にする（%1$d件）"</string>
+    <string name="ui_disable_site_blocking">"このサイトでブロックを無効にする（%1$d件）"</string>
+    <string name="ui_private_mode">"プライベートモード"</string>
+    <string name="ui_close_private_mode">"プライベートモードを終了"</string>
+    <string name="ui_private_description">"専用のサイトデータで閲覧し、終了時にタブとサイトデータを削除します。保存したダウンロードは端末に残ります。"</string>
+    <string name="ui_private_unavailable">"プライベートモードを使うにはAndroid System WebViewを更新してください。"</string>
+    <string name="ui_reader_mode">"リーダーモード"</string>
+    <string name="ui_exit_reader">"元のページ"</string>
+    <string name="ui_reader_unavailable">"このページから記事本文を抽出できませんでした。"</string>
+    <string name="ui_blocking_pause_visit">今回の訪問のみブロックしない</string>
+    <string name="ui_blocking_resume_visit">ブロックを再開</string>
+    <string name="ui_blocking_always_disable">このサイトでは常にブロックしない</string>
+    <string name="ui_blocking_always_enable">このサイトでブロックを有効にする</string>
+    <string name="ui_blocking_active">広告・トラッカーをブロック中</string>
+    <string name="ui_blocking_paused_visit">今回の訪問のみ解除中</string>
+    <string name="ui_blocking_disabled_site">このサイトではブロックしません</string>
+    <string name="ui_blocking_disabled_global">設定でブロックが無効になっています</string>
+    <string name="ui_blocking_count">このページで %1$d 件ブロック</string>
+    <string name="ui_blocking_visit_scope">新しいタブや同じサイトのサブドメインでも維持します。そのサイトのタブをすべて閉じるか別サイトへ移動すると終了します。</string>
 </resources>

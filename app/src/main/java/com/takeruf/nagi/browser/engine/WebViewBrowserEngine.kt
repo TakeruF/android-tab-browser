@@ -13,12 +13,14 @@ import android.os.Message
 import android.webkit.*
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import com.takeruf.nagi.browser.privacy.PrivateProfiles
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import com.takeruf.nagi.browser.favicon.FaviconStore
 import com.takeruf.nagi.browser.favicon.faviconOrigin
 import org.json.JSONArray
+import org.json.JSONObject
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
 private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String) : EngineSnapshot
@@ -31,9 +33,13 @@ class WebViewBrowserEngine(
     private val siteDisplayModes: SiteDisplayModeStore = SiteDisplayModeStore(context),
     private val defaultDesktopMode: () -> Boolean = { desktopDefault },
     private val tabId: String = java.util.UUID.randomUUID().toString(),
+    internal val adBlocker: com.takeruf.nagi.browser.blocking.AdBlocker? = null,
+    val privateProfileName: String? = null,
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webView = WebView(context)
+    private val cookies = if (privateProfileName == null) CookieManager.getInstance()
+        else PrivateProfiles.attach(webView, privateProfileName)
     private val pageVideo = PageVideo(webView, host, fullscreenHost, tabId)
     private val pageDownloads = com.takeruf.nagi.browser.downloads.PageDownloads(webView, host)
     private var mediaPermissionGranted = false
@@ -46,7 +52,13 @@ class WebViewBrowserEngine(
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
     private val mobileUa = WebSettings.getDefaultUserAgent(context)
-    private val favicons = FaviconStore.get(context)
+    private val favicons = if (privateProfileName == null) FaviconStore.get(context) else null
+    private val readerScript by lazy { context.assets.open("browser/Readability.js").bufferedReader().use { it.readText() } }
+    @Volatile private var adBlockingEnabled = true
+    @Volatile private var excludedHosts = emptySet<String>()
+    @Volatile private var visitExceptionSites = emptySet<String>()
+    private data class BlockingDocument(val url: String, val count: java.util.concurrent.atomic.AtomicInteger = java.util.concurrent.atomic.AtomicInteger())
+    @Volatile private var blockingDocument = BlockingDocument("about:blank")
     private var faviconJob: Job? = null
     private var navigationGeneration = 0L
     private var navigationRequestGeneration = 0L
@@ -59,12 +71,22 @@ class WebViewBrowserEngine(
     private var downloadUrl: String? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var loadingTimeout: Job? = null
+    private var readerSurface: WebView? = null
+    internal fun attachReaderSurface(view: WebView) {
+        readerSurface = view
+        view.setFindListener { active, count, _ -> update { it.copy(findMatches = count, activeFindMatch = active) } }
+    }
+    internal fun releaseReaderSurface(view: WebView) {
+        if (readerSurface === view) readerSurface = null
+    }
 
     init {
         // Let WebView expose its virtual HTML fields and website origin to the
         // device's AutofillService. Hints belong to those fields, not this container.
         webView.id = R.id.browser_web_view
-        webView.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_YES
+        webView.importantForAutofill = if (privateProfileName == null) android.view.View.IMPORTANT_FOR_AUTOFILL_YES
+            else android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        if (privateProfileName != null) webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true // Includes localStorage and IndexedDB in the WebView engine.
@@ -84,13 +106,21 @@ class WebViewBrowserEngine(
             WebSettingsCompat.setWebAuthenticationSupport(webView.settings,
                 WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER)
         }
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
+        cookies.setAcceptCookie(true)
+        cookies.setAcceptThirdPartyCookies(webView, false)
         applyUserAgent(desktopDefault)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
         webView.setOnLongClickListener { if (nativePageDrag()) startLinkDrag() else showPageContextMenu() }
         webView.setOnContextClickListener { showPageContextMenu() }
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                val source = blockingDocument
+                if (!blockingActive(source.url)) return null
+                val response = adBlocker?.intercept(request, source.url) ?: return null
+                val count = source.count.incrementAndGet()
+                scope.launch { if (blockingDocument === source) update { it.copy(blockedRequests = count) } }
+                return response
+            }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
                 val requestGeneration = ++navigationRequestGeneration
@@ -126,12 +156,17 @@ class WebViewBrowserEngine(
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 if (fullscreenActive) fullscreenHost.hideVideo(tabId)
                 pageVideo.invalidate()
+                // Interception can run before onPageStarted, especially for local/cached
+                // resources. Keep that document's counts instead of resetting them here.
+                if (blockingDocument.url != url) blockingDocument = BlockingDocument(url)
                 navigationGeneration++
                 pageDownloads.invalidate()
                 mediaPermissionGranted = false
                 faviconJob?.cancel()
                 failedNavigation = false
                 update { it.copy(url = url, isLoading = true, progress = 0, error = null,
+                    visitBlockingExceptionSite = visitExceptionFor(url),
+                    blockedRequests = blockingDocument.count.get(), readerArticle = null, readerLoading = false,
                     faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
                 if (favicon != null) saveFavicon(url, favicon)
                 metadata()
@@ -139,8 +174,11 @@ class WebViewBrowserEngine(
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 if (url == downloadUrl) return
-                update { it.copy(url = url, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
+                update { it.copy(url = url, visitBlockingExceptionSite = visitExceptionFor(url), canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 metadata()
+            }
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                if (url == view.url && url == state.value.url) installCosmeticFiltering()
             }
             override fun onPageFinished(view: WebView, url: String) {
                 // Redirects/cancelled loads can finish after a newer document has started.
@@ -153,8 +191,10 @@ class WebViewBrowserEngine(
                 documentPage = state.value
                 pageDownloads.installFallback()
                 pageVideo.installFallback()
+                installCosmeticFiltering()
                 restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
-                CookieManager.getInstance().flush(); metadata()
+                if (privateProfileName == null) cookies.flush()
+                metadata()
                 if (!failedNavigation) discoverFavicon(view, url)
                 if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
             }
@@ -197,6 +237,7 @@ class WebViewBrowserEngine(
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
                 if (!isUserGesture || popupViews.size >= 2) return false
                 val popup = WebView(context)
+                if (privateProfileName != null) PrivateProfiles.attach(popup, privateProfileName)
                 popupViews.add(popup)
                 popup.postDelayed({ if (popupViews.remove(popup)) {
                     popup.destroy(); host.showMessage(strings(R.string.ui_blank_script_generated_popups_are_not_supported_in_this_mvp))
@@ -255,17 +296,21 @@ class WebViewBrowserEngine(
         webView.setDownloadListener { url, userAgent, disposition, mimeType, _ ->
             // An attachment is not a document navigation. Keep the source page restorable.
             downloadUrl = url
-            update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode) }
+            update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
             if (url.startsWith("https://") || url.startsWith("http://")) host.download(
                 DownloadRequest(url, userAgent, disposition, mimeType,
-                    CookieManager.getInstance().getCookie(url), DownloadFilename.fromDisposition(disposition)
+                    cookies.getCookie(url), DownloadFilename.fromDisposition(disposition)
                         ?: URLUtil.guessFileName(url, disposition, mimeType)))
             else if (url.startsWith("blob:") || url.startsWith("data:")) pageDownloads.request(url,
                 DownloadFilename.fromDisposition(disposition) ?: URLUtil.guessFileName(url, disposition, mimeType))
             else host.showMessage(strings(R.string.ui_this_address_type_is_not_supported))
         }
         webView.setFindListener { active, count, _ -> update { it.copy(findMatches = count, activeFindMatch = active) } }
+        adBlocker?.let { blocker -> scope.launch {
+            blocker.status.first { it != "loading" }
+            if (!destroyed) installCosmeticFiltering()
+        } }
     }
     private fun dispatchPopup(url: String, popup: WebView) {
         if (!popupViews.remove(popup)) return
@@ -323,7 +368,7 @@ class WebViewBrowserEngine(
                     add(PageContextAction(strings(R.string.ui_copy_image_link)) { host.copyLink(url) })
                     add(PageContextAction(strings(R.string.ui_save_image)) {
                         host.download(DownloadRequest(url, webView.settings.userAgentString, null, null,
-                            CookieManager.getInstance().getCookie(url), URLUtil.guessFileName(url, null, null)))
+                            cookies.getCookie(url), URLUtil.guessFileName(url, null, null)))
                     })
                 }
             }
@@ -345,6 +390,7 @@ class WebViewBrowserEngine(
     }
     private fun metadata() { eventChannel.trySend(EngineEvent.Metadata(state.value)) }
     private fun saveFavicon(pageUrl: String, icon: Bitmap) {
+        val favicons = favicons ?: return
         val navigation = navigationGeneration
         val revision = ++iconGeneration
         scope.launch {
@@ -355,6 +401,7 @@ class WebViewBrowserEngine(
         }
     }
     private fun discoverFavicon(view: WebView, pageUrl: String) {
+        val favicons = favicons ?: return
         if (faviconOrigin(pageUrl) == null) return
         val navigation = navigationGeneration
         val revision = iconGeneration
@@ -384,12 +431,15 @@ class WebViewBrowserEngine(
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
         navigationRequestGeneration++
+        blockingDocument = BlockingDocument(url)
         applySiteDisplayMode(url)
         restoringScroll = null
         downloadUrl = null
         navigationGeneration++
         faviconJob?.cancel()
         update { it.copy(url = url, isLoading = url != "about:blank", progress = 0,
+            readerArticle = null, readerLoading = false,
+            blockedRequests = 0, visitBlockingExceptionSite = visitExceptionFor(url),
             title = if (url == "about:blank") "New tab" else url, error = null,
             faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
         metadata() // Persist the requested URL even when the initial network request stalls.
@@ -398,10 +448,33 @@ class WebViewBrowserEngine(
     }
     override fun reload() { if (!destroyed) {
         navigationRequestGeneration++
+        blockingDocument = BlockingDocument(state.value.url)
         applySiteDisplayMode(state.value.url)
-        update { it.copy(isLoading = true, progress = 0, error = null) }; watchLoading(); webView.reload()
+        update { it.copy(isLoading = true, progress = 0, error = null, readerArticle = null, readerLoading = false, blockedRequests = 0) }; watchLoading(); webView.reload()
     } }
-    override fun goBack() { if (canGoBack()) {
+    override fun canScrollHorizontallyAt(x: Float, y: Float, direction: Int, result: (Boolean) -> Unit) {
+        if (destroyed || webView.width == 0 || webView.height == 0) { result(true); return }
+        // CSS coordinates account for desktop viewport scaling and pinch zoom. Walk
+        // ancestors so a carousel or nested scroller gets the gesture before history.
+        webView.evaluateJavascript("""(() => {
+            const v = window.visualViewport;
+            const x = ${x / webView.width} * (v ? v.width : innerWidth) + (v ? v.offsetLeft : 0);
+            const y = ${y / webView.height} * (v ? v.height : innerHeight) + (v ? v.offsetTop : 0);
+            let e = document.elementFromPoint(x, y);
+            while (e) {
+                if (e.tagName === 'IFRAME') return true;
+                const s = getComputedStyle(e);
+                if ((e === document.scrollingElement || /auto|scroll/.test(s.overflowX)) && e.scrollWidth > e.clientWidth + 1) {
+                    if (s.direction === 'rtl') return true;
+                    if (${direction} < 0 ? e.scrollLeft > 1 : e.scrollLeft < e.scrollWidth - e.clientWidth - 1) return true;
+                }
+                e = e.parentElement || (e.getRootNode && e.getRootNode().host);
+            }
+            return false;
+        })()""") { result(it != "false") }
+    }
+
+    override fun goBack() { if (state.value.readerArticle != null) { toggleReader(); return }; if (canGoBack()) {
         navigationRequestGeneration++
         applyHistoryDisplayMode(-1)
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
@@ -411,9 +484,72 @@ class WebViewBrowserEngine(
         applyHistoryDisplayMode(1)
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goForward()
     } }
-    override fun canGoBack() = !destroyed && webView.canGoBack()
+    override fun canGoBack() = !destroyed && (state.value.readerArticle != null || webView.canGoBack())
     override fun canGoForward() = !destroyed && webView.canGoForward()
     override fun evaluateJavascript(script: String) { if (!destroyed) webView.evaluateJavascript(script, null) }
+    private fun visitExceptionFor(url: String): String? =
+        com.takeruf.nagi.browser.blocking.blockingSite(url)?.takeIf { it in visitExceptionSites }
+
+    internal fun blockingActive(url: String): Boolean = adBlockingEnabled &&
+        SiteDisplayModeStore.siteHost(url)?.let { it !in excludedHosts } == true && visitExceptionFor(url) == null
+
+    override fun configureVisitBlockingExceptions(sites: Set<String>) {
+        if (destroyed || visitExceptionSites == sites) return
+        visitExceptionSites = sites.toSet()
+        update { it.copy(visitBlockingExceptionSite = visitExceptionFor(it.url)) }
+        installCosmeticFiltering()
+    }
+
+    override fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {
+        val changed = adBlockingEnabled != enabled || this.excludedHosts != excludedHosts
+        adBlockingEnabled = enabled; this.excludedHosts = excludedHosts.toSet()
+        if (changed && !destroyed) installCosmeticFiltering()
+    }
+
+    private fun installCosmeticFiltering() {
+        val url = state.value.url
+        val css = if (blockingActive(url)) adBlocker?.cosmeticCss(url).orEmpty() else ""
+        webView.evaluateJavascript("""
+            (() => { if (location.href !== ${JSONObject.quote(url)}) return;
+              let style = document.getElementById('__nagi_adblock_style');
+              const css = ${JSONObject.quote(css)};
+              if (!css) { if (style) style.remove(); return; }
+              if (!style) { style = document.createElement('style'); style.id = '__nagi_adblock_style';
+                (document.head || document.documentElement).appendChild(style); }
+              style.textContent = css; })()
+        """.trimIndent(), null)
+    }
+
+    override fun toggleReader() {
+        if (destroyed) return
+        if (state.value.readerArticle != null) { update { it.copy(readerArticle = null) }; return }
+        if (state.value.readerLoading || state.value.isLoading || !state.value.url.startsWith("http")) return
+        val generation = navigationGeneration
+        val url = state.value.url
+        update { it.copy(readerLoading = true) }
+        webView.evaluateJavascript("""
+            (() => { $readerScript
+              try { const article = new Readability(document.cloneNode(true), { maxElemsToParse: 20000 }).parse();
+                return article && article.content.length <= 2000000 ? JSON.stringify({
+                    title: article.title, byline: article.byline || '', content: article.content }) : null;
+              } catch (_) { return null; }
+            })()
+        """.trimIndent()) { result ->
+            if (destroyed || generation != navigationGeneration || state.value.url != url) return@evaluateJavascript
+            scope.launch {
+                val article = withContext(Dispatchers.Default) { runCatching {
+                    val data = JSONObject(JSONArray("[$result]").getString(0))
+                    val content = com.takeruf.nagi.browser.reader.ReaderSanitizer.clean(data.getString("content"), url)
+                    if (content.isBlank()) null else com.takeruf.nagi.browser.reader.ReaderArticle(
+                        data.optString("title"), data.optString("byline"), content, url)
+                }.getOrNull() }
+                if (!destroyed && generation == navigationGeneration && state.value.url == url) {
+                    update { it.copy(readerArticle = article, readerLoading = false) }
+                    if (article == null) host.showMessage(strings(R.string.ui_reader_unavailable))
+                }
+            }
+        }
+    }
     private fun applyUserAgent(desktop: Boolean) {
         val version = Regex("Chrome/([0-9.]+)").find(mobileUa)?.groupValues?.get(1) ?: "130.0.0.0"
         webView.settings.userAgentString = if (desktop)
@@ -430,7 +566,10 @@ class WebViewBrowserEngine(
     }
     private fun applyHistoryDisplayMode(offset: Int) {
         val history = webView.copyBackForwardList()
-        history.getItemAtIndex(history.currentIndex + offset)?.url?.let(::applySiteDisplayMode)
+        history.getItemAtIndex(history.currentIndex + offset)?.url?.let {
+            blockingDocument = BlockingDocument(it)
+            applySiteDisplayMode(it)
+        }
     }
     override fun setDesktopMode(enabled: Boolean) {
         if (destroyed) return
@@ -441,9 +580,9 @@ class WebViewBrowserEngine(
         webView.stopLoading()
         update { it.copy(desktopMode = enabled) }; applyUserAgent(enabled); reload()
     }
-    override fun findInPage(query: String) { webView.findAllAsync(query) }
-    override fun findNext(forward: Boolean) { webView.findNext(forward) }
-    override fun clearFind() { webView.clearMatches(); update { it.copy(findMatches = 0, activeFindMatch = 0) } }
+    override fun findInPage(query: String) { (readerSurface ?: webView).findAllAsync(query) }
+    override fun findNext(forward: Boolean) { (readerSurface ?: webView).findNext(forward) }
+    override fun clearFind() { (readerSurface ?: webView).clearMatches(); update { it.copy(findMatches = 0, activeFindMatch = 0) } }
     override fun setVisible(visible: Boolean) { if (visible) webView.onResume() else webView.onPause() }
     override fun saveState(): EngineSnapshot? {
         if (destroyed) return null
@@ -453,12 +592,13 @@ class WebViewBrowserEngine(
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
         navigationRequestGeneration++
+        blockingDocument = BlockingDocument(snapshot.url)
         applySiteDisplayMode(snapshot.url)
         restoringScroll = snapshot.scrollX to snapshot.scrollY
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
         if (!restored) restoringScroll = null
         if (restored) {
-            update { it.copy(url = webView.url ?: "about:blank", title = webView.title ?: "New tab",
+            update { it.copy(url = webView.url ?: "about:blank", visitBlockingExceptionSite = visitExceptionFor(webView.url ?: "about:blank"), title = webView.title ?: "New tab",
                 canGoBack = webView.canGoBack(), canGoForward = webView.canGoForward()) }
             documentPage = state.value
         }

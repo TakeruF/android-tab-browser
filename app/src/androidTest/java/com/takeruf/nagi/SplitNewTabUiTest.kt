@@ -14,6 +14,7 @@ import org.junit.Assert.*
 import java.io.File
 
 /** Creating standalone tabs must not change the saved split pair. */
+@OptIn(ExperimentalTestApi::class)
 class SplitNewTabUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var server: FixtureServer
@@ -44,10 +45,24 @@ class SplitNewTabUiTest {
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("browser-pane-left-$leftId").fetchSemanticsNodes().isNotEmpty()
         }
+        // The new Space can attach its initial blank WebView before the DAO fixture
+        // write completes. Navigate the live pane too, so metadata cannot erase it.
+        shortcut(KeyEvent.KEYCODE_L)
+        compose.onNode(hasSetTextAction()).performTextReplacement("${server.origin}/one")
+        compose.onNode(hasSetTextAction()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+        compose.waitUntil(10_000) { server.requests.any { it.path == "/one" } }
         shortcut(KeyEvent.KEYCODE_L)
         compose.onNode(hasSetTextAction()).performTextReplacement(">split")
         compose.onNodeWithText("New split view").performClick()
         assertPair()
+        // Pane attachment precedes WebView title callbacks. Wait for the actual
+        // document titles before asserting title-based sidebar descriptions.
+        compose.waitUntil(10_000) {
+            runBlocking {
+                container.workspace.dao.tab(leftId)?.title == "Fixture One" &&
+                    container.workspace.dao.tab(rightId)?.title == "Fixture Two"
+            }
+        }
     }
 
     @After fun cleanup() { server.close() }

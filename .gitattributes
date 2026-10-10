@@ -1,0 +1,3 @@
+# Preserve original upstream filter and license bytes, including their whitespace.
+app/src/main/assets/adblock/*.txt whitespace=-blank-at-eol
+app/src/main/assets/licenses/Adblock-Rust-NOTICES.txt whitespace=-blank-at-eol

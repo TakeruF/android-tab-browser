@@ -17,7 +17,14 @@ class EnginePoolTest {
         var deferredCheck: ((Boolean) -> Unit)? = null
         var deferCheck = false
         override fun canSuspend(result: (Boolean) -> Unit) { if (deferCheck) deferredCheck = result else result(safeToSuspend) }
-        override fun loadUrl(url: String) { loadCount++; state.value = state.value.copy(url = url) }
+        override fun loadUrl(url: String) { loadCount++; state.value = state.value.copy(url = url, visitBlockingExceptionSite =
+            com.takeruf.nagi.browser.blocking.blockingSite(url)?.takeIf { it in visitSites }) }
+        private var visitSites = emptySet<String>()
+        override fun configureVisitBlockingExceptions(sites: Set<String>) {
+            visitSites = sites
+            state.value = state.value.copy(visitBlockingExceptionSite =
+                com.takeruf.nagi.browser.blocking.blockingSite(state.value.url)?.takeIf { it in sites })
+        }
         override fun reload() { reloadCount++ } ; override fun goBack() {}; override fun goForward() {}
         override fun canGoBack() = false; override fun canGoForward() = false
         override fun evaluateJavascript(script: String) {}
@@ -103,6 +110,7 @@ class EnginePoolTest {
         val pool = EnginePool(factory = { _, _ -> FakeEngine() }, clock = { now })
         val a = pool.acquire("a", "https://a.com", false) as FakeEngine
         a.state.value = PageState(url = "https://a.com/next", desktopMode = true)
+        pool.setVisitBlockingPaused(a.state.value.url, true)
         now++
         pool.setVisible(setOf("b"))
         val b = pool.acquire("b", "https://b.com", false)
@@ -116,7 +124,40 @@ class EnginePoolTest {
         val restored = pool.acquire("a", "https://stale.com", false) as FakeEngine
         assertTrue(restored.restored)
         assertEquals("https://a.com/next", restored.state.value.url)
+        assertEquals("a.com", restored.state.value.visitBlockingExceptionSite)
         assertTrue(pool.suspendedIds.isEmpty())
+    }
+    @Test fun siteVisitSharesNewArticleTabsAndExpiresOnlyAfterLastTabLeaves() {
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() })
+        val home = pool.acquire("home", "https://www.qq.com", false) as FakeEngine
+        pool.setVisitBlockingPaused(home.state.value.url, true)
+        assertEquals("qq.com", home.state.value.visitBlockingExceptionSite)
+        val article = pool.acquire("article", "https://news.qq.com/a/123", false) as FakeEngine
+        assertEquals("qq.com", article.state.value.visitBlockingExceptionSite)
+        val unrelated = pool.acquire("other", "https://qq.com.evil.com", false) as FakeEngine
+        assertNull(unrelated.state.value.visitBlockingExceptionSite)
+        home.loadUrl("https://example.com")
+        pool.onPageChanged("home", home.state.value.url)
+        assertEquals("qq.com", article.state.value.visitBlockingExceptionSite)
+        // A background article not acquired yet must also keep the visit alive.
+        pool.retainTabIds(setOf("home", "background"), mapOf("background" to "https://sports.qq.com/a/456"))
+        val background = pool.acquire("background", "https://sports.qq.com/a/456", false) as FakeEngine
+        assertEquals("qq.com", background.state.value.visitBlockingExceptionSite)
+        pool.retainTabIds(setOf("home"))
+        val fresh = pool.acquire("fresh", "https://news.qq.com/a/789", false) as FakeEngine
+        assertNull(fresh.state.value.visitBlockingExceptionSite)
+    }
+    @Test fun explicitResumeAndWorkspaceResetEndSharedVisitExceptions() {
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() })
+        val first = pool.acquire("first", "https://qq.com", false) as FakeEngine
+        val second = pool.acquire("second", "https://news.qq.com/a/123", false) as FakeEngine
+        pool.setVisitBlockingPaused(first.state.value.url, true)
+        pool.setVisitBlockingPaused(second.state.value.url, false)
+        assertNull(first.state.value.visitBlockingExceptionSite)
+        assertNull(second.state.value.visitBlockingExceptionSite)
+        pool.setVisitBlockingPaused(first.state.value.url, true)
+        pool.destroyAll()
+        assertNull(pool.acquire("first", "https://qq.com", false).state.value.visitBlockingExceptionSite)
     }
     @Test fun displayedProtectedAndUnsafePagesCannotBeSuspended() {
         val pool = EnginePool(factory = { _, _ -> FakeEngine() }, clock = { 0 })

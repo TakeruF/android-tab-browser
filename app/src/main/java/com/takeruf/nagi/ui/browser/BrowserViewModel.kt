@@ -87,6 +87,11 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     fun clearHistory() = action { container.library.clearHistory() }
     fun deleteHistory(id: Long) = action { container.library.deleteHistory(id) }
     fun updateSettings(change: (BrowserSettings) -> BrowserSettings) = action { container.settings.update(change) }
+    fun setSiteContentBlocking(host: String, enabled: Boolean, onApplied: (BrowserSettings) -> Unit) = action {
+        container.settings.update { it.copy(adBlockExcludedHosts =
+            if (enabled) it.adBlockExcludedHosts - host else it.adBlockExcludedHosts + host) }
+        onApplied(container.settings.settings.first())
+    }
     fun saveEngine(engine: SearchEngine) = action { container.engines.save(engine) }
     fun deleteEngine(id: String) = action { container.engines.delete(id) }
     fun defaultAiEngine(id: String) = action { container.engines.setDefaultAi(id) }

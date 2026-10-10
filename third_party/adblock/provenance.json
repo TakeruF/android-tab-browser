@@ -1,0 +1,23 @@
+{
+  "wrapperVersion": "0.1.3",
+  "sourceCommit": "ef24e5a4f70bae15463aa9af99981e908e9da5ef",
+  "artifactSha256": "8473059d1fb8d1407baff81cdbda12f14d0d655b4f0dd12236d5808d60c73018",
+  "sourcesSha256": "65716c1f59276375c02a262d502b4b111d3c0c2456acafc66a82725721015b26",
+  "readabilityVersion": "0.6.0",
+  "retrievedAt": "2026-10-10",
+  "files": {
+    "app/src/main/assets/browser/Readability.js": "34dcab3d0832d0019f02990eed6b6124e029e8c32b9f0c6f2550544ff8dff174",
+    "app/src/main/assets/adblock/easylist.txt": "8f63ddc54be73b9ead20d1e39c67421b20f7979faa89d212f2a5d17e111ef5b3",
+    "app/src/main/assets/adblock/easyprivacy.txt": "d78e48af935d750a6464727bb49e10d0c6974a989f7153cf3ab9c23f4c9c508c",
+    "app/src/main/jniLibs/armeabi-v7a/libadblock_ffi.so": "3e605348454208049be48dd1a0a284bde3e4be7b5feac338c61b99a187dc805d",
+    "app/src/main/jniLibs/x86/libadblock_ffi.so": "f484f4d0a0563e7f06691edf55b0eae346a95a70222ec0ab748aa00b9d5bfabf",
+    "app/src/main/jniLibs/arm64-v8a/libadblock_ffi.so": "3f82a15492542c7287ade1dd456c4670c9c6d5d4bf2c82f7c8c3a1316a5fd4b8",
+    "app/src/main/jniLibs/x86_64/libadblock_ffi.so": "c2527989f00359728b6dcb1107ea52fa5a48d2e2a64b85c69b47af7f50d59a48",
+    "app/src/main/java/org/mlm/adblock/AdblockEngine.kt": "ae7227a64f9de4f0bfa9c7c8631baa44ec24ad96011337c3ebab1d9c265ccec4",
+    "app/src/main/java/org/mlm/adblock/RequestTypeMapper.kt": "2b977d50b96bdd5b94e088e6f8ae2154fb4cf8d5ec3fdb6f7355f5fc11223839",
+    "app/src/main/assets/adblock/adguard-japanese.txt": "99c4e2cc61203f84e2940542e28b77dcb1d27e1bdf178d9373b60a2e73051101",
+    "app/src/main/assets/adblock/adguard-webview-compat.txt": "54f618e9199b6170596ac8f10d90f743c00a3cdd9dc3d773d58be45d7dc82ffd"
+  },
+  "adguardJapaneseVersion": "2.0.77.34",
+  "adguardJapaneseSource": "https://filters.adtidy.org/extension/chromium/filters/7.txt"
+}

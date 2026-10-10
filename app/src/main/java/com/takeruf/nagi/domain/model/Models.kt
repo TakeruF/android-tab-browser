@@ -65,6 +65,8 @@ data class BrowserSettings(
     val blockExternalApps: Boolean = false,
     val autoVideoPip: Boolean = true,
     val videoPopups: Boolean = true,
+    val adBlockingEnabled: Boolean = true,
+    val adBlockExcludedHosts: Set<String> = emptySet(),
 )
 
 data class WorkspaceSnapshot(

@@ -15,7 +15,9 @@ import com.takeruf.nagi.ui.browser.KeyboardShortcuts
 import com.takeruf.nagi.ui.browser.Shortcut
 import kotlinx.coroutines.flow.MutableSharedFlow
 
-class MainActivity : ComponentActivity() {
+open class MainActivity : ComponentActivity() {
+    open val isPrivateBrowsing: Boolean = false
+    var disposeSessions: (() -> Unit)? = null
     var shortcutHandler: ((Shortcut) -> Boolean)? = null
     private lateinit var host: NativeBrowserHost
     lateinit var updateInstaller: com.takeruf.nagi.updates.UpdateInstaller
@@ -37,18 +39,34 @@ class MainActivity : ComponentActivity() {
                     val pointerEvent = MotionEvent.obtain(event)
                     try {
                         pointerEvent.source = InputDevice.SOURCE_MOUSE
-                        return originalCallback.dispatchGenericMotionEvent(pointerEvent)
+                        return com.takeruf.nagi.ui.browser.TouchpadScrollDispatch.dispatch {
+                            originalCallback.dispatchGenericMotionEvent(pointerEvent)
+                        }
                     } finally { pointerEvent.recycle() }
                 }
                 return originalCallback.dispatchGenericMotionEvent(event)
             }
         }
         if (savedInstanceState == null) handleIntent(intent)
-        val container = (application as NagiApplication).container
+        val container = if (isPrivateBrowsing)
+            androidx.lifecycle.ViewModelProvider(this)[PrivateWorkspace::class.java].container
+        else (application as NagiApplication).container
+        if (isPrivateBrowsing) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         updateInstaller = com.takeruf.nagi.updates.UpdateInstaller(this, container.updates)
         setContent { NagiApp(this, host, container, incomingUrls) }
     }
+    fun openPrivateBrowsing() {
+        if (isPrivateBrowsing) return
+        if (!com.takeruf.nagi.browser.privacy.PrivateProfiles.supported()) {
+            host.showMessage(getString(R.string.ui_private_unavailable)); return
+        }
+        startActivity(Intent(this, PrivateActivity::class.java))
+    }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (isPrivateBrowsing) outState.clear()
+    }
     private fun handleIntent(intent: Intent) {
         intent.dataString?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { incomingUrls.tryEmit(it) }
     }
@@ -68,5 +86,21 @@ class MainActivity : ComponentActivity() {
         if (pipState.isTransitioningToPip) host.video.onPipTransition()
     }
     override fun onStop() { host.video.onStopped(); super.onStop() }
-    override fun onDestroy() { host.dispose(); super.onDestroy() }
+    override fun onDestroy() { disposeSessions?.invoke(); host.dispose(); super.onDestroy() }
+}
+
+class PrivateActivity : MainActivity() {
+    override val isPrivateBrowsing = true
+}
+
+class PrivateWorkspace(application: android.app.Application) : androidx.lifecycle.AndroidViewModel(application) {
+    private val normal = (application as NagiApplication).container
+    val container = AppContainer(application, com.takeruf.nagi.browser.privacy.PrivateProfiles.create(),
+        normal.settings, normal.adBlocker, normal.workspace)
+    override fun onCleared() {
+        container.closePrivateWorkspace()
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            com.takeruf.nagi.browser.privacy.PrivateProfiles.clear(container.privateProfileName!!)
+        }
+    }
 }

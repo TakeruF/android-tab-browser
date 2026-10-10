@@ -309,4 +309,25 @@
     <string name="ui_video_fullscreen">全屏</string>
     <string name="ui_video_return">返回标签页</string>
     <string name="ui_video_popup_failed">无法在小窗口中打开此视频。请先尝试视频的全屏按钮。</string>
+    <string name="ui_ad_blocking">"广告与跟踪器拦截"</string>
+    <string name="ui_ad_blocking_description">"使用 EasyList 和 EasyPrivacy。更改后请重新加载页面。"</string>
+    <string name="ui_enable_site_blocking">"在此网站启用拦截（已拦截 %1$d 项）"</string>
+    <string name="ui_disable_site_blocking">"在此网站关闭拦截（已拦截 %1$d 项）"</string>
+    <string name="ui_private_mode">"无痕浏览"</string>
+    <string name="ui_close_private_mode">"结束无痕浏览"</string>
+    <string name="ui_private_description">"使用独立的网站数据，结束无痕浏览后会清除标签页和网站数据。已保存的下载文件仍会保留。"</string>
+    <string name="ui_private_unavailable">"请更新 Android System WebView 后使用无痕浏览。"</string>
+    <string name="ui_reader_mode">"阅读模式"</string>
+    <string name="ui_exit_reader">"返回原网页"</string>
+    <string name="ui_reader_unavailable">"无法从此页面提取文章正文。"</string>
+    <string name="ui_blocking_pause_visit">本次访问不拦截</string>
+    <string name="ui_blocking_resume_visit">恢复拦截</string>
+    <string name="ui_blocking_always_disable">此网站始终不拦截</string>
+    <string name="ui_blocking_always_enable">在此网站启用拦截</string>
+    <string name="ui_blocking_active">正在拦截广告和跟踪器</string>
+    <string name="ui_blocking_paused_visit">本次访问已暂停拦截</string>
+    <string name="ui_blocking_disabled_site">此网站不拦截</string>
+    <string name="ui_blocking_disabled_global">设置中已关闭拦截</string>
+    <string name="ui_blocking_count">此页面已拦截 %1$d 个请求</string>
+    <string name="ui_blocking_visit_scope">新标签页和同一网站的子域名也适用。关闭该网站的所有标签页或全部转到其他网站后结束。</string>
 </resources>

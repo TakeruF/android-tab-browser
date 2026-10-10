@@ -32,6 +32,8 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/upload_paths" />
         </provider>
+        <activity android:name=".PrivateActivity" android:exported="false" android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize" />
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize">

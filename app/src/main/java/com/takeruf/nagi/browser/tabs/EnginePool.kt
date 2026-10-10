@@ -17,6 +17,30 @@ class EnginePool(
     private val checking = mutableSetOf<String>()
     private var visible = emptySet<String>()
     private var videoPopupsEnabled = true
+    private val tabSites = mutableMapOf<String, String?>()
+    private val pausedSites = mutableSetOf<String>()
+    fun onPageChanged(id: String, url: String) {
+        tabSites[id] = com.takeruf.nagi.browser.blocking.blockingSite(url)
+        expireVisits()
+    }
+    fun setVisitBlockingPaused(url: String, paused: Boolean) {
+        val site = com.takeruf.nagi.browser.blocking.blockingSite(url) ?: return
+        if (paused) pausedSites.add(site) else pausedSites.remove(site)
+        applyVisitExceptions()
+    }
+    private fun expireVisits() {
+        if (pausedSites.retainAll(tabSites.values.filterNotNull().toSet())) applyVisitExceptions()
+    }
+    private fun applyVisitExceptions() {
+        val sites = pausedSites.toSet()
+        engines.values.forEach { it.configureVisitBlockingExceptions(sites) }
+    }
+    private var adBlockingEnabled = true
+    private var adBlockExcludedHosts = emptySet<String>()
+    fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {
+        adBlockingEnabled = enabled; adBlockExcludedHosts = excludedHosts
+        engines.values.forEach { it.configureContentBlocking(enabled, excludedHosts) }
+    }
     fun setVideoPopupsEnabled(enabled: Boolean) {
         if (videoPopupsEnabled == enabled) return
         videoPopupsEnabled = enabled
@@ -38,11 +62,14 @@ class EnginePool(
         accessed[id] = clock()
         engines[id]?.let { return it }
         val previous = saved.remove(id)
+        tabSites[id] = com.takeruf.nagi.browser.blocking.blockingSite(previous?.page?.url ?: url)
         val engine = factory(id, previous?.page?.desktopMode ?: desktop)
         engines[id] = engine
         engine.setVideoPopupEnabled(videoPopupsEnabled)
-        onCreate(id, engine)
+        engine.configureContentBlocking(adBlockingEnabled, adBlockExcludedHosts)
+        engine.configureVisitBlockingExceptions(pausedSites.toSet())
         if (previous?.snapshot == null || !engine.restoreState(previous.snapshot)) engine.loadUrl(previous?.page?.url ?: url)
+        onCreate(id, engine)
         engine.setVisible(id in visible)
         return engine
     }
@@ -71,9 +98,14 @@ class EnginePool(
                 }
             }
     }
-    fun retainTabIds(ids: Set<String>) {
+    fun retainTabIds(ids: Set<String>, tabUrls: Map<String, String> = emptyMap()) {
         engines.keys.filter { it !in ids }.toList().forEach(::remove)
         saved.keys.filter { it !in ids }.toList().forEach { saved.remove(it); onRemove(it) }
+        tabSites.keys.retainAll(ids)
+        tabUrls.filterKeys { it !in engines && it !in saved }.forEach { (id, url) ->
+            tabSites[id] = com.takeruf.nagi.browser.blocking.blockingSite(url)
+        }
+        expireVisits()
         accessed.keys.retainAll(ids)
         visible = visible.intersect(ids); protected = protected.intersect(ids)
     }
@@ -86,7 +118,7 @@ class EnginePool(
     fun destroyAll() {
         engines.keys.toList().forEach(::remove)
         saved.keys.toList().forEach(onRemove)
-        saved.clear(); accessed.clear(); checking.clear()
+        saved.clear(); accessed.clear(); checking.clear(); tabSites.clear(); pausedSites.clear()
         visible = emptySet(); protected = emptySet()
     }
 }

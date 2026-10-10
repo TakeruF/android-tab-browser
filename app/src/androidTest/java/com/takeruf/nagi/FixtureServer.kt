@@ -71,7 +71,16 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     client.getOutputStream().write(data)
                     return@use
                 }
-                val body = if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
+                val body = if (path.startsWith("/article")) """
+                    <html><head><title>Reading fixture</title></head><body>
+                    <nav>Navigation should disappear</nav><article><h1>Reading fixture</h1>
+                    <p class="byline">By Nagi Test</p>
+                    ${("<p>Reader mode helps people read long articles without navigation or advertisements. This paragraph discusses browsing, studying and retaining a live page while reading its extracted text. 日本語と中文と한국어を含む本文です。</p>").repeat(12)}
+                    </article><input id="draft" value="initial"><script src="${if (path.contains("local-ad")) "/ads/custom_ads.js" else "https://googleads.g.doubleclick.net/pagead/test.js"}"></script>
+                    </body></html>
+                """
+                else if (path.startsWith("/privacy")) "<html><head><title>Private fixture</title></head><body>Isolated storage</body></html>"
+                else if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
                 else if (path.startsWith("/ua")) "<html><head><meta name='referrer' content='unsafe-url'><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Android")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
                 else if (path.startsWith("/video-frame")) """
                     <html><head><title>Video Frame</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>

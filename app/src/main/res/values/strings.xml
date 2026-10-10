@@ -310,4 +310,25 @@
     <string name="ui_video_fullscreen">Fullscreen</string>
     <string name="ui_video_return">Return to tab</string>
     <string name="ui_video_popup_failed">Could not open this video in a small window. Try the full-screen button on the video first.</string>
+    <string name="ui_ad_blocking">"Ad and tracker blocking"</string>
+    <string name="ui_ad_blocking_description">"Uses EasyList and EasyPrivacy. Reload the page after changing this setting."</string>
+    <string name="ui_enable_site_blocking">"Enable blocking on this site (%1$d blocked)"</string>
+    <string name="ui_disable_site_blocking">"Disable blocking on this site (%1$d blocked)"</string>
+    <string name="ui_private_mode">"Private browsing"</string>
+    <string name="ui_close_private_mode">"Close private browsing"</string>
+    <string name="ui_private_description">"Private tabs use separate site data. Closing private browsing clears its tabs and site data. Downloads you save remain on the device."</string>
+    <string name="ui_private_unavailable">"Update Android System WebView to use private browsing."</string>
+    <string name="ui_reader_mode">"Reader mode"</string>
+    <string name="ui_exit_reader">"Original page"</string>
+    <string name="ui_reader_unavailable">"No readable article was found on this page."</string>
+    <string name="ui_blocking_pause_visit">Pause blocking for this visit</string>
+    <string name="ui_blocking_resume_visit">Resume blocking</string>
+    <string name="ui_blocking_always_disable">Always allow ads on this site</string>
+    <string name="ui_blocking_always_enable">Enable blocking on this site</string>
+    <string name="ui_blocking_active">Blocking ads and trackers</string>
+    <string name="ui_blocking_paused_visit">Paused for this visit</string>
+    <string name="ui_blocking_disabled_site">Allowed on this site</string>
+    <string name="ui_blocking_disabled_global">Blocking is off in settings</string>
+    <string name="ui_blocking_count">%1$d requests blocked on this page</string>
+    <string name="ui_blocking_visit_scope">Applies to this site, including new tabs, until all its tabs leave or close.</string>
 </resources>

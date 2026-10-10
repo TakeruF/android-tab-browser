@@ -10,6 +10,11 @@ data class PageState(
     val desktopMode: Boolean = false, val error: String? = null,
     val findMatches: Int = 0, val activeFindMatch: Int = 0,
     val isSuspended: Boolean = false,
+    val blockedRequests: Int = 0,
+    // The session-only site exception currently applying to this document.
+    val visitBlockingExceptionSite: String? = null,
+    val readerArticle: com.takeruf.nagi.browser.reader.ReaderArticle? = null,
+    val readerLoading: Boolean = false,
 )
 
 sealed interface EngineEvent {
@@ -30,12 +35,17 @@ interface BrowserEngine {
     fun goForward()
     fun canGoBack(): Boolean
     fun canGoForward(): Boolean
+    /** Whether page/nested content under native surface coordinates can consume a horizontal scroll. */
+    fun canScrollHorizontallyAt(x: Float, y: Float, direction: Int, result: (Boolean) -> Unit) { result(true) }
     fun evaluateJavascript(script: String)
     fun setDesktopMode(enabled: Boolean)
     fun findInPage(query: String)
     fun findNext(forward: Boolean)
     fun clearFind()
     fun setVideoPopupEnabled(enabled: Boolean) {}
+    fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {}
+    fun configureVisitBlockingExceptions(sites: Set<String>) {}
+    fun toggleReader() {}
     fun setVisible(visible: Boolean)
     fun saveState(): EngineSnapshot?
     fun restoreState(snapshot: EngineSnapshot): Boolean

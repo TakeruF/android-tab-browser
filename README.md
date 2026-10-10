@@ -4,7 +4,7 @@ A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpac
 
 ![Nagi 0.1.1 in the light theme](docs/screenshots/readme-home.png)
 
-[Download Nagi 0.2.1](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.2.1)
+[Download Nagi 0.3.0](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.3.0)
 
 Install the APK over the 0.1.0 version distributed at takeruf.com to keep your workspace. That version does not include an updater; after installing 0.1.2, use **Settings → App updates** for future releases. Local Debug builds and the former `com.orbit.browser` package have different signing or package identities.
 
@@ -62,6 +62,7 @@ Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), al
 - Long-press a link/image to drag it, and drop a link on either pane address bar to navigate that pane. Images can be dragged to Android drop targets. Right-click for Nagi link/image actions. Turn off “Drag links and images” in Settings to restore the long-press action menu.
 - Drag the Split divider to resize. Drop a tab onto either pane or use the tab menu to show it on the right; swap or exit Split from the page menu.
 - Drag the sidebar boundary right to expand/resize, or far left to collapse.
+- Swipe two fingers right on the trackpad to go back, or left to go forward. In Split, the gesture applies to the pane under the pointer. Trackpad gestures preserve horizontal page/nested scrolling; a gesture at the end of history keeps the tab open.
 
 | Shortcut | Action |
 | --- | --- |
@@ -89,7 +90,11 @@ Archive runs on launch and on manual request.
 - User-initiated `target="_blank"` and `window.open` with a URL are supported. Popups that write documents into `about:blank` are not.
 - HTTP downloads use DownloadManager. Main-frame Blob/data exports up to 32 MB use a bounded page-file transfer after confirmation, then save to Downloads. Android 8–9 uses app-specific Downloads; Android 10+ uses public Downloads. Generated downloads need a supported WebView message API; iframe-generated exports are not supported.
 - Uploads use the system document picker, with a photo option for single-image or unrestricted uploads. Image capture requests open the camera directly and return a scoped content URI. Camera output is JPEG; video/audio capture and folder uploads are not implemented.
-- Sync, Reader, in-app AI chat, Userscripts, Content Blocking, and Private Browsing are not implemented.
+- Sync, in-app AI chat, and Userscripts are not implemented.
+- Advertisement/tracker blocking uses Brave adblock-rust, EasyList/EasyPrivacy, and AdGuard's Japanese filter, with a global switch, site exceptions, and site-session pause/resume. Site-specific cosmetic rules also collapse matching advertising containers.
+- Reader mode uses Mozilla Readability with sanitized HTML, adjustable font size and the app theme.
+- Private browsing uses isolated AndroidX WebView profiles and an in-memory workspace. It requires runtime support for MULTI_PROFILE and DELETE_BROWSING_DATA. Closing the private Activity clears its site data; stale profiles after abrupt termination are removed on the next cold startup.
+- See [content blocking, private browsing, and Reader](docs/PRIVACY_READER_BLOCKING.md) for behavior, OSS provenance, and limitations.
 - ChatGPT integration opens `https://chatgpt.com/?q=…` without an API key or page-content submission. Login, query prefill, and sending depend on ChatGPT; successful answers/login are not established by URL-handoff tests.
 
 Search templates must use HTTPS and `{query}`. The 15 built-in engines include Baidu (`bd`), Sogou (`sg`), 360 (`360`), Douyin (`dy`), Shenma (`sm`), Qwen (`qwen`), and Perplexity (`pplx`). Qwen includes the mainland-China region label in Settings and a shorter name in suggestions.

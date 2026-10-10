@@ -1,0 +1,32 @@
+<en-US>
+• Advertisement and tracker blocking with a shield, site exceptions, and pause/resume for a visit.
+• Private browsing with an isolated workspace and website storage on supported WebView versions.
+• Reader mode with adjustable text size.
+• Automatic picture-in-picture and movable in-browser video playback.
+• Two-finger trackpad Back/Forward gestures.
+• Narrow panes keep Share, Copy link, then blocking; hidden actions move to the top of the menu.
+</en-US>
+<ja-JP>
+・広告・トラッカーのブロック、サイトごとの例外、訪問中の一時停止・再開。
+・対応WebViewで、独立したワークスペースとサイトデータを使うプライベートブラウジング。
+・文字サイズを調整できるReaderモード。
+・自動ピクチャーインピクチャーと、移動できるアプリ内動画プレーヤー。
+・トラックパッドの2本指ジェスチャーで戻る・進む。
+・狭いペインでは共有、リンクコピー、広告ブロックの順に残し、隠れた項目だけメニュー上部へ移動。
+</ja-JP>
+<zh-CN>
+・广告和跟踪器拦截，支持网站例外及本次访问的暂停与恢复。
+・在受支持的 WebView 上使用独立工作区和网站存储进行隐私浏览。
+・可调节文字大小的阅读模式。
+・自动画中画和可移动的应用内视频播放器。
+・触控板双指手势后退和前进。
+・窄窗格按分享、复制链接、广告拦截的优先级保留按钮；隐藏的操作移至菜单顶部。
+</zh-CN>
+<ko-KR>
+・광고 및 추적기 차단, 사이트별 예외, 이번 방문의 차단 일시 중지와 재개.
+・지원되는 WebView에서 독립된 작업 공간과 사이트 저장소를 사용하는 비공개 탐색.
+・글자 크기를 조절할 수 있는 읽기 모드.
+・자동 화면 속 화면 및 이동 가능한 앱 내 동영상 플레이어.
+・트랙패드 두 손가락 제스처로 뒤로 및 앞으로 이동.
+・좁은 창에서는 공유, 링크 복사, 광고 차단 순으로 버튼을 유지하며 숨겨진 작업만 메뉴 상단에 표시.
+</ko-KR>

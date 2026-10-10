@@ -8,6 +8,10 @@ The 127 modules resolved from `releaseRuntimeClasspath` on 2026-10-04, including
 
 | Library / data | License / source |
 | --- | --- |
+| Mozilla Readability 0.6.0 | [Apache-2.0](app/src/main/assets/licenses/Readability-LICENSE.txt) |
+| Brave adblock-rust 0.13.2 / Android wrapper 0.1.3 | [MPL-2.0](app/src/main/assets/licenses/Adblock-MPL-2.0.txt), [Rust dependency notices](app/src/main/assets/licenses/Adblock-Rust-NOTICES.txt), [source and provenance](third_party/adblock/README.md) |
+| EasyList / EasyPrivacy, The EasyList authors | [CC-BY-SA-3.0](app/src/main/assets/licenses/EasyList-CC-BY-SA-3.0.txt), [source](https://easylist.to/) |
+| AdGuard Japanese filter, AdGuard filter authors | [GPL-3.0](app/src/main/assets/licenses/AdGuard-Filters-GPL-3.0.txt), [source](https://github.com/AdguardTeam/AdguardFilters/tree/master/JapaneseFilter) — separately bundled, unmodified filter data; [marked WebView compatibility derivative](app/src/main/assets/adblock/adguard-webview-compat.txt) |
 | AndroidX / Compose / Material icons / Room / DataStore | [Apache-2.0](https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt) |
 | Kotlin / Kotlinx Coroutines / Serialization / JetBrains annotations | [Apache-2.0 and individual Kotlin notices](https://github.com/JetBrains/kotlin/blob/v2.2.21/license/README.md) |
 | Coil 3.3.0 | [Apache-2.0](https://github.com/coil-kt/coil/blob/3.3.0/LICENSE.txt) |

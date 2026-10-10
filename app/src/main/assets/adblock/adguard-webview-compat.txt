@@ -1,0 +1,6 @@
+! Title: AdGuard Japanese WebView compatibility
+! License: GPL-3.0, AdGuard filter authors
+! Source: https://github.com/AdguardTeam/AdguardFilters/blob/master/JapaneseFilter/sections/specific.txt
+! Nagi modification, 2026-10-10: equivalent standard CSS for the existing parent-hiding rule.
+! Original: news.livedoor.com#?#.subSec:first-child > div[id^="div-gpt-ad"]:upward(1)
+news.livedoor.com##.subSec:first-child:has(> div[id^="div-gpt-ad"])

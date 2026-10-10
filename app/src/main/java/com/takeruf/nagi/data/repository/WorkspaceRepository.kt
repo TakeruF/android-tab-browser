@@ -19,7 +19,7 @@ class WorkspaceRepository(val database: NagiDatabase, private val settings: Sett
             SearchEngineOrder.sorted(engines.map { it.model() }) { it.id }, history.map { it.model() }, bookmarks.map { it.model() })
     }
 
-    suspend fun initialize() {
+    suspend fun initialize(initialEngines: List<SearchEngine>? = null) {
         try {
             database.withTransaction {
                 if (dao.spaces().isEmpty()) {
@@ -75,6 +75,10 @@ class WorkspaceRepository(val database: NagiDatabase, private val settings: Sett
                     } else dao.putSpace(space.copy(activeTabId = active.id))
                 }
                 dao.trimClosedTabs()
+                if (initialEngines != null) {
+                    dao.engines().forEach { dao.deleteEngine(it.id) }
+                    initialEngines.forEach { dao.putEngine(it.entity()) }
+                }
             }
             settings.markAiEnginesSeeded()
             settings.markAdditionalEnginesSeeded()

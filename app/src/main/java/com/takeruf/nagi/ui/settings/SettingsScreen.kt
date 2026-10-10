@@ -202,7 +202,18 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 TextButton(shape = NagiShapes.Rounded, onClick = { uriHandler.openUri(strings(R.string.ui_privacy_policy_url)) }) { Text(strings(R.string.ui_privacy_policy)) }
                 TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }
                 TextButton(shape = NagiShapes.Rounded, onClick = { clearSiteData = true }) { Text(strings(R.string.ui_clear_site_data)) }
-                Text(strings(R.string.ui_private_browsing_and_content_blocking_are_planned_for_a_later_release), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(strings(R.string.ui_ad_blocking))
+                        Text(strings(R.string.ui_ad_blocking_description), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(prefs.adBlockingEnabled, { enabled -> vm.updateSettings { it.copy(adBlockingEnabled = enabled) } },
+                        modifier = Modifier.testTag("ad-blocking-switch"))
+                }
+                Text(strings(R.string.ui_private_description), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing() }) {
+                    Text(strings(R.string.ui_private_mode))
+                }
             }
         } }
         item { updateSection() }

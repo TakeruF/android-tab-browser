@@ -29,6 +29,14 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
                 onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap,
+                onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->
+                    engine.configureContentBlocking(prefs.adBlockingEnabled, prefs.adBlockExcludedHosts)
+                    if (com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(engine.state.value.url) == host) {
+                        sessions.pool.setVisitBlockingPaused(engine.state.value.url, false)
+                        engine.reload()
+                    }
+                } },
+                onVisitBlockingChange = { paused -> sessions.pool.setVisitBlockingPaused(engine.state.value.url, paused) },
                 onCloseTab = {
                     val remaining = if (isRight) left else right
                     if (remaining != null) vm.closeSplitTab(tab.id, remaining.id, onCloseSplit)

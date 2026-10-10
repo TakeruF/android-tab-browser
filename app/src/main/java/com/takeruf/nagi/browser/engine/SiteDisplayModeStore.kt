@@ -11,14 +11,18 @@ class SiteDisplayModeStore(
     context: Context,
     private val preferences: SharedPreferences = context.applicationContext
         .getSharedPreferences("site_display_modes", Context.MODE_PRIVATE),
+    private val inMemory: Boolean = false,
 ) {
+    private val choices = mutableMapOf<String, Boolean>()
     fun desktopMode(url: String): Boolean? {
         val key = siteHost(url) ?: return null
+        if (inMemory) return choices[key]
         return if (preferences.contains(key)) preferences.getBoolean(key, false) else null
     }
 
     fun remember(url: String, desktop: Boolean) {
         val key = siteHost(url) ?: return
+        if (inMemory) { choices[key] = desktop; return }
         // apply() updates memory synchronously, before a new tab or Activity can read it.
         preferences.edit().putBoolean(key, desktop).apply()
     }

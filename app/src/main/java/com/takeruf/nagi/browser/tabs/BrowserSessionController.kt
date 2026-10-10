@@ -16,15 +16,18 @@ class BrowserSessionController(private val container: AppContainer,
     val pages = mutablePages.asStateFlow()
     val generation = MutableStateFlow(0)
     val openedTabs = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val pool = EnginePool(factory = factory, onCreate = { id, engine ->
+    val pool: EnginePool = EnginePool(factory = factory, onCreate = { id, engine ->
         collectors[id] = scope.launch {
-            launch { engine.state.collect { page -> mutablePages.update { it + (id to page) } } }
+            launch { engine.state.collect { page ->
+                pool.onPageChanged(id, page.url)
+                mutablePages.update { it + (id to engine.state.value) }
+            } }
             engine.events.collect { event -> when (event) {
                 is EngineEvent.Metadata -> withContext(Dispatchers.IO) {
                     container.tabs.updatePage(id, event.page.url, event.page.title, event.page.faviconUrl)
                 }
                 is EngineEvent.Visited -> withContext(Dispatchers.IO) {
-                    container.library.recordVisit(event.page.url, event.page.title, event.page.faviconUrl, id)
+                    if (!container.isPrivate) container.library.recordVisit(event.page.url, event.page.title, event.page.faviconUrl, id)
                 }
                 is EngineEvent.OpenTab -> {
                     val tab = container.workspace.dao.tab(id)
