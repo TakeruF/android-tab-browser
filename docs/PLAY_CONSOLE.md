@@ -1,5 +1,11 @@
 # Google Play closed-test preparation
 
+## 0.3.0 update — 2026-10-10
+
+Submitted versionCode 7/0.3.0 on the existing Alpha track, plus corrected English, Japanese, Chinese and Korean full descriptions. Publishing overview shows **Changes in review** for all five changes. Alpha remains **Active** and 0.2.1 remains available to selected testers while 0.3.0 is reviewed. The same Google Group, feedback address, join links and 178 countries/regions were compared before and after and match. The dashboard still reports 12 testers opted in for 3 days continuously. This is submission evidence, not approval or 0.3.0 tester delivery.
+
+Details and artifacts: [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md). No closed-test pause or tester/region change was performed.
+
 Prepared 2026-10-06 for Nagi 0.1.1 (`com.takeruf.nagi`, versionCode 2, targetSdk 36). This file contains submission copy and source-backed declaration guidance; it does not claim that Console forms have been saved, a release has been submitted, or a test is active.
 
 ## 0.1.3 update — 2026-10-06
@@ -109,7 +115,11 @@ Nagi supports touch, mouse, trackpad, hardware-keyboard shortcuts, and English, 
 
 Your workspace is stored on your device. You can clear browsing history and website cookies/storage in Settings. No Nagi account, subscription, or cloud synchronization is required. Google Play manages updates for this edition.
 
-Nagi is an early release. Cookies and site logins are shared across Spaces. Private browsing, content blocking, cloud sync, and an in-app AI chat are not available. Website compatibility, third-party logins, and AI-service behavior depend on those services and your Android WebView version.
+Block advertisements and trackers with a shield, persistent site exceptions, or pause/resume for a visit. Reader mode offers adjustable text size. Private browsing uses an isolated workspace and website storage on supported WebView versions. Closing the private workspace clears its website data; downloads and explicitly shared/copied information remain outside it.
+
+Use automatic picture-in-picture or movable in-browser video playback, and two-finger trackpad gestures for Back/Forward. Narrow panes prioritize Share, then Copy link, then blocking, with hidden actions at the top of the menu.
+
+Nagi is an early release. Normal Spaces share cookies and site logins. Cloud sync and an in-app AI chat are unavailable. Website compatibility, third-party logins, and AI-service behavior depend on those services and your Android WebView version.
 
 Privacy policy: https://takeruf.com/en/nagi/privacy
 Support: support@takeruf.com
@@ -130,7 +140,11 @@ NagiはAndroidタブレット向けのワークスペースブラウザです。
 
 ワークスペースは端末上に保存します。設定から履歴やCookie・サイトデータを削除できます。Nagiのアカウント登録やサブスクリプションは不要で、クラウド同期はありません。Google Play版の更新はGoogle Playから配信されます。
 
-Nagiは初期リリースです。Cookieとサイトへのログイン状態はSpace間で共有されます。プライベートブラウジング、コンテンツブロック、クラウド同期、アプリ内AIチャットは未対応です。サイト表示、外部サービスへのログイン、AIサービスの動作は各サービスとAndroid WebViewのバージョンに依存します。
+広告・トラッカーをブロックし、サイトごとの例外や訪問中の一時停止・再開を選べます。Readerモードでは文字サイズを調整できます。対応WebViewでは独立したワークスペースとサイトデータを使うプライベートブラウジングを利用できます。終了時にそのサイトデータを消去しますが、ダウンロードや明示的に共有・コピーした情報は外に残ります。
+
+自動ピクチャーインピクチャーや移動できるアプリ内動画プレーヤー、トラックパッドの2本指で戻る・進む操作に対応。狭いペインでは共有、リンクコピー、広告ブロックの順にボタンを残し、隠れた操作だけメニュー上部へ移します。
+
+Nagiは初期リリースです。通常のSpace間ではCookieとサイトへのログイン状態を共有します。クラウド同期とアプリ内AIチャットは未対応です。サイト表示、外部サービスへのログイン、AIサービスの動作は各サービスとAndroid WebViewのバージョンに依存します。
 
 プライバシーポリシー：https://takeruf.com/ja/nagi/privacy
 お問い合わせ：support@takeruf.com
@@ -153,7 +167,11 @@ Nagi 是专为 Android 平板打造的工作空间浏览器。你可以在侧边
 
 工作空间数据保存在你的设备上。你可以在设置中清除历史记录、Cookie 和网站数据。无需注册 Nagi 账号或付费订阅。目前不提供云同步。Google Play 版通过 Google Play 接收更新。
 
-Nagi 目前处于早期发布阶段。不同空间共享 Cookie 和网站登录状态。目前不支持无痕浏览、内容拦截、云同步或应用内 AI 聊天。网站兼容性、第三方登录以及 AI 服务的可用情况，取决于对应服务和 Android WebView 版本。
+支持广告和跟踪器拦截、网站例外及本次访问的暂停与恢复。阅读模式可调节文字大小。在受支持的 WebView 上，隐私浏览使用独立的工作区和网站存储；关闭隐私工作区时会清除其中的网站数据，但下载文件及明确分享或复制的信息仍保留在外部。
+
+支持自动画中画、可移动的应用内视频播放器，以及触控板双指后退和前进手势。窄窗格按分享、复制链接、广告拦截的优先级保留按钮，只将隐藏的操作移至菜单顶部。
+
+Nagi 目前处于早期发布阶段。普通空间共享 Cookie 和网站登录状态。目前不提供云同步或应用内 AI 聊天。网站兼容性、第三方登录以及 AI 服务的可用情况，取决于对应服务和 Android WebView 版本。
 
 隐私政策：https://takeruf.com/zh/nagi/privacy
 联系邮箱：support@takeruf.com
@@ -174,7 +192,11 @@ Nagi는 Android 태블릿용 워크스페이스 브라우저입니다. 사이드
 
 워크스페이스는 기기에 저장됩니다. 설정에서 방문 기록과 쿠키·사이트 데이터를 삭제할 수 있습니다. Nagi 계정 등록이나 구독이 필요하지 않으며 클라우드 동기화는 없습니다. Google Play 버전은 Google Play를 통해 업데이트됩니다.
 
-Nagi는 초기 릴리스입니다. Space 간 쿠키와 사이트 로그인 상태는 공유됩니다. 비공개 탐색, 콘텐츠 차단, 클라우드 동기화와 앱 내 AI 채팅은 제공되지 않습니다. 웹사이트 호환성, 타사 로그인 및 AI 서비스의 동작은 해당 서비스와 Android WebView 버전에 따라 달라집니다.
+광고와 추적기를 차단하고 사이트 예외를 저장하거나 이번 방문의 차단을 일시 중지하고 재개할 수 있습니다. 읽기 모드에서는 글자 크기를 조절할 수 있습니다. 지원되는 WebView에서 비공개 탐색은 분리된 작업 공간과 사이트 저장소를 사용합니다. 비공개 작업 공간을 닫으면 해당 사이트 데이터가 삭제되지만 다운로드와 명시적으로 공유하거나 복사한 정보는 외부에 남습니다.
+
+자동 화면 속 화면, 이동 가능한 앱 내 동영상 플레이어, 트랙패드 두 손가락 뒤로/앞으로 제스처를 지원합니다. 좁은 창에서는 공유, 링크 복사, 광고 차단 순으로 버튼을 유지하고 숨겨진 작업만 메뉴 상단으로 이동합니다.
+
+Nagi는 초기 릴리스입니다. 일반 Space는 쿠키와 사이트 로그인 상태를 공유합니다. 클라우드 동기화와 앱 내 AI 채팅은 제공되지 않습니다. 웹사이트 호환성, 타사 로그인 및 AI 서비스의 동작은 해당 서비스와 Android WebView 버전에 따라 달라집니다.
 
 개인정보 처리방침: https://takeruf.com/ko/nagi/privacy
 지원: support@takeruf.com
