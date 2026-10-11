@@ -120,7 +120,7 @@ See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains 
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest --no-parallel
 ```
 
-Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md).
+Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). See [1.0.0 publication verification](docs/RELEASE_1.0.0_VERIFICATION.md) for the current release; the following table records the prior 0.3.0 release.
 
 The recorded [0.3.0 verification on 2026-10-10](docs/RELEASE_0.3.0_VERIFICATION.md) used JDK 17 / SDK 36 and an API-36 ARM64 emulator:
 
