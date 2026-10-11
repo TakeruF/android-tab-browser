@@ -120,19 +120,17 @@ See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains 
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest --no-parallel
 ```
 
-Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). See [1.0.0 publication verification](docs/RELEASE_1.0.0_VERIFICATION.md) for the current release; the following table records the prior 0.3.0 release.
-
-The recorded [0.3.0 verification on 2026-10-10](docs/RELEASE_0.3.0_VERIFICATION.md) used JDK 17 / SDK 36 and an API-36 ARM64 emulator:
+Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). The recorded [1.0.0 verification on 2026-10-11](docs/RELEASE_1.0.0_VERIFICATION.md) used JDK 17 / SDK 36 and an API-36 ARM64 emulator:
 
 | Check | Result |
 | --- | --- |
-| Unit tests | GitHub 145 and Play 134 passed; no failures, errors, or skips |
-| Targeted instrumentation | 32 cases passed in the final combined run |
-| Release Lint | 0 errors; 48 GitHub and 59 Play warnings |
+| Unit tests | GitHub 147 and Play 136 passed; no failures, errors, or skips |
+| Targeted instrumentation | 29 cases passed in the final combined Play Debug run |
+| Release Lint | 0 errors; 51 GitHub and 62 Play warnings |
 | Signed GitHub APK / Play AAB | Built from a clean release-source checkout; signatures, alignment, and bundle validation checked |
-| Public 0.2.1 → 0.3.0 APK upgrade | Saved tab and full URL retained after cold launch |
+| Public 0.3.0 → 1.0.0 APK upgrade | Saved tab and full URL retained after cold launch |
 
-Replace `emulator-5554` with your device serial. These are recorded release results, not a claim that the entire instrumentation suite ran for 0.3.0. [Validation records](docs/VALIDATION.md) distinguish historical runs, source/build checks, emulator evidence, and distribution checks. Physical devices, manufacturer-specific IMEs, real camera/microphone/location/trackpad hardware, Android 8–15 device behavior, and general production video compatibility remain unverified; updater unit tests cover API 26 and 35 with Robolectric.
+Replace `emulator-5554` with your device serial. These are recorded release results; the complete instrumentation suite was not run for 1.0.0. [Validation guidance](docs/VALIDATION.md) covers repeatable checks, retained evidence, and remaining device validation. Physical devices, manufacturer-specific IMEs, real camera/microphone/location/trackpad hardware, Android 8–15 device behavior, and general production video compatibility remain unverified; updater unit tests cover API 26 and 35 with Robolectric.
 
 | Dark theme | Split browsing |
 | --- | --- |

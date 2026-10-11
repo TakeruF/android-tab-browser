@@ -11,7 +11,7 @@ Verified 2026-10-10. Package `com.takeruf.nagi`, versionCode `7`, minSdk 26, tar
 - Play AAB: 14,295,150 bytes; SHA-256 `83568f9a61f7175721374080508588802a3f5faa16246f2e81f75b4e374e17cd`. JAR signature and bundletool validation passed. Manifest has version 7/0.3.0 and excludes the APK installer permission and updater provider; Play R8 output excludes the GitHub updater implementation.
 - [GitHub v0.3.0](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.3.0) is public and latest, with the APK, `update.json`, and `SHA256SUMS`. Re-downloaded public latest metadata and APK; version, size, checksum, and bytes match the signed local artifact.
 
-Local build/runtime/upgrade evidence is retained in ignored `artifacts/0.3.0/validation/`; public downloads are in `artifacts/0.3.0/public-verification/`.
+The previous signed APK/AAB and update metadata/checksums remain in ignored `artifacts/0.3.0/` for upgrade and recovery checks. The Console continuity JSON and upgrade screenshot remain in `validation/`; raw logs and repeated public downloads were removed during local cleanup.
 
 ## Google Play closed-test continuity
 
@@ -25,6 +25,6 @@ Evidence: [review submission](play-store/console-030-review.png), [active Alpha 
 
 Published through the EdgeOne project connected to `TakeruF/me` main. [PR 26](https://github.com/TakeruF/me/pull/26) merged as `33afe728d3e6cb13bf4ffa59bddcb0521047818f`; [PR 27](https://github.com/TakeruF/me/pull/27) aligns the lower story facts, date and release section, merged as `2a9da4ba19480d7fc48a63537182a5ff64e96514`. Both PRs passed GitHub web CI and Vercel preview checks. Local ESLint, four-language static builds and the 60-page export verification passed. Vercel checks are separate from the EdgeOne production serving takeruf.com.
 
-The four localized product pages, privacy policies and homepages were checked on the public domain. Product pages show 0.3.0 / 16.6 MB in the hero and story, the October 10 update date, new feature descriptions and the correct APK checksum. Privacy policies cover isolated private storage, Reader/blocking, local processing, and list-provider connections. The publicly downloaded APK matches the GitHub artifact exactly. All six older APK URLs remain available. Public HTML and the downloaded APK are retained in ignored `artifacts/0.3.0/website-verification/`.
+The four localized product pages, privacy policies and homepages were checked on the public domain. Product pages show 0.3.0 / 16.6 MB in the hero and story, the October 10 update date, new feature descriptions and the correct APK checksum. Privacy policies cover isolated private storage, Reader/blocking, local processing, and list-provider connections. The publicly downloaded APK matches the GitHub artifact exactly. All six older APK URLs remain available. The final verification JSON remains in ignored `artifacts/0.3.0/website-verification/`; downloaded HTML and the duplicate APK were removed during local cleanup.
 
 The original website worktree's 27 unrelated modified paths were preserved; site changes were built and committed in an isolated worktree. The dedicated release QA emulator was shut down after verification.

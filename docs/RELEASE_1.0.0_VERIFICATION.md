@@ -12,7 +12,7 @@ Verified 2026-10-11. Package `com.takeruf.nagi`, versionCode `8`, minSdk 26, tar
 - APK: 16,664,710 bytes; SHA-256 `82580f438c047e735761b1ab2b45b52e03f9da4082e0ddb4bb36a819f529c525`. Signature v2 and 16 KB ZIP alignment passed. Existing distribution-certificate SHA-256 remains `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`.
 - Play AAB: 14,388,733 bytes; SHA-256 `3c7da33e08066ebcc4180575757d5bb743d624d99d6069260b961f7fae4ca829`. JAR signature and bundletool validation passed. Manifest confirms version 8/1.0.0 and excludes `REQUEST_INSTALL_PACKAGES` and the GitHub update provider.
 
-Logs, XML reports, signed artifacts, installed bytes and upgrade screenshots are retained in ignored `artifacts/1.0.0/`. Physical fold transitions, older Android/WebView providers, and all website/advertisement patterns remain unverified.
+Signed artifacts, update metadata/checksums, final unit/instrumentation and Lint XML reports, installed package metadata, the Play manifest, Console comparison JSON, and the upgrade screenshot are retained in ignored `artifacts/1.0.0/`. Raw logs, interrupted/rerun outputs, repeated APK downloads, and the temporary bundletool JAR were removed during local cleanup. Physical fold transitions, older Android/WebView providers, and all website/advertisement patterns remain unverified.
 
 ## Google Play closed-test continuity
 
@@ -30,6 +30,6 @@ Evidence: [review submission](play-store/console-100-review.png), [Alpha release
 
 [Website PR 28](https://github.com/TakeruF/me/pull/28) merged as `223d624a626c7bf1a0917cd184a3a29a9a18c63a`. Local ESLint, four-language static builds, 60-page export verification, GitHub CI and Vercel preview checks passed. Desktop and 390px phone layouts were visually inspected and have no horizontal overflow. EdgeOne production checks are recorded separately from Vercel preview checks.
 
-EdgeOne production was verified at the canonical public URLs in all four languages. Product pages show 1.0.0 / 16.7 MB, the October 11 date, current release link/checksum and new feature descriptions. All four homepages and privacy routes return HTTP 200. The canonical website APK was downloaded and is byte-for-byte identical to the GitHub artifact. All seven older APK URLs remain available. Public HTML, APK and the final verification JSON are retained under ignored `artifacts/1.0.0/website-verification/`.
+EdgeOne production was verified at the canonical public URLs in all four languages. Product pages show 1.0.0 / 16.7 MB, the October 11 date, current release link/checksum and new feature descriptions. All four homepages and privacy routes return HTTP 200. The canonical website APK was downloaded and is byte-for-byte identical to the GitHub artifact. All seven older APK URLs remain available. The final verification JSON and live desktop screenshot are retained under ignored `artifacts/1.0.0/website-verification/`; downloaded HTML and the duplicate APK were removed during local cleanup. The canonical signed APK remains at `artifacts/1.0.0/nagi-1.0.0.apk`.
 
 The original website worktree's 27 unrelated modified paths were preserved. Site changes were committed and verified in an isolated worktree. The task's local preview server was stopped after verification; pre-existing emulators and the connected physical device were not shut down.

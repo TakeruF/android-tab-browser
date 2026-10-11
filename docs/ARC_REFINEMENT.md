@@ -46,31 +46,6 @@ No queries, browsing history, device IDs, or explicit IP parameters are submitte
 
 Favorites are shared local shortcuts, not persistent app-like tabs that preserve the original WebView's form/history state. Folders, resetting to pinned URLs, Peek, multi-tab dragging, Space drag ordering, and Arc Sync are not implemented.
 
-## Historical validation
+## Validation
 
-API-36 Pixel Tablet emulator `Orbit_Tablet_QA`, 2560 × 1600 / 320 dpi / landscape.
-
-| Check | Result |
-| --- | --- |
-| Debug / Release APK | Successful; Release was unsigned at this stage |
-| Unit tests | 34 passed; no failures/skips |
-| Android Lint | 0 errors |
-| Instrumentation tests | 16 passed |
-| Drag | Whole-row hold, immediate mouse drag, insertion, pin/unpin, cancellation, Favorite conversion/removal, Space movement, recreation, long-list auto-scroll |
-| Regression coverage | Browsing, history, Bookmarks, tab restoration, Split, engine editing, CJK composition, WebView features |
-| Region policy | Injected CN/HK/MO/TW/JP codes; IP priority, fallback, failures, caching/retry, concurrent manual choices, deleted-engine preservation |
-| Rendering | Captured and inspected Compose screens, previews, insertion lines, and settings |
-
-Injected country tests do not establish real mainland-China IP detection or network access. Physical touch/mouse validation is not included.
-
-Screenshots: [sidebar](screenshots/arc-sidebar.png), [drag](screenshots/arc-sidebar-drag.png), [regional search](screenshots/regional-search-settings.png), [Space editor](screenshots/arc-space-editor.png).
-
-```sh
-./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease \
-  :app:testDebugUnitTest :app:lintDebug
-adb -s emulator-5554 shell am instrument -w -r \
-  -e class com.takeruf.nagi.SidebarDragTest,com.takeruf.nagi.BrowserUiTest,com.takeruf.nagi.CjkInputTest,com.takeruf.nagi.WebViewEngineTest \
-  com.takeruf.nagi.test/androidx.test.runner.AndroidJUnitRunner
-```
-
-APK: `app/build/outputs/apk/debug/app-debug.apk`. Reports: `app/build/reports/tests/testDebugUnitTest/` and `app/build/reports/lint-results-debug.html`. Final instrumentation output was `OK (16 tests)`.
+Current commands and limitations are in [validation guidance](VALIDATION.md); dated release results are in [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md). Injected country tests do not establish real mainland-China IP detection or network access. Physical touch/mouse validation remains unverified.

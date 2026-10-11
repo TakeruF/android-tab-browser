@@ -1,48 +1,10 @@
 # Google Play closed-test preparation
 
-## 0.3.0 update — 2026-10-10
+## Latest recorded submission — 2026-10-11
 
-Submitted versionCode 7/0.3.0 on the existing Alpha track, plus corrected English, Japanese, Chinese and Korean full descriptions. Publishing overview shows **Changes in review** for all five changes. Alpha remains **Active** and 0.2.1 remains available to selected testers while 0.3.0 is reviewed. The same Google Group, feedback address, join links and 178 countries/regions were compared before and after and match. The dashboard still reports 12 testers opted in for 3 days continuously. This is submission evidence, not approval or 0.3.0 tester delivery.
+Nagi 1.0.0 (`com.takeruf.nagi`, versionCode 8, targetSdk 36) was submitted to the existing Alpha track with four-language release notes and store descriptions. The recorded Console state was **Changes in review**, with Alpha **Active** and 0.3.0 still available to selected testers. Tester selection, feedback address, join links, and all 178 country/region rows were unchanged. Submission does not establish approval or delivery to testers.
 
-Details and artifacts: [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md). No closed-test pause or tester/region change was performed.
-
-Prepared 2026-10-06 for Nagi 0.1.1 (`com.takeruf.nagi`, versionCode 2, targetSdk 36). This file contains submission copy and source-backed declaration guidance; it does not claim that Console forms have been saved, a release has been submitted, or a test is active.
-
-## 0.1.3 update — 2026-10-06
-
-- Follow-up Chinese copy correction: saved the revised zh-CN short and full descriptions below and submitted those two listing changes. Publishing overview confirms **Changes in review**, with quick checks running; this is submission evidence, not confirmation that the corrected listing is live. Screenshot: [Chinese copy review submission](play-store/console-zh-copy-review.jpg).
-- Updated only the zh-CN release notes for both 0.1.2 and 0.1.3 through **Edit release details**, preserving the release names and other three languages. Console confirmed **Release details updated**. The live Alpha detail page now shows 0.1.3 as **Available to selected testers**, and 0.1.2 as superseded. No new APK/AAB upload or rollout change was made for these text corrections.
-- Version `4 (0.1.3)` was uploaded and submitted to the existing **Alpha** closed-testing track with release notes in all four languages. Publishing overview confirms **Changes in review** with automated checks running.
-- After submission Alpha remains **Active**, 0.1.3 is **In review**, and 0.1.2 remains **Available to selected testers**. No pause, promotion, tester-list change, signing-key change or region change was performed.
-- `AndroidClosedJP@googlegroups.com`, `support@takeruf.com`, 178 countries/regions and both opt-in links remain unchanged. Dashboard count was 5 before the update and 6 afterwards. No 14-day completion is claimed.
-- Console reports no loss of supported devices. The sole release warning is the optional native debug-symbol recommendation.
-- Uploaded AAB SHA-256: `edd15232849edeb9c57f91ce3e17a96bfac166bd231e3c4d39f79d3a20a5ce6a`.
-- Website PR [#22](https://github.com/TakeruF/me/pull/22) merged as `805f071`. Main CI and Vercel deployment passed; the separate EdgeOne production was verified live in all four product/privacy locales and homepages. Website APK matches the GitHub release checksum; all 0.1.0/0.1.1/0.1.2 downloads remain available.
-- Evidence: [review submission](play-store/console-013-review.png), [active Alpha and both releases](play-store/console-013-alpha-active.png).
-
-## 0.1.2 update — 2026-10-06
-
-- Version `3 (0.1.2)` was uploaded to the existing **Alpha** closed-testing track and submitted with English, Japanese, Simplified Chinese and Korean release notes. Publishing overview shows **Changes in review**; quick checks are still running, so this is not approval or confirmation that 0.1.2 is already delivered.
-- After submission, the track remains **Active**, the 0.1.2 release is **In review**, and the 0.1.1 release remains **Available to selected testers**. No track pause, tester removal, new track, production promotion, country change or signing-key change was performed.
-- Testers remain `AndroidClosedJP@googlegroups.com`; feedback remains `support@takeruf.com`. The 178 countries/regions and existing Android/web opt-in links are unchanged. The pre-update dashboard showed 4 opted-in testers.
-- Console reports zero devices lost compared with the previous release across all form factors. The only release warning is the optional native debug-symbol file recommendation.
-- Uploaded AAB SHA-256: `a1c14c534ad3029d0bf91d8d513fe7fb26a97bc9532830f93efe3d8d2e13092a`. The APK updater remains excluded from Play. The existing Play app-signing certificate is retained.
-- Website PR [#21](https://github.com/TakeruF/me/pull/21) merged as `2c2a2b7`. Production checks verified all four product/privacy locales and the 0.1.2 APK, matching the GitHub release APK checksum. Older website APK downloads remain available.
-- Evidence: [review submission](play-store/console-012-review.png), [active Alpha and both releases](play-store/console-012-alpha-active.png).
-
-## Live Console progress (2026-10-06)
-
-- Distribution was expanded to all 178 Console options: 177 named countries/regions plus Rest of World. Store listing contact email was immediately published as `support@takeruf.com`; tester feedback email and support text in all four listing descriptions were saved and submitted in a seven-change update. **Changes in review** verifies acceptance of the updated submission (automated checks running again). Screenshot: `docs/play-store/console-countries-support-review.jpg`. IARC's administrative contact remains `me@takeruf.com`.
-
-- Store listing title is **Nagi Browser** in all four languages; launcher/app UI name remains **Nagi**. The four title changes were submitted via **Restart review** and verified under **Changes in review**, together with the existing Alpha release and declarations. This restarted the review; automated checks are running again. Screenshot: `docs/play-store/console-name-review.jpg`.
-
-- Play Console accepted the signed Play AAB as `com.takeruf.nagi`, version `2 (0.1.1)`, API 26+, target SDK 36. SHA-256: `fe0f4dd66a5f81f3da79b0098ee07a7174d82333e6874e297836672773cf2852`.
-- Closed testing / Alpha release `0.1.1 – Closed test` was included in the review submission. All 178 available countries/regions (including Rest of World) are now targeted. Test availability has not yet been confirmed.
-- Privacy policy, app access, ads, adult target audience, Data safety, government, financial and health declarations, Communication category and contact details were saved. English, Japanese, Simplified Chinese and Korean listing text and default visual assets were saved for review. The authored feature graphic carries the AI asset label; screenshots are actual Play release captures.
-- After explicit user confirmation, IARC Terms of Use were accepted and the content rating questionnaire completed. It identifies Nagi as a web browser with Unrestricted Internet (IARC Generic 3+, ESRB Everyone, PEGI 3). The intended target audience remains adults (18+). Testers were saved as `AndroidClosedJP@googlegroups.com`, with feedback sent to `support@takeruf.com`.
-- Play App Signing is already configured with a different certificate from the GitHub distribution certificate. Current Play SHA-256: `4E:89:50:A7:92:28:86:BA:49:50:48:ED:FD:C4:6F:00:91:34:F1:F4:C8:E6:52:64:EC:86:13:CA:51:E9:9E:49`. Upload certificate matches the existing Nagi distribution certificate. In-place switching between the current Play and GitHub APKs is therefore not supported.
-- Advertising ID was saved as **No**. Missing advertising-ID/content-rating declarations were resolved; tester configuration was saved. The optional native debug symbols warning remains.
-- All 17 changes were submitted using **Send changes for review**. The verified resulting Publishing overview state is **Changes in review**, with automated quick checks still running and the explanation that changes proceed to review when checks complete successfully. This proves the submission request was accepted, not approval or tester availability. Screenshot: `docs/play-store/console-review-submitted.jpg`.
+See [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) for the dated evidence. The declaration guidance and listing copy below support future submissions; check them against the exact uploaded artifact and current Console forms.
 
 ## Upload and signing
 

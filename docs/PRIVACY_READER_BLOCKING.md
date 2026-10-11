@@ -68,27 +68,7 @@ workspace/history/favicon separation. `PrivacyReaderUiTest` covers Reader
 controls, secure private Activity entry/exit, and site exception controls.
 Unit tests independently verify sanitization and memory-only settings.
 
-Validation on 2026-10-10: JDK 17 / SDK 36, Android 16 API-36 ARM64 emulator
-with WebView 133.0.6943.137. GitHub unit tests: 140 passed; Play unit tests:
-129 passed. Debug Lint: 0 errors, 47 warnings. Debug APK/test APK, signed
-GitHub Release APK and signed Play Release AAB built successfully.
-
-Initial feature instrumentation included six engine tests and three UI tests.
-The local HTTP fixture verifies a blocked script never reaches the server,
-and reaches it when the site exception is enabled. Request interception can
-precede onPageStarted; counters are therefore initialized at navigation and
-kept per document instead of being reset in onPageStarted.
-
-Reader rendering was visually checked at 1920 x 1200. Physical devices and
-older WebView provider versions have not been tested. Service-worker and
-WebSocket traffic are outside this WebViewClient interception integration.
-
-Regression instrumentation covered 36 cases across the new feature suites,
-CrossFeature, Split, site display modes, history, keyboard shortcuts, and video
-PiP/pop-outs. 35 passed in the combined run. One existing collapsed-Split
-title assertion raced WebView title updates; the fixture now waits for actual
-loaded titles, and that case passed on rerun.
-
+Final release results are in [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md). Physical devices and older WebView providers remain untested. Service-worker and WebSocket traffic are outside this WebViewClient interception integration. Request interception can precede onPageStarted, so counters are initialized at navigation and kept per document.
 
 ## Shield session follow-up (2026-10-10)
 
@@ -102,32 +82,6 @@ ending the workspace clears the exception. Private and normal pools stay separat
 OkHttp 4.12.0 is now an explicit dependency; its existing PSL data/notice was
 already included through Coil. Tests cover qq.com lookalikes, co.jp/co.uk,
 private suffixes such as github.io, local hosts, and unsupported URL schemes.
-
-GitHub unit tests: 145 passed; Play unit tests: 134 passed. Debug lint:
-0 errors, 49 warnings. Debug/test APKs and signed GitHub Release APK built;
-APK signature verification passed. Device-local engine tests confirm a new
-article tab permits the ad script while the shared visit is paused, an
-independent workspace still blocks it, and blocking resumes after the last
-site tab leaves. UI tests verify shield pause/resume and saved exception
-changes with automatic reload. A UI settings wait now advances the Compose
-clock instead of blocking its dispatcher while awaiting the write.
-
-Related instrumentation covers 33 distinct cases (7 engine cases and 26 UI/
-navigation cases). The combined regression run passed 25/26; one Split fixture
-raced a blank page attaching before its DAO URL seed. Setup now navigates the
-live pane explicitly before making the pair. All 11 Split cases passed on the
-final rerun. All 15 non-Split cases, including the shield controls, passed in
-the combined run. Popup and address-bar rendering were inspected at 1920 x
-1200. Validation used a dedicated API-36 ARM64 Nagi_Shield_QA emulator with
-WebView 133.0.6943.137; physical devices remain untested.
-
-The signed Release APK was also installed in that isolated emulator and cold
-launched via https://www.qq.com/. The Tencent homepage rendered successfully.
-A real touch opened the shield popup, which initially showed 55 blocked requests.
-Pausing caused the page to reload, changed the shield to its disabled state,
-and showed zero blocked requests plus the Resume control. Resume reloaded
-the page and restored the checked shield. Screenshots and
-build/instrumentation logs are retained in ignored artifacts/shield-session/.
 
 ## Advertising whitespace and shield appearance (2026-10-10)
 
@@ -145,50 +99,7 @@ The shield inherits its adjacent address actions' color. Its glyph is now
 position and touch target remain unchanged.
 Checked/off shapes and popup status communicate its state.
 
-GitHub unit tests: 145 passed; Debug lint: 0 errors, 49 warnings. The eight
-engine and five UI cases were exercised on the dedicated API-36 ARM64
-emulator. The first run passed 12/13; the added local cosmetic fixture needed
-to supply its base URL through WebView's history callback because
-`loadDataWithBaseURL` reports about:blank navigation metadata. The corrected
-case passed on rerun, verifying 110px/200px ad container collapse, retained
-120px editorial spacing, dynamic insertion, and pause/resume/global/saved
-exception behavior. No external site is required by that regression test.
-
-The signed GitHub Release APK built and passed signature verification. It
-was installed and cold-launched with the actual Asahi homepage; the large
-top ad gap disappeared while the masthead, navigation, and articles remained
-visible. The shield matches the adjacent copy/share icons. Evidence is in
-ignored `artifacts/cosmetic-blocking/`. Physical devices remain untested.
-
-Additional website QA used the signed Release APK on that same emulator:
-
-| Page | Result |
-| --- | --- |
-| Yahoo! News homepage and article | Headline, images, article text, and navigation remained visible; pause/resume switched request counts from 19/23 to 0 and back. |
-| QQ homepage | Homepage content and navigation rendered; pause showed 0 and resume restored filtering (counts vary as dynamic resources load). |
-| BBC News homepage | The large top advertising gap collapsed when blocking was active; pause restored the gap and resume removed it again. |
-| NHK News Web | Header/content and the initial usage notice rendered; pause/resume worked. The usage agreement was not accepted, so article interaction beyond that notice was not tested. |
-| Livedoor News homepage | Request filtering and pause/resume worked, but the first right-hand ad parent's reserved height remained. The upstream `:upward(1)` rule was adapted to equivalent standard `:has()` CSS in a separately attributed GPL-3.0 compatibility data file. |
-
-The compatibility data is appended after cached list updates, preserving the
-fix without modifying the original AdGuard subscription. Two local WebView
-regression cases passed on the final code, verifying both Asahi and Livedoor
-ad-parent collapse, retained editorial sections, and pause/resume behavior.
-Final Debug lint still reports 0 errors and 49 warnings. Screenshots, popup
-states, request counts, and the small native UI QA driver are retained in
-`artifacts/cosmetic-blocking/`; counts measure blocked requests, not ad units.
-The final signed Release APK was installed and Livedoor was rechecked through
-the real shield controls: its right-hand news column now starts directly below
-the header instead of after the empty ad frame. Pausing restores that frame;
-resume collapses it again while preserving news, navigation, and images.
-
-The shield's optical size follow-up increases only the address-bar glyph from
-16dp to 18dp to balance its narrower silhouette against the 16dp link/share
-icons. The inherited color and fixed action-button bounds remain unchanged.
-The signed Release APK was built, signature-verified, installed, and visually
-checked in the isolated API-36 emulator at density 240 in both checked and
-paused states. The popup opened normally and pause/resume controls worked.
-Evidence is retained in ignored `artifacts/shield-optical/`.
+The separately attributed GPL-3.0 compatibility data adapts Livedoor's upstream `:upward(1)` rule to equivalent standard `:has()` CSS, appended after cached list updates without modifying the original subscription. Local WebView regression cases cover Asahi and Livedoor ad-parent collapse, editorial preservation, and pause/resume. Request counts measure blocked requests, not ad units.
 
 ## Empty advertising containers (2026-10-11)
 
@@ -222,7 +133,7 @@ hosts, network-blocked images and iframes, retained editorial/interactive/media
 and CSS content, late insertion/removal, restoration when content appears,
 and pause/resume. Broader privacy/Reader/private-profile cases and existing
 resize/hidden-tab/Split draft preservation cases are included in validation.
-The earlier site-specific prototype evidence remains in `artifacts/mobile-ad-spacing/`;
-current common-logic reports and APK are in `artifacts/general-ad-collapse/`.
+Final common-logic/privacy regression XML results remain in ignored
+`artifacts/1.0.0/validation/`; superseded prototype outputs and Debug APKs were removed.
 Live-site coverage and its remaining limitations are recorded in
 [`AD_SLOT_COLLAPSE_VALIDATION.md`](AD_SLOT_COLLAPSE_VALIDATION.md).

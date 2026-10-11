@@ -14,4 +14,4 @@ An isolated working-tree snapshot avoids concurrent edits/builds affecting gener
 
 `HistorySwipeUiTest` exercises actual WebView history through window event dispatch: trackpad back/forward, one step per gesture/burst, touchscreen exclusion, cancellation, Android classified trackpad input, nested/page scrolling priority, Split targeting/focus, and history boundaries. All 7 cases and all 4 existing `BrowserScrollTest` regressions passed (11 total). Runtime evidence uses the API-36 `Nagi_History_QA` tablet emulator, 2560×1600 at 320dpi. Physical trackpad hardware and manufacturer drivers remain unverified. No release publication is included.
 
-Final evidence: `app/build/reports/history-swipe-validation/trackpad-only/final-instrumentation.txt`, `build-unit-lint.txt`, and `installed-apk.txt`. The installed APK matched `artifacts/history-swipe/nagi-two-finger-swipe-debug.apk` by SHA-256.
+The temporary Debug APK and raw feature logs were removed during local cleanup. The previous release's [publication verification](RELEASE_0.3.0_VERIFICATION.md) includes the combined gesture/scrolling regression coverage; test sources remain available for reruns.
