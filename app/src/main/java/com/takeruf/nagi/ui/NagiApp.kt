@@ -47,6 +47,10 @@ import com.takeruf.nagi.ui.settings.SettingsScreen
 import com.takeruf.nagi.ui.sidebar.*
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.toArgb
 import com.takeruf.nagi.ui.theme.NagiTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -73,16 +77,19 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, container: AppContainer,
     incomingUrls: Flow<String>, windowWidthDp: Float) {
     val strings = rememberNagiStrings()
     val vm: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
+    val systemPip by host.video.systemPip.collectAsState()
     var savedSidebarAdaptation by rememberSaveable(stateSaver = AdaptiveSidebarState.Saver) {
         mutableStateOf(AdaptiveSidebarState())
     }
-    val sidebarAdaptation = savedSidebarAdaptation.forWidth(windowWidthDp)
+    // A video PiP window is not a change to the browser's phone/tablet layout.
+    val sidebarAdaptation = if (systemPip) savedSidebarAdaptation else savedSidebarAdaptation.forWidth(windowWidthDp)
     SideEffect { savedSidebarAdaptation = sidebarAdaptation }
     val sidebarCollapsed = sidebarAdaptation.isCollapsed(state.settings.sidebarCollapsed)
     fun setSidebarCollapsed(collapsed: Boolean) {
@@ -92,17 +99,18 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
+    val desktopDefault = !sidebarAdaptation.compact && state.settings.desktopDefault
+    val currentDesktopDefault by rememberUpdatedState(desktopDefault)
     SideEffect { host.blockExternalApps = { currentSettings.blockExternalApps } }
     val sessions = remember(host) { BrowserSessionController(container) { tabId, desktop ->
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
             nativePageDrag = { currentSettings.nativePageDrag }, siteDisplayModes = container.siteDisplayModes,
-            defaultDesktopMode = { currentSettings.desktopDefault }, tabId = tabId,
+            defaultDesktopMode = { currentDesktopDefault }, tabId = tabId,
             adBlocker = container.adBlocker, privateProfileName = container.privateProfileName)
     } }
     val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()
     val video by host.video.presentation.collectAsState()
-    val systemPip by host.video.systemPip.collectAsState()
     val fullscreen = video?.takeUnless { it.popup }?.view
     SideEffect {
         host.video.autoPipEnabled = state.settings.autoVideoPip
@@ -134,6 +142,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     var previousSpaceId by rememberSaveable { mutableStateOf<String?>(null) }
     var rightFocused by rememberSaveable { mutableStateOf(false) }
     val sidebarDrag = remember { SidebarDragState() }
+    LaunchedEffect(sidebarAdaptation.compact, sidebarCollapsed) { sidebarDrag.cancel() }
     var splitRatio by rememberSaveable { mutableFloatStateOf(0.5f) }
     var showFind by rememberSaveable { mutableStateOf(false) }
     // A split belongs to its two tabs, independently of the selected standalone tab.
@@ -152,15 +161,18 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     DisposableEffect(container) { onDispose { container.tabs.protectFromArchive(emptySet()) } }
     fun navigate(destination: String) {
+        if (sidebarAdaptation.compact) setSidebarCollapsed(true)
         if (destination == "browser") nav.popBackStack("browser", inclusive = false)
         else nav.navigate(destination) { launchSingleTop = true; popUpTo("browser") }
     }
     fun openOmnibox(preselectUrl: Boolean = true) {
+        if (sidebarAdaptation.compact) setSidebarCollapsed(true)
         omniboxInitial = if (preselectUrl) (focusedEngine?.state?.value?.url ?: focusedTab?.url)
             ?.takeUnless { it == "about:blank" }.orEmpty() else ""
         omniboxOpen = true
     }
     fun newTab() {
+        if (sidebarAdaptation.compact) setSidebarCollapsed(true)
         scope.launch { pendingNewTabId = vm.createTab() }
     }
     // Wait for the selected tab to reach the UI before accepting search input.
@@ -175,7 +187,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     fun openUrl(url: String) {
         navigate("browser")
         val tab = focusedTab
-        if (tab != null) sessions.navigate(tab, url, state.settings.desktopDefault) else vm.newTab(url)
+        if (tab != null) sessions.navigate(tab, url, desktopDefault) else vm.newTab(url)
     }
     val canCloseTabOnBack = focusedTab != null && !focusedTab.isPinned && state.visibleTabs.size > 1
     fun back() {
@@ -209,7 +221,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         BrowserCommand.DESKTOP -> focusedEngine?.let { it.setDesktopMode(!it.state.value.desktopMode) }
     } }
     val shortcutHandler by rememberUpdatedState<(Shortcut) -> Boolean>({ shortcut ->
-        val escapeHandled = fullscreen != null || omniboxOpen || showFind
+        val escapeHandled = fullscreen != null || omniboxOpen || showFind || (sidebarAdaptation.compact && !sidebarCollapsed)
         when (shortcut) {
             Shortcut.OMNIBOX -> openOmnibox()
             Shortcut.NEW_TAB -> command(BrowserCommand.NEW_TAB)
@@ -235,6 +247,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 fullscreen != null -> host.hideFullscreen()
                 omniboxOpen -> omniboxOpen = false
                 showFind -> showFind = false
+                sidebarAdaptation.compact && !sidebarCollapsed -> setSidebarCollapsed(true)
                 else -> Unit
             }
         }
@@ -280,150 +293,209 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
     BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
     NagiTheme(state.settings.theme, state.currentSpace?.color ?: state.settings.themeColor) {
+        val compactNavigation = sidebarAdaptation.compact && route == "browser"
+        val navigationInsets = WindowInsets.navigationBars
+        val navigationDensity = LocalDensity.current
+        val navigationColor = MaterialTheme.colorScheme.surfaceContainerLow
+        val matchNavigationContrast = compactNavigation && fullscreen == null && !systemPip
+        DisposableEffect(activity.window, matchNavigationContrast) {
+            if (android.os.Build.VERSION.SDK_INT >= 29 && matchNavigationContrast) {
+                val previous = activity.window.isNavigationBarContrastEnforced
+                activity.window.isNavigationBarContrastEnforced = false
+                onDispose { activity.window.isNavigationBarContrastEnforced = previous }
+            } else if (matchNavigationContrast) {
+                @Suppress("DEPRECATION")
+                val previous = activity.window.navigationBarColor
+                onDispose {
+                    @Suppress("DEPRECATION")
+                    activity.window.navigationBarColor = previous
+                }
+            } else onDispose {}
+        }
+        SideEffect {
+            if (android.os.Build.VERSION.SDK_INT < 29 && matchNavigationContrast) {
+                @Suppress("DEPRECATION")
+                activity.window.navigationBarColor = navigationColor.toArgb()
+            }
+        }
         Surface(color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
             if (systemPip) Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
             else if (!state.ready) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (state.startupError != null) Text(strings(R.string.ui_workspace_could_not_be_opened_1_s, strings.translate(state.startupError.orEmpty()))) else CircularProgressIndicator()
-            } else Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            } else Box(Modifier.fillMaxSize().drawBehind {
+                // Paint behind the system navigation area before consuming the safe insets.
+                // Reading its size during drawing also follows live inset/IME changes.
+                if (compactNavigation) {
+                    val height = navigationInsets.getBottom(navigationDensity).toFloat().coerceIn(0f, size.height)
+                    drawRect(navigationColor, topLeft = Offset(0f, size.height - height), size = Size(size.width, height))
+                }
+            }.windowInsetsPadding(WindowInsets.safeDrawing)) {
                 val density = LocalDensity.current
                 var resizingWidth by remember { mutableStateOf<Float?>(null) }
                 var resizingCollapsed by remember { mutableStateOf<Boolean?>(null) }
                 val previewCollapsed = resizingCollapsed ?: sidebarCollapsed
                 val previewState = state.copy(settings = state.settings.copy(sidebarCollapsed = previewCollapsed))
                 val width = if (previewCollapsed) 72.dp else (resizingWidth ?: state.settings.sidebarWidth).dp
-                Row(Modifier.fillMaxSize()) {
-                    Box(Modifier.width(width).fillMaxHeight().padding(vertical = 8.dp).testTag("sidebar")) {
-                        Sidebar(previewState, vm, pages.filterValues { it.isLoading }.keys,
-                            suspendedIds = pages.filterValues { it.isSuspended }.keys,
-                            pageUrl = pages[focusedTab?.id]?.url ?: focusedTab?.url.orEmpty(),
-                            pageTitle = pages[focusedTab?.id]?.title ?: focusedTab?.title.orEmpty(),
-                            onNavigate = ::navigate, onNewTab = ::newTab, onOmnibox = { openOmnibox(false) },
-                            onOpenUrl = { vm.newTab(it); rightFocused = false; navigate("browser") }, onSplitTab = { id ->
-                                if (id == state.activeTab?.id) split() else { state.activeTab?.id?.let { vm.pairTabs(it, id) }; rightFocused = true; navigate("browser") }
-                            }, splitLeftTabId = splitLeft?.id, splitRightTabId = splitRight?.id, splitRightFocused = rightFocused,
-                            onDetachSplit = { id ->
-                                vm.detachSplit(id)
-                                rightFocused = false
+                @Composable
+                fun SidebarContent(sidebarState: BrowserUiState) {
+                    Sidebar(sidebarState, vm, pages.filterValues { it.isLoading }.keys,
+                        suspendedIds = pages.filterValues { it.isSuspended }.keys,
+                        pageUrl = pages[focusedTab?.id]?.url ?: focusedTab?.url.orEmpty(),
+                        pageTitle = pages[focusedTab?.id]?.title ?: focusedTab?.title.orEmpty(),
+                        onNavigate = ::navigate, onNewTab = ::newTab, onOmnibox = { openOmnibox(false) },
+                        onOpenUrl = { vm.newTab(it); rightFocused = false; navigate("browser") }, onSplitTab = { id ->
+                            if (id == state.activeTab?.id) split() else { state.activeTab?.id?.let { vm.pairTabs(it, id) }; rightFocused = true; navigate("browser") }
+                        }, splitLeftTabId = splitLeft?.id, splitRightTabId = splitRight?.id, splitRightFocused = rightFocused,
+                        onDetachSplit = { id ->
+                            vm.detachSplit(id)
+                            rightFocused = false
+                            vm.selectTab(id)
+                            navigate("browser")
+                        }, onFocusSplit = { rightFocused = it; (if (it) splitRight else splitLeft)?.let { tab -> vm.selectTab(tab.id) } }, drag = sidebarDrag, onSplitDrop = { id, toRight ->
+                            val targetId = sidebarDrag.destination?.id
+                            val targetLeft = state.visibleTabs.firstOrNull { it.id == targetId && it.splitRightTabId != null || it.splitRightTabId == targetId && targetId != null }
+                            val dropLeft = targetLeft ?: left
+                            val dropRight = targetLeft?.splitRightTabId?.let { rightId -> state.visibleTabs.firstOrNull { it.id == rightId } } ?: right
+                            val leftId = dropLeft?.id
+                            if (leftId != null && state.visibleTabs.any { it.id == id }) {
+                                val pairLeft = if (toRight) leftId.takeUnless { it == id } ?: dropRight?.id else id
+                                val pairRight = if (toRight) id else dropRight?.id?.takeUnless { it == id } ?: leftId
+                                if (pairLeft != null && pairLeft != pairRight) vm.pairTabs(pairLeft, pairRight)
+                                rightFocused = toRight
                                 vm.selectTab(id)
                                 navigate("browser")
-                            }, onFocusSplit = { rightFocused = it; (if (it) splitRight else splitLeft)?.let { tab -> vm.selectTab(tab.id) } }, drag = sidebarDrag, onSplitDrop = { id, toRight ->
-                                val targetId = sidebarDrag.destination?.id
-                                val targetLeft = state.visibleTabs.firstOrNull { it.id == targetId && it.splitRightTabId != null || it.splitRightTabId == targetId && targetId != null }
-                                val dropLeft = targetLeft ?: left
-                                val dropRight = targetLeft?.splitRightTabId?.let { rightId -> state.visibleTabs.firstOrNull { it.id == rightId } } ?: right
-                                val leftId = dropLeft?.id
-                                if (leftId != null && state.visibleTabs.any { it.id == id }) {
-                                    val pairLeft = if (toRight) leftId.takeUnless { it == id } ?: dropRight?.id else id
-                                    val pairRight = if (toRight) id else dropRight?.id?.takeUnless { it == id } ?: leftId
-                                    if (pairLeft != null && pairLeft != pairRight) vm.pairTabs(pairLeft, pairRight)
-                                    rightFocused = toRight
-                                    vm.selectTab(id)
-                                    navigate("browser")
-                                }
-                            }, onSplitPair = { targetId, draggedId ->
-                                if (targetId != draggedId && state.visibleTabs.any { it.id == targetId } &&
-                                    state.visibleTabs.any { it.id == draggedId }) {
-                                    vm.pairTabs(targetId, draggedId)
-                                    rightFocused = true
-                                    vm.selectTab(draggedId)
-                                    navigate("browser")
-                                }
-                            }, onToggleSidebar = { setSidebarCollapsed(!sidebarCollapsed) })
-                    }
-                    val resizeSettings by rememberUpdatedState(state.settings.copy(sidebarCollapsed = sidebarCollapsed))
-                    val resizeCollapsed by rememberUpdatedState<(Boolean) -> Unit>(::setSidebarCollapsed)
-                    var resizeOriginX by remember { mutableFloatStateOf(0f) }
-                    val hoverSource = remember { MutableInteractionSource() }
-                    val edgeHovered by hoverSource.collectIsHoveredAsState()
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    val resizeCursor = remember(context) { PointerIcon(android.view.PointerIcon.getSystemIcon(context,
-                        android.view.PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW)) }
-                    Box(Modifier.width(8.dp).fillMaxHeight().testTag("sidebar-resize-handle")
-                        .onGloballyPositioned { resizeOriginX = it.positionInRoot().x }
-                        .pointerHoverIcon(resizeCursor).hoverable(hoverSource)
-                        .pointerInput(density) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown()
-                                if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
-                                val downX = resizeOriginX + down.position.x
-                                val startWidth = resizeSettings.sidebarWidth
-                                val startCollapsed = resizeSettings.sidebarCollapsed
-                                val slop = if (down.type == PointerType.Mouse) 1f else viewConfiguration.touchSlop
-                                var dragging = false
-                                try {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
-                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                        if (change.isConsumed) break
-                                        val delta = resizeOriginX + change.position.x - downX
-                                        if (kotlin.math.abs(delta) > slop) dragging = true
-                                        if (dragging) {
-                                            val raw = (if (startCollapsed) 72f else startWidth) + delta / density.density
-                                            resizingCollapsed = raw <= (if (startCollapsed) 102f else 220f)
-                                            resizingWidth = raw.coerceIn(220f, 380f)
-                                        }
-                                        val released = change.changedToUp()
-                                        change.consume()
-                                        if (!change.pressed) {
-                                            if (released && dragging) {
-                                                val collapse = resizingCollapsed ?: startCollapsed
-                                                val value = resizingWidth ?: startWidth
-                                                resizeCollapsed(collapse)
-                                                vm.updateSettings { it.copy(sidebarWidth = if (collapse) startWidth else value) }
+                            }
+                        }, onSplitPair = { targetId, draggedId ->
+                            if (targetId != draggedId && state.visibleTabs.any { it.id == targetId } &&
+                                state.visibleTabs.any { it.id == draggedId }) {
+                                vm.pairTabs(targetId, draggedId)
+                                rightFocused = true
+                                vm.selectTab(draggedId)
+                                navigate("browser")
+                            }
+                        }, onToggleSidebar = { setSidebarCollapsed(!sidebarCollapsed) }, overlay = sidebarAdaptation.compact)
+                }
+                Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        if (!sidebarAdaptation.compact) {
+                            Box(Modifier.width(width).fillMaxHeight().padding(vertical = 8.dp).testTag("sidebar")) {
+                                SidebarContent(previewState)
+                            }
+                            val resizeSettings by rememberUpdatedState(state.settings.copy(sidebarCollapsed = sidebarCollapsed))
+                            val resizeCollapsed by rememberUpdatedState<(Boolean) -> Unit>(::setSidebarCollapsed)
+                            var resizeOriginX by remember { mutableFloatStateOf(0f) }
+                            val hoverSource = remember { MutableInteractionSource() }
+                            val edgeHovered by hoverSource.collectIsHoveredAsState()
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val resizeCursor = remember(context) { PointerIcon(android.view.PointerIcon.getSystemIcon(context,
+                                android.view.PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW)) }
+                            Box(Modifier.width(8.dp).fillMaxHeight().testTag("sidebar-resize-handle")
+                                .onGloballyPositioned { resizeOriginX = it.positionInRoot().x }
+                                .pointerHoverIcon(resizeCursor).hoverable(hoverSource)
+                                .pointerInput(density) {
+                                    awaitEachGesture {
+                                        val down = awaitFirstDown()
+                                        if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+                                        val downX = resizeOriginX + down.position.x
+                                        val startWidth = resizeSettings.sidebarWidth
+                                        val startCollapsed = resizeSettings.sidebarCollapsed
+                                        val slop = if (down.type == PointerType.Mouse) 1f else viewConfiguration.touchSlop
+                                        var dragging = false
+                                        try {
+                                            while (true) {
+                                                val event = awaitPointerEvent()
+                                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                                if (change.isConsumed) break
+                                                val delta = resizeOriginX + change.position.x - downX
+                                                if (kotlin.math.abs(delta) > slop) dragging = true
+                                                if (dragging) {
+                                                    val raw = (if (startCollapsed) 72f else startWidth) + delta / density.density
+                                                    resizingCollapsed = raw <= (if (startCollapsed) 102f else 220f)
+                                                    resizingWidth = raw.coerceIn(220f, 380f)
+                                                }
+                                                val released = change.changedToUp()
+                                                change.consume()
+                                                if (!change.pressed) {
+                                                    if (released && dragging) {
+                                                        val collapse = resizingCollapsed ?: startCollapsed
+                                                        val value = resizingWidth ?: startWidth
+                                                        resizeCollapsed(collapse)
+                                                        vm.updateSettings { it.copy(sidebarWidth = if (collapse) startWidth else value) }
+                                                    }
+                                                    break
+                                                }
                                             }
-                                            break
-                                        }
+                                        } finally { resizingWidth = null; resizingCollapsed = null }
                                     }
-                                } finally { resizingWidth = null; resizingCollapsed = null }
+                                }, contentAlignment = Alignment.Center) {
+                                if (edgeHovered || resizingWidth != null) Box(Modifier.width(2.dp).fillMaxHeight()
+                                    .padding(vertical = 16.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
                             }
-                        }, contentAlignment = Alignment.Center) {
-                        if (edgeHovered || resizingWidth != null) Box(Modifier.width(2.dp).fillMaxHeight()
-                            .padding(vertical = 16.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
-                    }
-                    Surface(shape = NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight().padding(top = 8.dp, end = 8.dp, bottom = 8.dp),
-                        color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
-                        Box(Modifier.fillMaxSize()) {
-                            NavHost(navController = nav, startDestination = "browser") {
-                                composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
-                                    onFocusRight = { rightFocused = it }, splitRatio, onSplitRatio = { splitRatio = it },
-                                    showFind, onFind = { showFind = it }, onOmnibox = { openOmnibox() }, onOpenUrl = ::openUrl,
-                                    onSplit = ::split, onCloseSplit = ::closeSplit,
-                                    onSwap = { right?.let { other -> left?.let { vm.pairTabs(other.id, it.id); vm.selectTab(other.id) } } },
-                                    leftTabId = left?.id) }
-                                composable("settings") { SettingsScreen(state, vm,
-                                    onSuspendTabs = sessions::suspendBackground,
-                                    onClearSiteData = { scope.launch {
-                                        sessions.reset()
-                                        if (container.isPrivate) com.takeruf.nagi.browser.privacy.PrivateProfiles.clearAwait(container.privateProfileName!!)
-                                        else BrowserDataCleaner.clear(activity)
-                                        sessions.reset()
-                                        snackbar.showSnackbar(strings(R.string.ui_site_data_cleared))
-                                    } },
-                                    updateSection = { if (!container.isPrivate) com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) }) { navigate("browser") } }
-                                composable("history") { LibraryScreen(state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
-                            }
-                            if (route == "browser" && state.activeTab != null) {
-                                BoxWithConstraints(Modifier.fillMaxSize()) {
-                                    val availableWidth = (maxWidth - 24.dp).coerceAtLeast(1.dp)
-                                    val minimumRatio = maxOf(0.25f, (180.dp / availableWidth).coerceAtMost(0.5f))
-                                    val ratio = splitRatio.coerceIn(minimumRatio, 1f - minimumRatio)
-                                    Row(Modifier.fillMaxSize()) {
-                                        listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT).forEach { side ->
-                                            val highlighted = sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
-                                            if (right != null && side == SidebarSection.SPLIT_RIGHT) Spacer(Modifier.width(24.dp))
-                                            Box(Modifier.weight(if (right == null) 1f else if (side == SidebarSection.SPLIT_LEFT) ratio else 1f - ratio).fillMaxHeight()
-                                                .testTag(if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right")
-                                                .sidebarTarget(sidebarDrag, side.name, SidebarDestination(side))) {
-                                                if (highlighted) Box(Modifier.fillMaxSize().padding(12.dp)
-                                                    .clip(NagiShapes.Rounded)
-                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                                                    .border(2.dp, MaterialTheme.colorScheme.primary, NagiShapes.Rounded))
+                        }
+                        Surface(shape = NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
+                            .padding(if (sidebarAdaptation.compact) PaddingValues(0.dp) else PaddingValues(top = 8.dp, end = 8.dp, bottom = 8.dp)),
+                            color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+                            Box(Modifier.fillMaxSize()) {
+                                NavHost(navController = nav, startDestination = "browser") {
+                                    composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
+                                        onFocusRight = { rightFocused = it }, splitRatio, onSplitRatio = { splitRatio = it },
+                                        showFind, onFind = { showFind = it }, onOmnibox = { openOmnibox() }, onOpenUrl = ::openUrl,
+                                        onSplit = ::split, onCloseSplit = ::closeSplit,
+                                        onSwap = { right?.let { other -> left?.let { vm.pairTabs(other.id, it.id); vm.selectTab(other.id) } } },
+                                        leftTabId = left?.id, compactWindow = sidebarAdaptation.compact, desktopDefault = desktopDefault) }
+                                    composable("settings") { SettingsScreen(state, vm,
+                                        onSuspendTabs = sessions::suspendBackground,
+                                        onClearSiteData = { scope.launch {
+                                            sessions.reset()
+                                            if (container.isPrivate) com.takeruf.nagi.browser.privacy.PrivateProfiles.clearAwait(container.privateProfileName!!)
+                                            else BrowserDataCleaner.clear(activity)
+                                            sessions.reset()
+                                            snackbar.showSnackbar(strings(R.string.ui_site_data_cleared))
+                                        } },
+                                        updateSection = { if (!container.isPrivate) com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) }) { navigate("browser") } }
+                                    composable("history") { LibraryScreen(state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
+                                }
+                                if (!sidebarAdaptation.compact && route == "browser" && state.activeTab != null) {
+                                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                                        val availableWidth = (maxWidth - 24.dp).coerceAtLeast(1.dp)
+                                        val minimumRatio = maxOf(0.25f, (180.dp / availableWidth).coerceAtMost(0.5f))
+                                        val ratio = splitRatio.coerceIn(minimumRatio, 1f - minimumRatio)
+                                        Row(Modifier.fillMaxSize()) {
+                                            listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT).forEach { side ->
+                                                val highlighted = sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
+                                                if (right != null && side == SidebarSection.SPLIT_RIGHT) Spacer(Modifier.width(24.dp))
+                                                Box(Modifier.weight(if (right == null) 1f else if (side == SidebarSection.SPLIT_LEFT) ratio else 1f - ratio).fillMaxHeight()
+                                                    .testTag(if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right")
+                                                    .sidebarTarget(sidebarDrag, side.name, SidebarDestination(side))) {
+                                                    if (highlighted) Box(Modifier.fillMaxSize().padding(12.dp)
+                                                        .clip(NagiShapes.Rounded)
+                                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                                        .border(2.dp, MaterialTheme.colorScheme.primary, NagiShapes.Rounded))
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+                        }
+                    }
+                    if (sidebarAdaptation.compact && route == "browser") {
+                        val focusedPage = pages[focusedTab?.id]
+                        CompactBrowserBar(state.visibleTabs.size,
+                            canGoBack = focusedPage?.readerArticle != null || focusedPage?.canGoBack == true || canCloseTabOnBack,
+                            canGoForward = focusedPage?.canGoForward == true,
+                            onBack = ::back, onForward = { focusedEngine?.goForward() }, onNewTab = ::newTab,
+                            onSearch = { openOmnibox() }, onTabs = { setSidebarCollapsed(false) })
+                    }
+                }
+                if (sidebarAdaptation.compact && !sidebarCollapsed) {
+                    ModalBottomSheet(onDismissRequest = { setSidebarCollapsed(true); sidebarDrag.cancel() },
+                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                        sheetMaxWidth = 600.dp, dragHandle = null) {
+                        Box(Modifier.fillMaxWidth().fillMaxHeight(0.85f).testTag("compact-tab-sheet")) {
+                            SidebarContent(state.copy(settings = state.settings.copy(sidebarCollapsed = false)))
+                            if (sidebarDrag.item != null || sidebarDrag.favoriteLanding != null) SidebarDragPreview(sidebarDrag)
                         }
                     }
                 }
@@ -439,12 +511,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                         },
                         onDismiss = { host.dismissBlockedExternalApp(request) },
                         modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 16.dp)
-                            .widthIn(max = (windowWidthDp - width.value - 32f).coerceIn(200f, 360f).dp))
+                            .widthIn(max = (windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value) - 32f).coerceIn(200f, 360f).dp))
                 }
-                if (sidebarDrag.item != null) SidebarDragPreview(sidebarDrag)
-                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+                if (!sidebarAdaptation.compact && sidebarDrag.item != null) SidebarDragPreview(sidebarDrag)
+                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = if (sidebarAdaptation.compact && route == "browser") 56.dp else 0.dp))
                 if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
-                    TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+                    TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (sidebarAdaptation.compact && route == "browser") 72.dp else 16.dp)) {
                         Text(strings(R.string.ui_update_banner, updateState.release!!.versionName))
                     }
                 }

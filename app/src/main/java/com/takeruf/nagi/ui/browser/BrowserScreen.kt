@@ -13,12 +13,12 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
     splitRatio: Float, onSplitRatio: (Float) -> Unit, showFind: Boolean, onFind: (Boolean) -> Unit,
     onOmnibox: () -> Unit, onOpenUrl: (String) -> Unit, onSplit: () -> Unit,
     onCloseSplit: () -> Unit, onSwap: () -> Unit,
-    leftTabId: String? = null) {
+    leftTabId: String? = null, compactWindow: Boolean = false, desktopDefault: Boolean = state.settings.desktopDefault) {
     val left = state.visibleTabs.firstOrNull { it.id == leftTabId } ?: state.activeTab ?: return
     val right = state.visibleTabs.firstOrNull { it.id == rightTabId && it.id != left.id }
     val generation by sessions.generation.collectAsState()
     val pair = remember(left.id, right?.id, sessions, generation) {
-        sessions.acquire(left, state.settings.desktopDefault) to right?.let { sessions.acquire(it, state.settings.desktopDefault) }
+        sessions.acquire(left, desktopDefault) to right?.let { sessions.acquire(it, desktopDefault) }
     }
     @Composable
     fun Pane(isRight: Boolean) {
@@ -28,7 +28,7 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
             BrowserPane(tab, engine, state, focused = right == null || rightFocused == isRight,
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
                 onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
-                onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap,
+                onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap, compactWindow = compactWindow,
                 onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->
                     engine.configureContentBlocking(prefs.adBlockingEnabled, prefs.adBlockExcludedHosts)
                     if (com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(engine.state.value.url) == host) {

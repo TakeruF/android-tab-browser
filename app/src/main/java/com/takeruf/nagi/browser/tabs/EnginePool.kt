@@ -56,7 +56,9 @@ class EnginePool(
         val now = clock()
         (visible + ids).forEach { accessed[it] = now }
         visible = ids
-        engines.forEach { (id, engine) -> engine.setVisible(id in ids) }
+        engines.forEach { (id, engine) ->
+            engine.setVisible(id in ids)
+        }
     }
     fun acquire(id: String, url: String, desktop: Boolean): BrowserEngine {
         accessed[id] = clock()

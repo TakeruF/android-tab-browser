@@ -64,7 +64,7 @@
     <string name="ui_restore_tabs_on_launch">"起動時にタブを復元"</string>
     <string name="ui_keep_your_spaces_and_open_tabs_between_sessions">"スペースと開いているタブを次回も保持します"</string>
     <string name="ui_desktop_site_by_default">"標準でPC版サイトを表示"</string>
-    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"新しく開くページにPC版のユーザーエージェントを使用します"</string>
+    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"大画面ではPC版、スマホ幅ではモバイル版を表示します。サイトごとの手動選択を優先します。"</string>
     <string name="ui_search_engines">"検索エンジン"</string>
     <string name="ui_default">"  標準"</string>
     <string name="ui_add_search_engine">"検索エンジンを追加"</string>

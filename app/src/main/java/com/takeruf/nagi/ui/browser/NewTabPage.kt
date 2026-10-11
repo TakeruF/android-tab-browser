@@ -15,10 +15,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun NewTabPage(spaceName: String, onSearch: () -> Unit) {
+fun NewTabPage(spaceName: String, onSearch: () -> Unit, compactWindow: Boolean = false) {
     val strings = rememberNagiStrings()
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        val compact = maxWidth < 320.dp
+        val compact = compactWindow || maxWidth < 320.dp
         Column(Modifier.padding(if (compact) 16.dp else 32.dp).widthIn(max = 440.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(spaceName, style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)

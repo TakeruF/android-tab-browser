@@ -1,0 +1,28 @@
+<en-US>
+• Full-width browsing with bottom navigation and a tab sheet in narrow windows.
+• Phone-style mobile sites with saved per-site choices.
+• Resizing preserves pages and unfinished input; automatic site-mode changes apply on the next navigation or reload.
+• Collapse empty containers around confirmed blocked advertisements.
+• Compact navigation colors follow your theme and Space.
+</en-US>
+<ja-JP>
+• 狭いウィンドウでは全幅表示、下部ナビゲーション、タブ一覧シートを使用。
+• モバイル表示をスマートフォン向けに改善。サイトごとの表示指定も保持。
+• サイズ変更時にページと入力途中の内容を保持。自動表示切替は次のページ移動・再読込時に適用。
+• ブロックが確認された広告の空の親枠を畳む処理を追加。
+• 下部ナビゲーションの色をテーマとSpaceに統一。
+</ja-JP>
+<zh-CN>
+• 窄窗口采用全宽网页、底部导航和标签页面板。
+• 移动版网站使用手机标识，并保留各网站的显示设置。
+• 调整窗口大小时保留网页及未完成的输入；自动显示模式在下次导航或刷新时应用。
+• 折叠已确认拦截的广告周围的空容器。
+• 底部导航颜色跟随主题和空间。
+</zh-CN>
+<ko-KR>
+• 좁은 창에서 전체 너비 페이지, 하단 탐색 모음과 탭 시트를 사용합니다.
+• 모바일 사이트에 휴대전화 식별 정보를 보내고 사이트별 설정을 유지합니다.
+• 창 크기 변경 시 페이지와 입력 내용을 유지하며 자동 표시 모드는 다음 탐색 또는 새로고침에 적용합니다.
+• 차단이 확인된 광고 주변의 빈 컨테이너를 접습니다.
+• 하단 탐색 색상이 테마와 Space를 따릅니다.
+</ko-KR>

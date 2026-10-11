@@ -70,7 +70,8 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     splitLeftTabId: String? = null, splitRightTabId: String? = null, splitRightFocused: Boolean = false, onFocusSplit: (Boolean) -> Unit = {}, onDetachSplit: (String) -> Unit = {},
     suspendedIds: Set<String> = emptySet(),
     pageUrl: String = state.activeTab?.url.orEmpty(), pageTitle: String = state.activeTab?.title.orEmpty(),
-    onToggleSidebar: () -> Unit = { vm.updateSettings { it.copy(sidebarCollapsed = !it.sidebarCollapsed) } }) {
+    onToggleSidebar: () -> Unit = { vm.updateSettings { it.copy(sidebarCollapsed = !it.sidebarCollapsed) } },
+    overlay: Boolean = false) {
     val strings = rememberNagiStrings()
     val collapsed = state.settings.sidebarCollapsed
     var spacesMenu by remember { mutableStateOf(false) }
@@ -203,12 +204,13 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         .sidebarDragHost(drag, { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }, { drop() })) {
         Column(Modifier.fillMaxSize().padding(horizontal = if (collapsed) 8.dp else 12.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                ToolButton(if (collapsed) NagiIcons.SidebarOpen else NagiIcons.SidebarClose, if (collapsed) strings(R.string.ui_expand_sidebar) else strings(R.string.ui_collapse_sidebar)) {
+                ToolButton(if (overlay) NagiIcons.X else if (collapsed) NagiIcons.SidebarOpen else NagiIcons.SidebarClose,
+                    if (overlay) strings(R.string.ui_close_1_s, strings(R.string.ui_tabs)) else if (collapsed) strings(R.string.ui_expand_sidebar) else strings(R.string.ui_collapse_sidebar)) {
                     onToggleSidebar()
                 }
                 if (!collapsed) {
                     Spacer(Modifier.weight(1f))
-                    Text("Nagi", style = MaterialTheme.typography.labelLarge, color = palette.onSurfaceVariant)
+                    Text(if (overlay) strings(R.string.ui_tabs) else "Nagi", style = MaterialTheme.typography.labelLarge, color = palette.onSurfaceVariant)
                     Spacer(Modifier.width(10.dp))
                 }
             }
@@ -260,8 +262,10 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                     } }
                 }
             } else {
-                SidebarAddressBar(pageUrl, pageTitle, onOmnibox)
-                Spacer(Modifier.height(12.dp))
+                if (!overlay) {
+                    SidebarAddressBar(pageUrl, pageTitle, onOmnibox)
+                    Spacer(Modifier.height(12.dp))
+                }
                 FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark)
                 SpacePages(Modifier.weight(1f)) { state ->
                     val tabs = state.visibleTabs
@@ -288,12 +292,12 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                         TabRow(page, state, vm, drag, page.id in loadingIds, !mouseInput,
                                             { selectTab(page) }, { onSplitTab(page.id) },
                                             modifier = Modifier.weight(1f), compact = true, replacementRight = index == 1, suspended = page.id in suspendedIds,
-                                            selectedOverride = state.activeTab?.id == page.id)
+                                            selectedOverride = state.activeTab?.id == page.id, largeTouchTargets = overlay)
                                     }
                                 }
                             }
                         } else TabRow(tab, state, vm, drag, tab.id in loadingIds, !mouseInput,
-                            { selectTab(tab) }, { onSplitTab(tab.id) }, suspended = tab.id in suspendedIds)
+                            { selectTab(tab) }, { onSplitTab(tab.id) }, suspended = tab.id in suspendedIds, largeTouchTargets = overlay)
                     }
                     val list = rememberLazyListState()
                     var viewport by remember { mutableStateOf(Rect.Zero) }
@@ -344,7 +348,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                     .clickable(onClick = onNewTab).height(48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(NagiIcons.Plus, null, Modifier.size(20.dp), tint = palette.onSurfaceVariant)
                                     Text(strings(R.string.ui_new_tab), Modifier.weight(1f).padding(start = 12.dp), color = palette.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                                    Text("Ctrl T", style = MaterialTheme.typography.labelSmall, color = palette.onSurfaceVariant)
+                                    if (!overlay) Text("Ctrl T", style = MaterialTheme.typography.labelSmall, color = palette.onSurfaceVariant)
                                 }
                                 if (drag.item != null && drag.destination == todayStart)
                                     Box(Modifier.fillMaxWidth().padding(horizontal = 6.dp).height(3.dp)
@@ -528,13 +532,14 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
 @Composable
 private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel, drag: SidebarDragState,
     loading: Boolean, touch: Boolean, onSelect: () -> Unit, onSplit: () -> Unit,
-    modifier: Modifier = Modifier, compact: Boolean = false, selectedOverride: Boolean? = null, suspended: Boolean = false, replacementRight: Boolean? = null) {
+    modifier: Modifier = Modifier, compact: Boolean = false, selectedOverride: Boolean? = null, suspended: Boolean = false,
+    replacementRight: Boolean? = null, largeTouchTargets: Boolean = false) {
     val strings = rememberNagiStrings()
     var menu by remember { mutableStateOf(false) }
     val selected = selectedOverride ?: (state.activeTab?.id == tab.id)
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val showActions = hovered || menu || (touch && selected)
+    val showActions = largeTouchTargets || hovered || menu || (touch && selected)
     val palette = MaterialTheme.colorScheme
     val contentColor = if (selected && !compact) palette.onPrimaryContainer else palette.onSurface
     val section = if (tab.isPinned) SidebarSection.PINNED else SidebarSection.TODAY
@@ -574,7 +579,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
             if (suspended) Text("zZ", style = MaterialTheme.typography.labelSmall, color = palette.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp).semantics { contentDescription = strings(R.string.ui_tab_suspended) })
             Box {
-                if (showActions) IconButton(onClick = { if (compact) vm.closeTab(tab.id) else menu = true }, modifier = Modifier.size(if (compact) 24.dp else 40.dp)) {
+                if (showActions) IconButton(onClick = { if (compact) vm.closeTab(tab.id) else menu = true }, modifier = Modifier.size(if (largeTouchTargets) 48.dp else if (compact) 24.dp else 40.dp)) {
                     Icon(if (compact) NagiIcons.X else NagiIcons.Ellipsis,
                         strings(if (compact) R.string.ui_close_1_s else R.string.ui_actions_for_1_s, strings.tabTitle(tab)),
                         Modifier.size(if (compact) 16.dp else 18.dp), tint = if (selected) contentColor else palette.onSurfaceVariant)
@@ -588,7 +593,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                     NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_tab)) }, onClick = { vm.closeTab(tab.id); menu = false })
                 }
             }
-            if (showActions && !compact) IconButton(onClick = { vm.closeTab(tab.id) }, modifier = Modifier.size(40.dp)) { Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(16.dp), tint = contentColor) }
+            if (showActions && !compact) IconButton(onClick = { vm.closeTab(tab.id) }, modifier = Modifier.size(if (largeTouchTargets) 48.dp else 40.dp)) { Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(16.dp), tint = contentColor) }
         }
         if (target != null) Box(Modifier.align(if (target.after) Alignment.BottomCenter else Alignment.TopCenter)
             .fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))

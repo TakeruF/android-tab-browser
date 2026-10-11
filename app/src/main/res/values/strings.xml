@@ -65,7 +65,7 @@
     <string name="ui_restore_tabs_on_launch">"Restore tabs on launch"</string>
     <string name="ui_keep_your_spaces_and_open_tabs_between_sessions">"Keep your Spaces and open tabs between sessions"</string>
     <string name="ui_desktop_site_by_default">"Desktop site by default"</string>
-    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"Use a desktop user agent for newly created sessions"</string>
+    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"Use desktop sites on large screens. Phone-sized windows use mobile sites; individual site choices take priority."</string>
     <string name="ui_search_engines">"Search engines"</string>
     <string name="ui_default">"  Default"</string>
     <string name="ui_add_search_engine">"Add search engine"</string>

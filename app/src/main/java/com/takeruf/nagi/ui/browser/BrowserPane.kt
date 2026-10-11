@@ -36,7 +36,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onOmnibox: () -> Unit, onOpen: (String) -> Unit,
     onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit,
     onAdBlockingChange: (String, Boolean) -> Unit = { _, _ -> },
-    onVisitBlockingChange: (Boolean) -> Unit = {}) {
+    onVisitBlockingChange: (Boolean) -> Unit = {}, compactWindow: Boolean = false) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -65,13 +65,13 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
         modifier = Modifier.fillMaxSize()) {
         Column {
             BoxWithConstraints {
-            val compact = maxWidth < 320.dp
+            val compact = compactWindow || maxWidth < 320.dp
             // Each address action takes 32dp; retain share, then copy, then the shield.
             val inlineShare = maxWidth >= 296.dp
             val inlineCopy = maxWidth >= 328.dp
             val inlineBlocking = maxWidth >= 360.dp
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
+                if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
                 if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
                 if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
                 Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Rounded,
@@ -165,7 +165,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             Box(Modifier.fillMaxSize()) {
                 if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
-                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), onOmnibox)
+                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), onOmnibox, compactWindow)
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(NagiShapes.Bottom), onFocus)

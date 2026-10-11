@@ -73,10 +73,11 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
             snapshotFlow { windowInfo.isWindowFocused }.first { it }
             focus.requestFocus()
         }
-        Box(Modifier.safeDrawingPadding().imePadding(), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(Modifier.safeDrawingPadding().imePadding(), contentAlignment = Alignment.Center) {
+        val compact = maxWidth < 600.dp
         Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.onSurface, shadowElevation = 16.dp,
-            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(0.85f).heightIn(max = 640.dp)
+            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(if (compact) 0.96f else 0.85f).heightIn(max = 640.dp)
                 .onPreviewKeyEvent { event ->
                     // The IME gets pre-dispatch first. If a composition key still reaches the app,
                     // consume it here so Compose cannot move focus or execute an unfinished query.
@@ -96,7 +97,8 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                     TextField(state = input, shape = NagiShapes.Rounded, lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                         onKeyboardAction = { execute() },
-                        placeholder = { Text(strings(R.string.ui_search_enter_a_url_or_type_for_commands)) },
+                        placeholder = { Text(strings(if (compact) R.string.ui_search_or_enter_url else R.string.ui_search_enter_a_url_or_type_for_commands),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                             focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -104,7 +106,9 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                         modifier = Modifier.weight(1f).focusRequester(focus).semantics {
                             stateDescription = if (input.composition == null) strings(R.string.ui_ready) else strings(R.string.ui_composing)
                         })
-                    TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text("Esc") }
+                    if (compact) IconButton(onClick = onDismiss) {
+                        Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings(R.string.ui_search)))
+                    } else TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text("Esc") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 LazyColumn(state = list, modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(12.dp)) {
@@ -162,10 +166,12 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                     }
                     if (suggestions.isEmpty()) item { Text(strings(R.string.ui_no_matches), Modifier.padding(16.dp)) }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text(strings(R.string.ui_search_navigation_hint),
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(20.dp, 14.dp))
+                if (!compact) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(strings(R.string.ui_search_navigation_hint),
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(20.dp, 14.dp))
+                }
             }
         }
         }

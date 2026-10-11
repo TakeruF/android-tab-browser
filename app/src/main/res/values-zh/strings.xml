@@ -64,7 +64,7 @@
     <string name="ui_restore_tabs_on_launch">"启动时恢复标签页"</string>
     <string name="ui_keep_your_spaces_and_open_tabs_between_sessions">"下次启动时保留空间和打开的标签页"</string>
     <string name="ui_desktop_site_by_default">"默认使用桌面版网站"</string>
-    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"新会话使用桌面版用户代理"</string>
+    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"大屏使用桌面版，手机宽度使用移动版。优先采用各网站的手动选择。"</string>
     <string name="ui_search_engines">"搜索引擎"</string>
     <string name="ui_default">"  默认"</string>
     <string name="ui_add_search_engine">"添加搜索引擎"</string>

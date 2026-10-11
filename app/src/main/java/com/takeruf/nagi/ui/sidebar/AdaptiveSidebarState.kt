@@ -2,13 +2,15 @@ package com.takeruf.nagi.ui.sidebar
 
 import androidx.compose.runtime.saveable.listSaver
 
-/** Window adaptation is temporary; the saved sidebar preference remains independent. */
+/** Compact windows use a temporary tab sheet; the saved wide sidebar preference stays independent. */
 data class AdaptiveSidebarState(
     val compact: Boolean = false,
     val compactCollapsed: Boolean? = null,
 ) {
     fun forWidth(widthDp: Float): AdaptiveSidebarState {
-        val nextCompact = if (compact) widthDp < 640f else widthDp < 600f
+        // Use one boundary in both directions: the same window must have the same UI
+        // and automatic site mode, regardless of its previous size or saved state.
+        val nextCompact = widthDp < 600f
         return if (nextCompact == compact) this else AdaptiveSidebarState(compact = nextCompact)
     }
 

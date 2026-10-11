@@ -189,3 +189,40 @@ The signed Release APK was built, signature-verified, installed, and visually
 checked in the isolated API-36 emulator at density 240 in both checked and
 paused states. The popup opened normally and pause/resume controls worked.
 Evidence is retained in ignored `artifacts/shield-optical/`.
+
+## Empty advertising containers (2026-10-11)
+
+The temporary Asahi-specific mobile wrapper rule has been removed. Reserved
+space is now handled by a common DOM controller without host names or site layout
+class names. Brave's cosmetic selectors provide positive evidence of hidden ads.
+Actual intercepted resource URLs also identify blocked images, iframes, objects,
+and embeds; matching uses complete resolved URLs, not URL substrings. The current
+document retains at most 256 blocked URLs, without writing them to disk.
+Only requests with a Referer in the top document's origin contribute resource
+URLs to its controller. Missing or cross-origin child-frame Referers contribute
+no URLs; cosmetic evidence still applies. This prevents child-origin resource
+URLs from being disclosed to the top page.
+
+The controller walks outward from those elements and collapses empty containing
+branches. It retains text, controls and editable fields, unblocked media, CSS
+illustrations/generated text, unrelated empty spacers, and semantic article,
+header, navigation, form, and main boundaries. Ordinary blank areas alone are not
+evidence of an ad. Markers and a stylesheet hide the identified slots without
+deleting DOM nodes or changing inline styles. Pause, saved exceptions, and global
+disabling remove the markers and restore layout.
+
+DOM changes and resource load/resize events are batched, without a polling loop.
+Late slots are collapsed; a slot gaining editorial content or an allowed media
+URL is revealed again. Request interception refreshes the resource evidence in
+the page context; stale callbacks from prior documents do not update a new page.
+This does not reload a page or alter the deferred mobile/desktop navigation policy.
+
+WebView regressions cover unnamed nested containers on two unrelated example
+hosts, network-blocked images and iframes, retained editorial/interactive/media
+and CSS content, late insertion/removal, restoration when content appears,
+and pause/resume. Broader privacy/Reader/private-profile cases and existing
+resize/hidden-tab/Split draft preservation cases are included in validation.
+The earlier site-specific prototype evidence remains in `artifacts/mobile-ad-spacing/`;
+current common-logic reports and APK are in `artifacts/general-ad-collapse/`.
+Live-site coverage and its remaining limitations are recorded in
+[`AD_SLOT_COLLAPSE_VALIDATION.md`](AD_SLOT_COLLAPSE_VALIDATION.md).

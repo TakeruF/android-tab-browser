@@ -101,5 +101,5 @@ class AdBlocker(context: Context, scope: CoroutineScope) {
             mapOf("Cache-Control" to "no-store"), ByteArrayInputStream(ByteArray(0)))
     }
 
-    fun cosmeticCss(url: String): String = engine?.cosmeticResources(url)?.css().orEmpty()
+    fun cosmeticSelectors(url: String): List<String> = engine?.cosmeticResources(url)?.selectors.orEmpty()
 }

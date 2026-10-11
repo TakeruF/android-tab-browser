@@ -25,7 +25,7 @@ class AdaptiveSidebarUiTest {
         originalSize?.let { shell("wm size $it") }
     }
 
-    @Test fun windowResizeRestoresPreferenceAndAllowsTemporaryManualExpansion() {
+    @Test fun windowResizeRestoresPreferenceAndKeepsTabSheetTemporary() {
         val container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
@@ -41,8 +41,17 @@ class AdaptiveSidebarUiTest {
             }
             if (collapsed) compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(72.dp)
         }
-        fun resize(width: Float) {
-            shell("wm size ${(width * density).toInt()}x${(800 * density).toInt()}")
+        fun awaitCompact(sheetOpen: Boolean = false) {
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("compact-browser-bar").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("sidebar").assertDoesNotExist()
+            compose.onNodeWithTag("sidebar-resize-handle").assertDoesNotExist()
+            if (sheetOpen) compose.onNodeWithTag("compact-tab-sheet").assertIsDisplayed()
+            else compose.onNodeWithTag("compact-tab-sheet").assertDoesNotExist()
+        }
+        fun resize(width: Float, height: Float = 800f) {
+            shell("wm size ${(width * density).toInt()}x${(height * density).toInt()}")
             compose.waitUntil(10_000) {
                 kotlin.math.abs(compose.activity.resources.configuration.screenWidthDp - width) < 30
             }
@@ -52,18 +61,36 @@ class AdaptiveSidebarUiTest {
 
         resize(1000f)
         awaitSidebar(false)
+        resize(620f)
+        awaitSidebar(false)
         resize(480f)
-        awaitSidebar(true)
+        awaitCompact()
         assertFalse(preference())
         resize(620f)
-        awaitSidebar(true)
-        resize(640f)
+        awaitSidebar(false)
+        // Exact boundary is wide, even after narrow mode or Activity restoration.
+        resize(599f)
+        awaitCompact()
+        resize(600f)
+        awaitSidebar(false)
+        compose.activityRule.scenario.recreate()
+        awaitSidebar(false)
+        resize(599f)
+        awaitCompact()
+        compose.activityRule.scenario.recreate()
+        awaitCompact()
+        resize(620f)
+        awaitSidebar(false)
+        // A portrait tablet-sized window is wide; orientation alone is irrelevant.
+        resize(800f, 1280f)
+        awaitSidebar(false)
+        resize(1280f, 800f)
         awaitSidebar(false)
 
         resize(480f)
-        awaitSidebar(true)
-        compose.onNodeWithContentDescription("Expand sidebar").performClick()
-        awaitSidebar(false)
+        awaitCompact()
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        awaitCompact(sheetOpen = true)
         assertFalse(preference())
         resize(1000f)
         awaitSidebar(false)
@@ -71,9 +98,9 @@ class AdaptiveSidebarUiTest {
         awaitSidebar(true)
         compose.waitUntil { preference() }
         resize(480f)
-        awaitSidebar(true)
-        compose.onNodeWithContentDescription("Expand sidebar").performClick()
-        awaitSidebar(false)
+        awaitCompact()
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        awaitCompact(sheetOpen = true)
         assertTrue(preference())
         resize(1000f)
         awaitSidebar(true)

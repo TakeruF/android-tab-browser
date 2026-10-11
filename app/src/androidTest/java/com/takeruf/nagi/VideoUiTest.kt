@@ -114,6 +114,25 @@ class VideoUiTest {
         compose.onNodeWithText("Exit fullscreen").performClick()
         waitFor { js("!!document.fullscreenElement") == "false" }
     }
+    @Test fun desktopVideoPipDoesNotSwitchTheBrowserToMobileOrReloadThePlayer() {
+        fun shell(command: String) = android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
+        val original = Regex("Override size: (\\d+x\\d+)").find(shell("wm size"))?.groupValues?.get(1) ?: "reset"
+        val density = compose.activity.resources.displayMetrics.density
+        try {
+            shell("wm size ${(1000 * density).toInt()}x${(800 * density).toInt()}")
+            compose.waitUntil(10_000) { compose.activity.resources.configuration.screenWidthDp >= 640 }
+            runBlocking {
+                compose.activity.getSharedPreferences("site_display_modes", android.content.Context.MODE_PRIVATE)
+                    .edit().remove("127.0.0.1").commit()
+                container.settings.update { it.copy(desktopDefault = true) }
+            }
+            fullscreenHomeKeepsPlayingInPipAndRestoresSamePlayer()
+            assertFalse(js("navigator.userAgent").contains("Android"))
+            assertEquals(1, server.requests.count { it.path == "/video" })
+            assertFalse(server.requests.first { it.path == "/video" }.userAgent.contains("Android"))
+        } finally { shell("wm size $original") }
+    }
     @Test fun popupKeepsPlayingAcrossTabsAndSupportsDragResizePauseExpandAndReturn() {
         open(); tap("#start-video"); assertAdvances()
         waitFor { js("!!document.querySelector('[data-nagi-video-assistant]')") == "true" }

@@ -13,7 +13,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
     private val socket = ServerSocket(0)
     private val executor = Executors.newSingleThreadExecutor()
     val origin = "http://127.0.0.1:${socket.localPort}"
-    data class Request(val path: String, val userAgent: String, val referer: String?)
+    data class Request(val path: String, val userAgent: String, val referer: String?, val mobileHint: String?)
     val requests = CopyOnWriteArrayList<Request>()
     init { executor.execute {
         while (!socket.isClosed) runCatching {
@@ -26,7 +26,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     if (line.isNullOrEmpty()) break
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
                 }
-                requests.add(Request(path, headers["user-agent"].orEmpty(), headers["referer"]))
+                requests.add(Request(path, headers["user-agent"].orEmpty(), headers["referer"], headers["sec-ch-ua-mobile"]))
                 if (path == "/mode-redirect") {
                     client.getOutputStream().write(("HTTP/1.1 302 Found\r\nLocation: http://localhost:${socket.localPort}/ua-redirect-target\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").toByteArray())
                     return@use
@@ -71,7 +71,13 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     client.getOutputStream().write(data)
                     return@use
                 }
-                val body = if (path.startsWith("/article")) """
+                val body = if (path.startsWith("/blocked-media")) """
+                    <html><head><title>Blocked media fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+                    <div id="image-slot" style="height:140px"><div><img id="blocked-image" src="https://googleads.g.doubleclick.net/pagead/qa-image.png" width="120" height="100"></div></div>
+                    <div id="frame-slot" style="height:200px"><iframe id="blocked-frame" src="https://googleads.g.doubleclick.net/pagead/qa-frame.html"></iframe></div>
+                    <main><article id="story">Keep this story</article><input id="draft"><iframe id="regular-frame" src="/two"></iframe></main>
+                    </body></html>
+                """ else if (path.startsWith("/article")) """
                     <html><head><title>Reading fixture</title></head><body>
                     <nav>Navigation should disappear</nav><article><h1>Reading fixture</h1>
                     <p class="byline">By Nagi Test</p>
@@ -81,7 +87,11 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                 """
                 else if (path.startsWith("/privacy")) "<html><head><title>Private fixture</title></head><body>Isolated storage</body></html>"
                 else if (path.startsWith("/icon-page")) "<html><head><title>Favicon Fixture</title><link rel=\"icon\" href=\"/custom-icon.png\"></head><body><h1>Favicon fixture</h1></body></html>"
-                else if (path.startsWith("/ua")) "<html><head><meta name='referrer' content='unsafe-url'><title>Fixture ${if (headers["user-agent"].orEmpty().contains("Android")) "Mobile" else "Desktop"}</title></head><body>User agent fixture</body></html>"
+                else if (path.startsWith("/ua")) {
+                    val phone = headers["user-agent"].orEmpty().contains("Mobile")
+                    val viewport = if (phone) "width=device-width,initial-scale=1" else "width=1024"
+                    "<html><head><meta name='referrer' content='unsafe-url'><meta name='viewport' content='$viewport'><title>Fixture ${if (phone) "Mobile" else "Desktop"}</title></head><body>User agent fixture<input id='draft'><textarea id='notes'></textarea><div id='editable' contenteditable='true'></div><a id='anchor' href='#anchor-target'>Jump</a><div id='anchor-target'>Target</div></body></html>"
+                }
                 else if (path.startsWith("/video-frame")) """
                     <html><head><title>Video Frame</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body style="margin:0"><iframe id="player-frame" allow="fullscreen; autoplay" src="http://localhost:${socket.localPort}/video"

@@ -1,14 +1,14 @@
 # Distribution and in-app updates
 
-Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. Version 0.3.0 has `versionCode=7`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
+Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. Version 1.0.0 has `versionCode=8`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
 
-See the dated [0.3.0 publication verification](RELEASE_0.3.0_VERIFICATION.md) for artifact checks and Play submission status.
+Release notes: [1.0.0](releases/1.0.0.md). The dated publication verification is recorded after distribution checks.
 
 ## Signing
 
 Release signing reads the Properties file specified by `NAGI_SIGNING_PROPERTIES`, defaulting to `~/.config/nagi/release-signing.properties`. Required fields are `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. A Release build without signing configuration must fail; do not distribute unsigned APKs.
 
-Version 0.3.0 uses the same distribution key as the 0.1.0 APK published at takeruf.com/nagi. Verify the original public APK's package, version, and certificate fingerprint when configuring signing. Keeping the same package and signature allows an in-place update without uninstalling. Local Debug builds have a different signature and cannot update to this distribution in place. Keep using the distribution key for future releases.
+Version 1.0.0 uses the same distribution key as the 0.1.0 APK published at takeruf.com/nagi. Verify the original public APK's package, version, and certificate fingerprint when configuring signing. Keeping the same package and signature allows an in-place update without uninstalling. Local Debug builds have a different signature and cannot update to this distribution in place. Keep using the distribution key for future releases.
 
 The signing configuration and keystore are outside Git in `~/.config/nagi/`, with file permissions 600. Back up the private key and passwords securely. Publish only the certificate fingerprint and APK checksum.
 
@@ -59,10 +59,10 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest -Pandr
 ```json
 {
   "applicationId": "com.takeruf.nagi",
-  "versionCode": 7,
-  "versionName": "0.3.0",
+  "versionCode": 8,
+  "versionName": "1.0.0",
   "minSdk": 26,
-  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v0.3.0/nagi-0.3.0.apk",
+  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v1.0.0/nagi-1.0.0.apk",
   "sha256": "64 lowercase hexadecimal characters",
   "size": 123,
   "notes": "English release notes"

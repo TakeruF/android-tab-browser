@@ -13,6 +13,7 @@ import android.os.Message
 import android.webkit.*
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import androidx.webkit.UserAgentMetadata
 import com.takeruf.nagi.browser.privacy.PrivateProfiles
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -23,7 +24,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
-private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String) : EngineSnapshot
+private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String,
+    val desktopMode: Boolean) : EngineSnapshot
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebViewBrowserEngine(
@@ -51,13 +53,18 @@ class WebViewBrowserEngine(
     override val state = mutableState.asStateFlow()
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
-    private val mobileUa = WebSettings.getDefaultUserAgent(context)
+    private val mobileUa = SiteUserAgent.mobile(WebSettings.getDefaultUserAgent(context))
+    private val defaultUaMetadata = if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
+        WebSettingsCompat.getUserAgentMetadata(webView.settings) else null
     private val favicons = if (privateProfileName == null) FaviconStore.get(context) else null
     private val readerScript by lazy { context.assets.open("browser/Readability.js").bufferedReader().use { it.readText() } }
+    private val adSlotScript by lazy { context.assets.open("browser/AdSlotCollapse.js").bufferedReader().use { it.readText() } }
+    private var cosmeticRefreshJob: Job? = null
     @Volatile private var adBlockingEnabled = true
     @Volatile private var excludedHosts = emptySet<String>()
     @Volatile private var visitExceptionSites = emptySet<String>()
-    private data class BlockingDocument(val url: String, val count: java.util.concurrent.atomic.AtomicInteger = java.util.concurrent.atomic.AtomicInteger())
+    private data class BlockingDocument(val url: String, val count: java.util.concurrent.atomic.AtomicInteger = java.util.concurrent.atomic.AtomicInteger(),
+        val blockedUrls: MutableSet<String> = linkedSetOf())
     @Volatile private var blockingDocument = BlockingDocument("about:blank")
     private var faviconJob: Job? = null
     private var navigationGeneration = 0L
@@ -118,7 +125,19 @@ class WebViewBrowserEngine(
                 if (!blockingActive(source.url)) return null
                 val response = adBlocker?.intercept(request, source.url) ?: return null
                 val count = source.count.incrementAndGet()
-                scope.launch { if (blockingDocument === source) update { it.copy(blockedRequests = count) } }
+                // Do not expose resource URLs from cross-origin child documents to
+                // the top page. Missing referrers rely on cosmetic evidence instead.
+                val referer = request.requestHeaders.entries.firstOrNull { it.key.equals("Referer", true) }?.value
+                if (referer != null && sameOrigin(referer, source.url)) synchronized(source.blockedUrls) {
+                    if (source.blockedUrls.size < 256) source.blockedUrls.add(request.url.toString())
+                }
+                scope.launch { if (blockingDocument === source) {
+                    update { it.copy(blockedRequests = count) }
+                    if (cosmeticRefreshJob?.isActive != true) cosmeticRefreshJob = scope.launch {
+                        delay(100)
+                        if (blockingDocument === source && !destroyed) installCosmeticFiltering()
+                    }
+                } }
                 return response
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -132,7 +151,8 @@ class WebViewBrowserEngine(
                         eventChannel.trySend(EngineEvent.OpenTab(url)); return true
                     }
                     val desktop = desktopModeFor(url)
-                    if (request.method.equals("GET", true) && desktop != null && desktop != state.value.desktopMode) {
+                    if (request.method.equals("GET", true) && !isSameDocumentFragment(url) &&
+                        desktop != null && desktop != state.value.desktopMode) {
                         // The UA setter can reload the old visible URL while WebView is
                         // processing a link or redirect. Cancel this request first, then
                         // start the target with its chosen UA after the callback returns.
@@ -490,6 +510,12 @@ class WebViewBrowserEngine(
     private fun visitExceptionFor(url: String): String? =
         com.takeruf.nagi.browser.blocking.blockingSite(url)?.takeIf { it in visitExceptionSites }
 
+    private fun sameOrigin(first: String, second: String): Boolean = runCatching {
+        val a = Uri.parse(first); val b = Uri.parse(second)
+        fun port(uri: Uri) = uri.port.takeIf { it >= 0 } ?: if (uri.scheme.equals("https", true)) 443 else 80
+        a.scheme.equals(b.scheme, true) && a.host != null && a.host.equals(b.host, true) && port(a) == port(b)
+    }.getOrDefault(false)
+
     internal fun blockingActive(url: String): Boolean = adBlockingEnabled &&
         SiteDisplayModeStore.siteHost(url)?.let { it !in excludedHosts } == true && visitExceptionFor(url) == null
 
@@ -508,15 +534,23 @@ class WebViewBrowserEngine(
 
     private fun installCosmeticFiltering() {
         val url = state.value.url
-        val css = if (blockingActive(url)) adBlocker?.cosmeticCss(url).orEmpty() else ""
+        val enabled = blockingActive(url) && adBlocker != null
+        val selectors = if (enabled) adBlocker?.cosmeticSelectors(url).orEmpty() else emptyList()
+        val css = if (enabled) selectors.joinToString("\n") { "$it { display: none !important; }" } +
+            "\n[data-nagi-adblock-collapse=\"1\"],[data-nagi-adblock-resource=\"1\"] { display: none !important; }" else ""
+        val source = blockingDocument
+        val blockedUrls = if (enabled && source.url.substringBefore('#') == url.substringBefore('#'))
+            synchronized(source.blockedUrls) { source.blockedUrls.toList() } else emptyList()
         webView.evaluateJavascript("""
             (() => { if (location.href !== ${JSONObject.quote(url)}) return;
+              $adSlotScript
               let style = document.getElementById('__nagi_adblock_style');
               const css = ${JSONObject.quote(css)};
-              if (!css) { if (style) style.remove(); return; }
-              if (!style) { style = document.createElement('style'); style.id = '__nagi_adblock_style';
+              if (!css) { if (style) style.remove(); }
+              else { if (!style) { style = document.createElement('style'); style.id = '__nagi_adblock_style';
                 (document.head || document.documentElement).appendChild(style); }
-              style.textContent = css; })()
+                style.textContent = css; }
+              window.__nagiAdSlots.update(${JSONArray(selectors)}, ${JSONArray(blockedUrls)}, $enabled); })()
         """.trimIndent(), null)
     }
 
@@ -554,6 +588,14 @@ class WebViewBrowserEngine(
         val version = Regex("Chrome/([0-9.]+)").find(mobileUa)?.groupValues?.get(1) ?: "130.0.0.0"
         webView.settings.userAgentString = if (desktop)
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$version Safari/537.36" else mobileUa
+        // Client Hints can otherwise keep reporting the underlying tablet/phone
+        // even after the UA string changes. Keep both signals in the selected mode.
+        defaultUaMetadata?.let { defaults ->
+            val metadata = UserAgentMetadata.Builder(defaults).setMobile(!desktop)
+            if (desktop) metadata.setPlatform("Linux").setPlatformVersion("")
+                .setArchitecture("x86").setBitness(64).setModel("").setWow64(false)
+            WebSettingsCompat.setUserAgentMetadata(webView.settings, metadata.build())
+        }
     }
     private fun desktopModeFor(url: String): Boolean? =
         if (SiteDisplayModeStore.siteHost(url) == null) null else siteDisplayModes.desktopMode(url) ?: defaultDesktopMode()
@@ -568,8 +610,13 @@ class WebViewBrowserEngine(
         val history = webView.copyBackForwardList()
         history.getItemAtIndex(history.currentIndex + offset)?.url?.let {
             blockingDocument = BlockingDocument(it)
-            applySiteDisplayMode(it)
+            if (!isSameDocumentFragment(it)) applySiteDisplayMode(it)
         }
+    }
+    private fun isSameDocumentFragment(url: String): Boolean {
+        val current = webView.url ?: return false
+        return (url.contains('#') || current.contains('#')) &&
+            url.substringBefore('#') == current.substringBefore('#')
     }
     override fun setDesktopMode(enabled: Boolean) {
         if (destroyed) return
@@ -587,13 +634,18 @@ class WebViewBrowserEngine(
     override fun saveState(): EngineSnapshot? {
         if (destroyed) return null
         val bundle = Bundle()
-        return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY, state.value.url) else null
+        return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY,
+            state.value.url, state.value.desktopMode) else null
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
         navigationRequestGeneration++
         blockingDocument = BlockingDocument(snapshot.url)
-        applySiteDisplayMode(snapshot.url)
+        // Restore the cached document in the mode in which it was fetched. Current
+        // window defaults and per-site choices apply on the next navigation/reload,
+        // not by replacing a page merely because it is selected or restored.
+        update { it.copy(desktopMode = snapshot.desktopMode) }
+        applyUserAgent(snapshot.desktopMode)
         restoringScroll = snapshot.scrollX to snapshot.scrollY
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
         if (!restored) restoringScroll = null

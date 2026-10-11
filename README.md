@@ -4,13 +4,13 @@ A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpac
 
 ![Nagi 0.1.1 in the light theme](docs/screenshots/readme-home.png)
 
-[Download Nagi 0.3.0](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v0.3.0)
+[Download Nagi 1.0.0](https://takeruf.com/nagi) · [GitHub release](https://github.com/TakeruF/android-tab-browser/releases/tag/v1.0.0)
 
 Install the APK over an existing GitHub/website installation to keep your workspace. Version 0.1.0 does not include an updater; install a newer APK manually, then use **Settings → App updates** for future releases. Google Play installations receive updates through Play. Local Debug builds, Play installations, and the former `com.orbit.browser` package have different signing or package identities; see [channel requirements](docs/RELEASING.md).
 
 ## Features
 
-Version 0.3.0 adds advertisement/tracker blocking, private browsing on supported WebViews, Reader mode, video PiP/pop-out playback, trackpad history gestures, and responsive address actions. See [release notes](docs/play-store/release-notes-0.3.0.txt).
+Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style mobile sites, resize-safe pages and drafts, and empty blocked-ad container collapse. See [release notes](docs/play-store/release-notes-1.0.0.txt).
 
 - Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
 - A Command Bar for URLs, search, tabs, Spaces, and commands.
@@ -85,6 +85,8 @@ See [architecture and the Room schema](docs/ARCHITECTURE.md). `WebViewBrowserEng
 
 ## Supported behavior and limitations
 
+Version 1.0.0 adds a full-width narrow-window layout with thumb-accessible controls and an on-demand tab sheet while retaining the wide sidebar. Unspecified sites use the current mobile/wide display default on their next navigation or manual reload; resizing alone preserves the loaded document and drafts. Saved per-site choices take priority. See [narrow-window browsing and validation](docs/COMPACT_UI.md).
+
 Archive runs on launch and on manual request.
 
 - Spaces organize tabs; Favorites are shared across Spaces. Cookies, Web Storage, and site logins are also shared.
@@ -138,7 +140,7 @@ Replace `emulator-5554` with your device serial. These are recorded release resu
 
 ![App updates in Nagi 0.1.1](docs/screenshots/readme-updates.png)
 
-README screenshots are historical captures of the signed 0.1.1 Release on the API-36 tablet emulator; they do not show all 0.3.0 controls. The Split image uses local demonstration pages.
+README screenshots are historical captures of the signed 0.1.1 Release on the API-36 tablet emulator; they do not show all 1.0.0 controls. The Split image uses local demonstration pages.
 
 ## License
 

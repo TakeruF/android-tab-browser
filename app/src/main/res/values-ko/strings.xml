@@ -64,7 +64,7 @@
     <string name="ui_restore_tabs_on_launch">"시작 시 탭 복원"</string>
     <string name="ui_keep_your_spaces_and_open_tabs_between_sessions">"다음 실행에도 스페이스와 열린 탭을 유지합니다"</string>
     <string name="ui_desktop_site_by_default">"기본으로 데스크톱 사이트 사용"</string>
-    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"새로 여는 페이지에 데스크톱 사용자 에이전트를 사용합니다"</string>
+    <string name="ui_use_a_desktop_user_agent_for_newly_created_sessions">"큰 화면에서는 데스크톱 사이트, 스마트폰 너비에서는 모바일 사이트를 표시합니다. 사이트별 수동 선택을 우선합니다."</string>
     <string name="ui_search_engines">"검색 엔진"</string>
     <string name="ui_default">"  기본"</string>
     <string name="ui_add_search_engine">"검색 엔진 추가"</string>

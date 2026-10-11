@@ -21,6 +21,7 @@ class SiteDisplayModeEngineTest {
     private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var engine: WebViewBrowserEngine
     private lateinit var store: SiteDisplayModeStore
+    private var automaticDesktop = true
     private val host = object : BrowserHost, FullscreenHost {
         override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) = result(null)
         override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) = result(emptySet())
@@ -46,7 +47,7 @@ class SiteDisplayModeEngineTest {
     private fun createEngine(desktop: Boolean = true) {
         scenario.onActivity {
             engine = WebViewBrowserEngine(it, host, host, { false }, desktop,
-                siteDisplayModes = store, defaultDesktopMode = { true })
+                siteDisplayModes = store, defaultDesktopMode = { automaticDesktop })
             it.addContentView(engine.surface, ViewGroup.LayoutParams(-1, -1))
         }
     }
@@ -147,7 +148,7 @@ class SiteDisplayModeEngineTest {
         assertFalse(server.requests.first { it.path == "/ua-redirect-target" }.userAgent.contains("Android"))
     }
 
-    @Test fun suspendedSnapshotUsesTheLatestSiteChoiceInsteadOfAnOldTabMode() {
+    @Test fun snapshotKeepsItsDocumentUntilReloadAppliesTheLatestSiteChoice() {
         val url = "${server.origin}/ua-snapshot"
         main { engine.loadUrl(url) }
         awaitMode(url, true)
@@ -156,7 +157,63 @@ class SiteDisplayModeEngineTest {
         assertNotNull(snapshot)
         store.remember(url, false)
         createEngine()
-        main { assertTrue(engine.restoreState(snapshot!!)); engine.reload() }
+        main { assertTrue(engine.restoreState(snapshot!!)) }
+        awaitMode(url, true)
+        main { engine.reload() }
         awaitMode(url, false)
+    }
+
+    @Test fun automaticDefaultsApplyOnTheNextLinkAndReloadWithoutSavingASiteChoice() {
+        val url = "${server.origin}/ua-automatic"
+        val next = "${server.origin}/ua-automatic-next"
+        main { engine.loadUrl(url) }
+        awaitMode(url, true)
+        main { automaticDesktop = false }
+        awaitMode(url, true)
+        assertNull(store.desktopMode(url))
+        main { engine.evaluateJavascript("location.href='$next'") }
+        awaitMode(next, false)
+        main { automaticDesktop = true }
+        awaitMode(next, false)
+        main { engine.reload() }
+        awaitMode(next, true)
+        assertNull(store.desktopMode(next))
+        assertEquals(1, server.requests.count { it.path == "/ua-automatic" })
+        assertEquals(listOf(true, false), server.requests.filter { it.path == "/ua-automatic-next" }
+            .map { it.userAgent.contains("Mobile") })
+        main { assertEquals(2, (engine.surface as WebView).copyBackForwardList().size) }
+    }
+
+    @Test fun explicitChoicesOverrideBothAutomaticDefaultsAndEngineRecreation() {
+        val url = "${server.origin}/ua-override"
+        main { automaticDesktop = false; engine.loadUrl(url) }
+        awaitMode(url, false)
+        main { engine.setDesktopMode(true) }
+        awaitMode(url, true)
+        main { automaticDesktop = true; engine.reload() }
+        awaitMode(url, true)
+        main { engine.setDesktopMode(false) }
+        awaitMode(url, false)
+        main { automaticDesktop = false; engine.reload() }
+        awaitMode(url, false)
+        main { automaticDesktop = true; engine.destroy() }
+        createEngine()
+        main { engine.loadUrl(url) }
+        awaitMode(url, false)
+        assertEquals(false, store.desktopMode(url))
+    }
+
+    @Test fun snapshotKeepsItsDocumentUntilReloadAppliesTheCurrentAutomaticDefault() {
+        val url = "${server.origin}/ua-auto-snapshot"
+        main { engine.loadUrl(url) }
+        awaitMode(url, true)
+        var snapshot: EngineSnapshot? = null
+        main { snapshot = engine.saveState(); engine.destroy(); automaticDesktop = false }
+        createEngine()
+        main { assertTrue(engine.restoreState(snapshot!!)) }
+        awaitMode(url, true)
+        main { engine.reload() }
+        awaitMode(url, false)
+        assertNull(store.desktopMode(url))
     }
 }

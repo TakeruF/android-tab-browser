@@ -13,15 +13,16 @@ class AdaptiveSidebarStateTest {
         assertTrue(narrow.forWidth(1000f).isCollapsed(true))
     }
 
-    @Test fun hysteresisAvoidsTogglingNearBoundary() {
-        var state = AdaptiveSidebarState().forWidth(600f)
-        assertFalse(state.compact)
-        state = state.forWidth(599f)
-        for (width in listOf(600f, 620f, 639f, 599f)) {
-            state = state.forWidth(width)
-            assertTrue(state.compact)
+    @Test fun sameWidthHasTheSameModeFromEitherDirectionAndSavedState() {
+        for (width in listOf(320f, 599f, 599.5f, 600f, 620f, 639f, 640f, 800f, 1280f)) {
+            val expected = width < 600f
+            for (previous in listOf(AdaptiveSidebarState(), AdaptiveSidebarState(compact = true),
+                AdaptiveSidebarState(compact = true, compactCollapsed = false))) {
+                assertEquals("width=$width, previous=$previous", expected, previous.forWidth(width).compact)
+            }
+            assertEquals(expected, AdaptiveSidebarState().forWidth(360f).forWidth(width).compact)
+            assertEquals(expected, AdaptiveSidebarState().forWidth(1280f).forWidth(width).compact)
         }
-        assertFalse(state.forWidth(640f).compact)
     }
 
     @Test fun manualCompactOverrideIsClearedForNextResizeCycle() {

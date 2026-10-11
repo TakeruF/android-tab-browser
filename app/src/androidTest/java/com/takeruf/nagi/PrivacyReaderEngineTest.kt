@@ -66,6 +66,9 @@ class PrivacyReaderEngineTest {
         main { (engine.surface as WebView).evaluateJavascript(script) { result.complete(it) } }
         return result.get(10, TimeUnit.SECONDS)
     }
+    private fun awaitJs(engine: WebViewBrowserEngine, script: String, expected: String) = runBlocking {
+        withTimeout(10_000) { while (js(engine, script) != expected) delay(50) }
+    }
     @Test fun bundledListsBlockActualWebViewRequestsAndSiteExclusionWorks() {
         val browser = engine()
         assertEquals("ready", runBlocking { withTimeout(20_000) { normal.adBlocker.status.first { it != "loading" } } })
@@ -154,6 +157,18 @@ class PrivacyReaderEngineTest {
             <div id="HometopAdOuter"><div id="HometopAd" style="min-height:110px"></div></div>
             <header id="masthead" style="height:60px">朝日新聞</header>
             <div id="editorial-space" style="height:120px"></div><article>Article content</article>
+            <div id="mobile-banner" class="l-section l-section--bgGray p-topBanner" style="height:100px">
+              <!-- Reserved mobile banner space surrounds the hidden ad. -->
+              <div class="ad ad-1stbnr" style="min-height:50px"><div id="div-gpt-ad-mobile"></div></div>
+            </div>
+            <div id="mobile-rectangle" class="l-section" style="min-height:250px">
+              <div class="ad ad-rect"><div id="div-gpt-ad-rectangle"></div></div>
+            </div>
+            <section id="mixed-section" class="l-section" style="min-height:200px">
+              <div class="ad"><div id="div-gpt-ad-mixed"></div></div><article id="article">Keep this article</article>
+            </section>
+            <div id="empty-section" class="l-section" style="height:100px"></div>
+            <div id="editorial-banner" class="l-section p-topBanner" style="height:100px"><a href="/feature">Editorial feature</a></div>
             </body></html>
         """.trimIndent(), "text/html", "UTF-8", null) }
         runBlocking { withTimeout(10_000) {
@@ -171,20 +186,35 @@ class PrivacyReaderEngineTest {
         assertEquals("0", js(browser, "document.getElementById('HometopAdOuter').getBoundingClientRect().height"))
         assertEquals("0", js(browser, "document.getElementById('masthead').getBoundingClientRect().top"))
         assertEquals("120", js(browser, "document.getElementById('editorial-space').getBoundingClientRect().height"))
+        assertEquals("0", js(browser, "document.getElementById('mobile-banner').getBoundingClientRect().height"))
+        assertEquals("0", js(browser, "document.getElementById('mobile-rectangle').getBoundingClientRect().height"))
+        assertEquals("200", js(browser, "document.getElementById('mixed-section').getBoundingClientRect().height"))
+        assertEquals("true", js(browser, "document.getElementById('article').getBoundingClientRect().height>0"))
+        assertEquals("100", js(browser, "document.getElementById('empty-section').getBoundingClientRect().height"))
+        assertEquals("100", js(browser, "document.getElementById('editorial-banner').getBoundingClientRect().height"))
         // CSS also handles ad frames added after initial page load, without a DOM polling loop.
         js(browser, "document.body.insertAdjacentHTML('beforeend','<div class=\"p-ad-area\" style=\"height:200px\">Late ad</div>');true")
         assertEquals("0", js(browser, "document.querySelector('.p-ad-area').getBoundingClientRect().height"))
+        js(browser, "document.body.insertAdjacentHTML('beforeend','<div id=\"late-mobile-banner\" class=\"l-section\" style=\"height:100px\"><div class=\"ad\"><div id=\"div-gpt-ad-late\"></div></div></div>');true")
+        awaitJs(browser, "document.getElementById('late-mobile-banner').getBoundingClientRect().height", "0")
         main { browser.configureVisitBlockingExceptions(setOf("asahi.com")) }
         assertEquals("110", js(browser, "document.getElementById('HometopAdOuter').getBoundingClientRect().height"))
         assertEquals("200", js(browser, "document.querySelector('.p-ad-area').getBoundingClientRect().height"))
+        assertEquals("100", js(browser, "document.getElementById('mobile-banner').getBoundingClientRect().height"))
+        assertEquals("250", js(browser, "document.getElementById('mobile-rectangle').getBoundingClientRect().height"))
+        assertEquals("100", js(browser, "document.getElementById('late-mobile-banner').getBoundingClientRect().height"))
         main { browser.configureVisitBlockingExceptions(emptySet()) }
         assertEquals("0", js(browser, "document.getElementById('HometopAdOuter').getBoundingClientRect().height"))
+        assertEquals("0", js(browser, "document.getElementById('mobile-banner').getBoundingClientRect().height"))
         main { browser.configureContentBlocking(true, setOf("www.asahi.com")) }
         assertEquals("110", js(browser, "document.getElementById('HometopAdOuter').getBoundingClientRect().height"))
+        assertEquals("100", js(browser, "document.getElementById('mobile-banner').getBoundingClientRect().height"))
         main { browser.configureContentBlocking(false, emptySet()) }
         assertEquals("110", js(browser, "document.getElementById('HometopAdOuter').getBoundingClientRect().height"))
+        assertEquals("100", js(browser, "document.getElementById('mobile-banner').getBoundingClientRect().height"))
         main { browser.configureContentBlocking(true, emptySet()) }
         assertEquals("0", js(browser, "document.getElementById('HometopAdOuter').getBoundingClientRect().height"))
+        assertEquals("0", js(browser, "document.getElementById('mobile-banner').getBoundingClientRect().height"))
     }
     @Test fun nativeEngineHonorsExceptionsAndResourceTypes() {
         AdblockEngine.create().use { engine ->
@@ -194,6 +224,83 @@ class PrivacyReaderEngineTest {
             assertTrue(engine.shouldBlock("https://typed.example/a.png", "https://news.example/", "image"))
             assertFalse(engine.shouldBlock("https://typed.example/a.js", "https://news.example/", "script"))
         }
+    }
+    @Test fun genericEmptyAdParentsCollapseAcrossHostsWithoutHidingContentOrControls() {
+        assertEquals("ready", runBlocking { withTimeout(20_000) { normal.adBlocker.status.first { it != "loading" } } })
+        val browser = engine()
+        for (url in listOf("https://news.example/", "https://magazine.example/")) {
+            main { (browser.surface as WebView).loadDataWithBaseURL(url, """
+                <html><head><title>Generic layout</title><style>#generated::before {content:'Section title'}</style></head><body>
+                <div id="reserve-one" style="height:100px;background:#eee">
+                  <div style="min-height:50px"><div id="div-gpt-ad-one"></div></div>
+                </div>
+                <aside id="reserve-two" style="min-height:250px">
+                  <section><div id="div-gpt-ad-two"></div></section>
+                </aside>
+                <div id="mixed" style="min-height:200px"><div id="div-gpt-ad-mixed"></div><p>Keep the news</p></div>
+                <div id="controls"><div id="div-gpt-ad-controls"></div><input id="draft" value="unfinished"></div>
+                <div id="media"><div id="div-gpt-ad-media"></div><img id="photo" width="80" height="80"></div>
+                <div id="spacer" style="height:120px"></div>
+                <div id="mixed-spacing"><div id="div-gpt-ad-spacing"></div><div style="height:80px"></div></div>
+                <article id="article"><div id="div-gpt-ad-article"></div></article>
+                <div id="generated" style="height:90px"><div id="div-gpt-ad-generated"></div></div>
+                <div id="illustration" style="height:90px;background-image:linear-gradient(red,blue)"><div id="div-gpt-ad-illustration"></div></div>
+                </body></html>
+            """.trimIndent(), "text/html", "UTF-8", null) }
+            awaitJs(browser, "location.href === ${org.json.JSONObject.quote(url)} && document.readyState === 'complete' && !!document.getElementById('draft')", "true")
+            main {
+                val view = browser.surface as WebView
+                view.webViewClient.doUpdateVisitedHistory(view, url, false)
+                browser.configureContentBlocking(false, emptySet())
+                browser.configureContentBlocking(true, emptySet())
+            }
+            assertEquals("0", js(browser, "document.getElementById('reserve-one').getBoundingClientRect().height"))
+            assertEquals("0", js(browser, "document.getElementById('reserve-two').getBoundingClientRect().height"))
+            assertEquals("200", js(browser, "document.getElementById('mixed').getBoundingClientRect().height"))
+            assertEquals("true", js(browser, "document.getElementById('controls').getBoundingClientRect().height>0"))
+            assertEquals("\"unfinished\"", js(browser, "document.getElementById('draft').value"))
+            assertEquals("80", js(browser, "document.getElementById('photo').getBoundingClientRect().height"))
+            assertEquals("120", js(browser, "document.getElementById('spacer').getBoundingClientRect().height"))
+            assertEquals("80", js(browser, "document.getElementById('mixed-spacing').getBoundingClientRect().height"))
+            assertEquals("false", js(browser, "document.getElementById('article').hasAttribute('data-nagi-adblock-collapse')"))
+            assertEquals("90", js(browser, "document.getElementById('generated').getBoundingClientRect().height"))
+            assertEquals("90", js(browser, "document.getElementById('illustration').getBoundingClientRect().height"))
+            // The same DOM can become editorial later: restore it without a reload.
+            js(browser, "document.getElementById('reserve-one').insertAdjacentHTML('beforeend','<p id=\"late-news\">New article</p>');true")
+            awaitJs(browser, "document.getElementById('reserve-one').getBoundingClientRect().height", "100")
+            assertEquals("true", js(browser, "document.getElementById('late-news').getBoundingClientRect().height>0"))
+            js(browser, "document.body.insertAdjacentHTML('beforeend','<div id=\"late-reserve\" style=\"height:90px\"><div id=\"div-gpt-ad-late-reserve\"></div></div>');true")
+            awaitJs(browser, "document.getElementById('late-reserve').getBoundingClientRect().height", "0")
+            js(browser, "document.getElementById('div-gpt-ad-late-reserve').remove();true")
+            awaitJs(browser, "document.getElementById('late-reserve').getBoundingClientRect().height", "90")
+            main { browser.configureContentBlocking(false, emptySet()) }
+            assertEquals("250", js(browser, "document.getElementById('reserve-two').getBoundingClientRect().height"))
+            assertEquals("false", js(browser, "!!document.querySelector('[data-nagi-adblock-collapse]')"))
+        }
+    }
+
+    @Test fun blockedMediaCollapseTheirUnnamedParentsAndRestoreOnPause() {
+        assertEquals("ready", runBlocking { withTimeout(20_000) { normal.adBlocker.status.first { it != "loading" } } })
+        val browser = engine()
+        load(browser, "/blocked-media")
+        awaitJs(browser, "document.getElementById('image-slot').getBoundingClientRect().height", "0")
+        awaitJs(browser, "document.getElementById('frame-slot').getBoundingClientRect().height", "0")
+        assertEquals("\"1\"", js(browser, "document.getElementById('blocked-image').getAttribute('data-nagi-adblock-resource')"))
+        assertEquals("\"1\"", js(browser, "document.getElementById('blocked-frame').getAttribute('data-nagi-adblock-resource')"))
+        assertEquals("true", js(browser, "document.getElementById('regular-frame').getBoundingClientRect().height>0"))
+        assertEquals("true", js(browser, "document.getElementById('story').getBoundingClientRect().height>0"))
+        js(browser, "document.getElementById('draft').value='keep this draft';window.__sameDocument=true;true")
+        main { browser.configureVisitBlockingExceptions(setOf("127.0.0.1")) }
+        assertEquals("140", js(browser, "document.getElementById('image-slot').getBoundingClientRect().height"))
+        assertEquals("200", js(browser, "document.getElementById('frame-slot').getBoundingClientRect().height"))
+        assertEquals("false", js(browser, "!!document.querySelector('[data-nagi-adblock-resource],[data-nagi-adblock-collapse]')"))
+        assertEquals("\"keep this draft\"", js(browser, "document.getElementById('draft').value"))
+        assertEquals("true", js(browser, "window.__sameDocument"))
+        main { browser.configureVisitBlockingExceptions(emptySet()) }
+        awaitJs(browser, "document.getElementById('image-slot').getBoundingClientRect().height", "0")
+        // Reusing the slot for a regular image must reveal it again.
+        js(browser, "document.getElementById('blocked-image').src='/custom-icon.png';true")
+        awaitJs(browser, "document.getElementById('image-slot').getBoundingClientRect().height", "140")
     }
     @Test fun livedoorCompatibilityRuleCollapsesOnlyTheAdvertisingParent() {
         assertEquals("ready", runBlocking { withTimeout(20_000) { normal.adBlocker.status.first { it != "loading" } } })
