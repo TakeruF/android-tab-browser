@@ -4,6 +4,17 @@
 
 Nagi 1.0.0 (`com.takeruf.nagi`, versionCode 8, targetSdk 36) was submitted to the existing Alpha track with four-language release notes and store descriptions. The recorded Console state was **Changes in review**, with Alpha **Active** and 0.3.0 still available to selected testers. Tester selection, feedback address, join links, and all 178 country/region rows were unchanged. Submission does not establish approval or delivery to testers.
 
+## Phone screenshots refreshed for 1.0.0
+
+On 2026-10-11, the two old phone captures were replaced with four unedited screenshots of the signed **Play Release 1.0.0**, built from `a6ea681`. Captures use the clean API-36 `Nagi_Store_Phone` emulator at 1080×1920 pixels / 420dpi (a compact window), English UI, and a demo status bar. Store order:
+
+1. [Mobile browsing](play-store/phone-browsing.png): the live [Wikipedia Earth page](https://en.wikipedia.org/wiki/Earth), with the address actions and bottom navigation.
+2. [Home](play-store/phone-home.png): full-width new-tab screen and bottom controls.
+3. [Tabs](play-store/phone-tabs.png): the compact sheet with Favorites, tabs, Spaces, History, and Settings.
+4. [Settings](play-store/phone-settings.png): current search and AI-engine settings without the old phone sidebar.
+
+English is the common image source; Japanese, Simplified Chinese, and Korean were each checked to inherit the same four images in the same order. Tablet screenshots, branding, descriptions, and release settings were not edited. The Console change is **Change Phone screenshots**. Saving and submitting it restarted the existing 1.0.0 review; the resulting **Changes in review** section showed automated quick checks still running. This is submission proof, not approval or live-store proof. [Console evidence](play-store/console-phone-screenshots-100-review.jpg).
+
 See [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) for the dated evidence. The declaration guidance and listing copy below support future submissions; check them against the exact uploaded artifact and current Console forms.
 
 ## Upload and signing
