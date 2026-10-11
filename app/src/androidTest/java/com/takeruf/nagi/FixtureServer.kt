@@ -11,13 +11,17 @@ import java.util.concurrent.CopyOnWriteArrayList
 class FixtureServer(private val rootIconAvailable: Boolean = true, private val homeIconMarkup: String = "",
     private val useIcoContainer: Boolean = false) : AutoCloseable {
     private val socket = ServerSocket(0)
-    private val executor = Executors.newSingleThreadExecutor()
+    private val executor = Executors.newCachedThreadPool()
     val origin = "http://127.0.0.1:${socket.localPort}"
     data class Request(val path: String, val userAgent: String, val referer: String?, val mobileHint: String?)
     val requests = CopyOnWriteArrayList<Request>()
     init { executor.execute {
         while (!socket.isClosed) runCatching {
-            socket.accept().use { client ->
+            val accepted = socket.accept()
+            // WebView can open speculative connections without sending a request.
+            // Serve connections independently so an idle socket cannot stall navigation.
+            executor.execute { runCatching { accepted.use { client ->
+                client.soTimeout = 5_000
                 val reader = client.getInputStream().bufferedReader()
                 val path = reader.readLine()?.split(' ')?.getOrNull(1) ?: "/one"
                 val headers = mutableMapOf<String, String>()
@@ -154,7 +158,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                 val bytes = body.toByteArray()
                 client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
                 client.getOutputStream().write(bytes)
-            }
+            } } }
         }
     } }
     override fun close() { socket.close(); executor.shutdownNow() }

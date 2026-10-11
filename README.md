@@ -1,6 +1,6 @@
 # Nagi
 
-A sidebar-first workspace browser for Android tablets, built with Kotlin, Jetpack Compose, Material 3, WebView, Room, and DataStore.
+A workspace browser for Android tablets and phones, built with Kotlin, Jetpack Compose, Material 3, WebView, Room, and DataStore.
 
 ![Nagi 0.1.1 in the light theme](docs/screenshots/readme-home.png)
 

@@ -103,11 +103,11 @@ Sources: [Google Data safety guidance](https://support.google.com/googleplay/and
 
 Name: Nagi Browser
 
-Short description: A workspace browser for Android tablets with Spaces, tabs, and split browsing.
+Short description: Android phone and tablet browsing with Spaces, tabs, and split view.
 
 Full description:
 
-Nagi is a workspace browser built for Android tablets. Organize your browsing in a sidebar, separate tasks with Spaces, and keep two pages side by side with adjustable split browsing.
+Nagi is a workspace browser for Android tablets and phones. Organize your browsing in a sidebar, separate tasks with Spaces, and keep two pages side by side with adjustable split browsing.
 
 Keep frequently used pages in Favorites or pinned tabs. Find pages in your history, and use the Command Bar to open URLs, search, or switch tabs and Spaces. Choose your search engines, including a user-initiated Ask ChatGPT action that opens ChatGPT's website.
 
@@ -121,6 +121,8 @@ Use automatic picture-in-picture or movable in-browser video playback, and two-f
 
 Nagi is an early release. Normal Spaces share cookies and site logins. Cloud sync and an in-app AI chat are unavailable. Website compatibility, third-party logins, and AI-service behavior depend on those services and your Android WebView version.
 
+Windows narrower than 600dp use full-width pages, bottom navigation, and a sheet for tabs, Favorites, and Spaces. Wider windows keep the sidebar. Resizing preserves loaded pages and unfinished input. Automatic mobile or desktop mode applies on the next navigation or reload; saved site choices take priority. Mobile mode requests a phone layout, including supported Client Hints. Empty containers around confirmed blocked advertisements are collapsed while protecting text, images, and controls.
+
 Privacy policy: https://takeruf.com/en/nagi/privacy
 Support: support@takeruf.com
 
@@ -128,11 +130,11 @@ Support: support@takeruf.com
 
 アプリ名：Nagi Browser
 
-簡単な説明：Spaceとタブで整理し、2つのページを並べて使えるAndroidタブレット向けブラウザ。
+簡単な説明：Spaceとタブで整理し、分割表示も使えるAndroidタブレット・スマートフォン向けブラウザ。
 
 詳しい説明：
 
-NagiはAndroidタブレット向けのワークスペースブラウザです。サイドバーでタブを整理し、Spaceで作業を切り替え、サイズを調整できるSplit表示で2つのページを並べて閲覧できます。
+NagiはAndroidタブレット・スマートフォン向けのワークスペースブラウザです。サイドバーでタブを整理し、Spaceで作業を切り替え、サイズを調整できるSplit表示で2つのページを並べて閲覧できます。
 
 よく使うページはお気に入りや固定タブに保存。履歴からページを開き、コマンドバーでURL入力、検索、タブやSpaceの切り替えを行えます。検索エンジンを選択でき、「ChatGPTに聞く」は入力した質問をChatGPTのウェブサイトで開きます。
 
@@ -146,6 +148,8 @@ NagiはAndroidタブレット向けのワークスペースブラウザです。
 
 Nagiは初期リリースです。通常のSpace間ではCookieとサイトへのログイン状態を共有します。クラウド同期とアプリ内AIチャットは未対応です。サイト表示、外部サービスへのログイン、AIサービスの動作は各サービスとAndroid WebViewのバージョンに依存します。
 
+600dp未満のウィンドウでは全幅表示、下部ナビゲーション、タブ・お気に入り・Spaceのシートを使います。広いウィンドウではサイドバーを表示。サイズ変更時はページと入力途中の内容を保持し、自動のモバイル・PC表示切替は次のページ移動・再読込時に適用します。サイトごとの指定を優先し、モバイル表示では対応Client Hintsも含めスマートフォン向けの表示を要求します。ブロックが確認された広告の空の親枠を畳み、本文・画像・操作部品を保護します。
+
 プライバシーポリシー：https://takeruf.com/ja/nagi/privacy
 お問い合わせ：support@takeruf.com
 
@@ -153,11 +157,11 @@ Nagiは初期リリースです。通常のSpace間ではCookieとサイトへ�
 
 应用名称：Nagi Browser
 
-简短说明：专为 Android 平板打造，支持空间（Space）管理、标签页整理和双窗格浏览。
+简短说明：适用于 Android 平板和手机，支持空间管理、标签页整理和双窗格浏览。
 
 完整说明：
 
-Nagi 是专为 Android 平板打造的工作空间浏览器。你可以在侧边栏中整理标签页，用空间（Space）分别管理不同任务的标签页，并通过可调整宽度的双窗格并排浏览两个网页。空间是 Nagi 用来组织不同任务的工作区，在应用内显示为“空间”。
+Nagi 是适用于 Android 平板和手机的工作空间浏览器。你可以在侧边栏中整理标签页，用空间（Space）分别管理不同任务的标签页，并通过可调整宽度的双窗格并排浏览两个网页。空间是 Nagi 用来组织不同任务的工作区，在应用内显示为“空间”。
 
 将常用页面加入收藏或固定为标签页，也可以从历史记录中重新打开页面。通过命令栏输入网址、搜索内容，或切换标签页和空间。你可以选择搜索引擎；向 ChatGPT 提问时，会在 ChatGPT 网站中打开你输入的内容。
 
@@ -173,6 +177,8 @@ Nagi 是专为 Android 平板打造的工作空间浏览器。你可以在侧边
 
 Nagi 目前处于早期发布阶段。普通空间共享 Cookie 和网站登录状态。目前不提供云同步或应用内 AI 聊天。网站兼容性、第三方登录以及 AI 服务的可用情况，取决于对应服务和 Android WebView 版本。
 
+宽度小于600dp的窗口采用全宽网页、底部导航及标签页、收藏和空间面板；宽窗口保留侧边栏。调整窗口大小时保留网页和未完成的输入，自动手机版或电脑版切换在下次导航或刷新时生效，并优先使用各网站的设置。手机版发送手机标识及受支持的Client Hints。折叠已确认拦截的广告周围留下的空容器，并保护正文、图片和操作控件。
+
 隐私政策：https://takeruf.com/zh/nagi/privacy
 联系邮箱：support@takeruf.com
 
@@ -180,11 +186,11 @@ Nagi 目前处于早期发布阶段。普通空间共享 Cookie 和网站登录�
 
 앱 이름: Nagi Browser
 
-간단한 설명: Space, 탭 정리와 분할 탐색을 지원하는 Android 태블릿용 워크스페이스 브라우저.
+간단한 설명: Space와 분할 탐색을 지원하는 Android 태블릿·휴대전화용 브라우저.
 
 자세한 설명:
 
-Nagi는 Android 태블릿용 워크스페이스 브라우저입니다. 사이드바에서 탭을 정리하고 Space로 작업을 전환하며, 크기를 조절할 수 있는 분할 화면에서 두 페이지를 나란히 볼 수 있습니다.
+Nagi는 Android 태블릿과 휴대전화를 위한 워크스페이스 브라우저입니다. 사이드바에서 탭을 정리하고 Space로 작업을 전환하며, 크기를 조절할 수 있는 분할 화면에서 두 페이지를 나란히 볼 수 있습니다.
 
 자주 사용하는 페이지를 즐겨찾기나 고정 탭으로 보관하세요. 방문 기록에서 페이지를 열고 명령 모음으로 URL 입력, 검색, 탭과 Space 전환을 할 수 있습니다. 검색 엔진을 선택할 수 있으며 “ChatGPT에 질문”은 입력한 질문을 ChatGPT 웹사이트에서 엽니다.
 
@@ -197,6 +203,8 @@ Nagi는 Android 태블릿용 워크스페이스 브라우저입니다. 사이드
 자동 화면 속 화면, 이동 가능한 앱 내 동영상 플레이어, 트랙패드 두 손가락 뒤로/앞으로 제스처를 지원합니다. 좁은 창에서는 공유, 링크 복사, 광고 차단 순으로 버튼을 유지하고 숨겨진 작업만 메뉴 상단으로 이동합니다.
 
 Nagi는 초기 릴리스입니다. 일반 Space는 쿠키와 사이트 로그인 상태를 공유합니다. 클라우드 동기화와 앱 내 AI 채팅은 제공되지 않습니다. 웹사이트 호환성, 타사 로그인 및 AI 서비스의 동작은 해당 서비스와 Android WebView 버전에 따라 달라집니다.
+
+600dp보다 좁은 창은 전체 너비 페이지, 하단 탐색 모음과 탭·즐겨찾기·Space 시트를 사용하고 넓은 창은 사이드바를 유지합니다. 창 크기 변경 시 페이지와 입력 중인 내용을 유지합니다. 자동 모바일·데스크톱 모드는 다음 탐색이나 새로고침에 적용되며 사이트별 설정이 우선합니다. 모바일 모드는 지원되는 Client Hints를 포함해 휴대전화 레이아웃을 요청합니다. 차단이 확인된 광고 주변의 빈 컨테이너를 접고 본문, 이미지와 조작 요소를 보호합니다.
 
 개인정보 처리방침: https://takeruf.com/ko/nagi/privacy
 지원: support@takeruf.com
