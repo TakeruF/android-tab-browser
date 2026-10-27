@@ -1,8 +1,8 @@
 # Distribution and in-app updates
 
-Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. Version 1.0.0 has `versionCode=8`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
+Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. The local 1.1.0 candidate has `versionCode=9`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
 
-See [1.0.0 release notes](releases/1.0.0.md) and the dated [publication verification](RELEASE_1.0.0_VERIFICATION.md).
+See the [1.1.0 draft release notes](releases/1.1.0.md). The dated [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) remains a historical distribution record; local candidate validation does not establish publication.
 
 ## Signing
 

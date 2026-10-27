@@ -70,6 +70,14 @@ class HistorySwipeUiTest {
         return queue.poll(5, TimeUnit.SECONDS) ?: error("JavaScript did not answer")
     }
 
+    private fun visualReady(v: WebView) {
+        val ready = LinkedBlockingQueue<Boolean>()
+        compose.runOnIdle { v.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+            override fun onComplete(requestId: Long) { ready.offer(true) }
+        }) }
+        assertEquals("WebView did not commit the resized document", true, ready.poll(5, TimeUnit.SECONDS))
+    }
+
     private fun point(v: WebView): Pair<Float, Float> {
         val location = IntArray(2).also(v::getLocationOnScreen)
         val decor = IntArray(2).also(compose.activity.window.decorView::getLocationOnScreen)
@@ -194,14 +202,22 @@ class HistorySwipeUiTest {
     @Test fun touchpadKeepsNestedAndPageHorizontalScrolling() {
         val v = views().single(); load(v, "/two"); load(v, "/scroll")
         javascript(v, "document.body.style.width='100%'; true")
+        visualReady(v)
         wheel(v, -4f, nested = true)
         compose.waitUntil(5_000) { javascript(v, "document.getElementById('nested').scrollLeft").toDouble() > 0 }
         assertEquals("0", javascript(v, "scrollX"))
         assertTrue(ready(v, "/scroll"))
-        SystemClock.sleep(300)
+        // End WebView's wheel latch before moving from the nested scroller to the page.
+        SystemClock.sleep(600)
         javascript(v, "document.body.style.width='4000px'; true")
+        visualReady(v)
         wheel(v, -4f)
-        compose.waitUntil(5_000) { javascript(v, "scrollX").toDouble() > 0 }
+        try {
+            compose.waitUntil(5_000) { javascript(v, "scrollX").toDouble() > 0 }
+        } catch (failure: Throwable) {
+            throw AssertionError("Page horizontal scroll: " + javascript(v,
+                "JSON.stringify({x:scrollX,width:innerWidth,content:document.scrollingElement.scrollWidth,nx:document.getElementById('nested').scrollLeft,wheels:window.wheelCount})"), failure)
+        }
         assertTrue(ready(v, "/scroll"))
     }
 

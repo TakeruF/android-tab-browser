@@ -111,7 +111,7 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                     } else TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text("Esc") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                LazyColumn(state = list, modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(12.dp)) {
+                LazyColumn(state = list, modifier = Modifier.weight(1f, fill = false).testTag("command-suggestions"), contentPadding = PaddingValues(12.dp)) {
                     itemsIndexed(suggestions, key = { _, item -> item.id }) { index, item ->
                         val active = selected == index
                         val titleColor = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface

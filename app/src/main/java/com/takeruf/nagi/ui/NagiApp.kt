@@ -106,7 +106,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         WebViewBrowserEngine(activity, host, host, { currentSettings.openLinksInNewTab }, desktop,
             nativePageDrag = { currentSettings.nativePageDrag }, siteDisplayModes = container.siteDisplayModes,
             defaultDesktopMode = { currentDesktopDefault }, tabId = tabId,
-            adBlocker = container.adBlocker, privateProfileName = container.privateProfileName)
+            adBlocker = container.adBlocker, privateProfileName = container.privateProfileName,
+            alwaysTranslateRules = { currentSettings.alwaysTranslateLanguages },
+            rememberAlwaysTranslate = { source, target -> container.scope.launch {
+                container.settings.update { it.copy(alwaysTranslateLanguages = it.alwaysTranslateLanguages + (source to target)) }
+            } })
     } }
     val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()
@@ -133,6 +137,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     var omniboxOpen by rememberSaveable { mutableStateOf(false) }
     var omniboxInitial by rememberSaveable { mutableStateOf("") }
     var pendingNewTabId by remember { mutableStateOf<String?>(null) }
+    var translationRequest by remember { mutableStateOf<PageTranslationRequest?>(null) }
     val savedPair = state.visibleTabs.firstOrNull { tab ->
         tab.splitRightTabId != null && state.visibleTabs.any { it.id == tab.splitRightTabId } &&
             state.activeTab?.id in listOf(tab.id, tab.splitRightTabId)
@@ -154,6 +159,13 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val right = splitRight.takeIf { splitVisible }
     val focusedTab = if (rightFocused && right != null) right else left
     val focusedEngine = focusedTab?.let { sessions.pool.peek(it.id) }
+    LaunchedEffect(translationRequest, route, left?.id, right?.id, pages[translationRequest?.tabId]?.url, blockedExternalApp) {
+        translationRequest?.let { request ->
+            if (route != "browser" || request.tabId !in setOfNotNull(left?.id, right?.id) ||
+                sessions.pool.peek(request.tabId) !== request.engine || request.engine.state.value.url != request.url ||
+                blockedExternalApp != null) translationRequest = null
+        }
+    }
     SideEffect {
         val protectedIds = setOfNotNull(left?.id, right?.id, video?.tabId)
         container.tabs.protectFromArchive(protectedIds)
@@ -443,7 +455,10 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         showFind, onFind = { showFind = it }, onOmnibox = { openOmnibox() }, onOpenUrl = ::openUrl,
                                         onSplit = ::split, onCloseSplit = ::closeSplit,
                                         onSwap = { right?.let { other -> left?.let { vm.pairTabs(other.id, it.id); vm.selectTab(other.id) } } },
-                                        leftTabId = left?.id, compactWindow = sidebarAdaptation.compact, desktopDefault = desktopDefault) }
+                                        leftTabId = left?.id, compactWindow = sidebarAdaptation.compact, desktopDefault = desktopDefault,
+                                        onTranslationOptions = { tab, engine ->
+                                            translationRequest = PageTranslationRequest(tab.id, engine, engine.state.value.url)
+                                        }) }
                                     composable("settings") { SettingsScreen(state, vm,
                                         onSuspendTabs = sessions::suspendBackground,
                                         onClearSiteData = { scope.launch {
@@ -510,10 +525,31 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             }
                         },
                         onDismiss = { host.dismissBlockedExternalApp(request) },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 16.dp)
-                            .widthIn(max = (windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value) - 32f).coerceIn(200f, 360f).dp))
+                        modifier = browserNoticePlacement((windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value)).dp))
                 }
-                if (!sidebarAdaptation.compact && sidebarDrag.item != null) SidebarDragPreview(sidebarDrag)
+                if (route == "browser" && blockedExternalApp == null) translationRequest?.let { request ->
+                    val page by request.engine.state.collectAsStateWithLifecycle()
+                    key(request) {
+                        PageTranslationNotice(page.translation, onDismiss = { translationRequest = null },
+                            modifier = browserNoticePlacement((windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value)).dp),
+                            enabled = !page.isLoading && !page.readerLoading && page.error == null,
+                            targetLanguage = state.settings.translationTargetLanguage,
+                            alwaysTranslateLanguages = state.settings.alwaysTranslateLanguages,
+                            onAlwaysTranslationChange = { source, target ->
+                                vm.updateSettings { prefs -> prefs.copy(alwaysTranslateLanguages =
+                                    if (target == null) prefs.alwaysTranslateLanguages - source
+                                    else prefs.alwaysTranslateLanguages + (source to target)) }
+                            },
+                            onTargetLanguageChange = { language ->
+                                vm.updateSettings { it.copy(translationTargetLanguage = language) }
+                            },
+                            onTranslate = { source, target, wifiOnly, always ->
+                                translationRequest = null
+                                request.engine.translatePage(source, target, wifiOnly, always)
+                            })
+                    }
+                }
+                if (!sidebarAdaptation.compact && (sidebarDrag.item != null || sidebarDrag.favoriteLanding != null)) SidebarDragPreview(sidebarDrag)
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = if (sidebarAdaptation.compact && route == "browser") 56.dp else 0.dp))
                 if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
                     TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (sidebarAdaptation.compact && route == "browser") 72.dp else 16.dp)) {

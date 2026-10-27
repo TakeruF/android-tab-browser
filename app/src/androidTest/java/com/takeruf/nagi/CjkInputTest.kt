@@ -56,6 +56,14 @@ class CjkInputTest {
         }
         compose.waitForIdle()
     }
+    private fun awaitEditorText(value: String) {
+        // The system InputConnection dispatches through Binder; Compose being idle
+        // does not mean the IME edit has reached the editor yet.
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasSetTextAction() and hasText(value)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNode(hasSetTextAction()).assertTextEquals(value)
+    }
     private fun exercise(provisional: List<String>, committed: String, useImeAction: Boolean) {
         ime.awaitBinding()
         compose.runOnIdle { compose.activity.window.callback.dispatchKeyEvent(AndroidKeyEvent(0, 0, AndroidKeyEvent.ACTION_DOWN,
@@ -63,7 +71,7 @@ class CjkInputTest {
         val ic = connection()
         provisional.forEach { value ->
             compose.runOnIdle { ic.setComposingText(value, 1) }
-            compose.onNode(hasSetTextAction()).assertTextEquals(value)
+            awaitEditorText(value)
         }
         key(ic, AndroidKeyEvent.KEYCODE_DPAD_DOWN)
         key(ic, AndroidKeyEvent.KEYCODE_ENTER)
@@ -75,7 +83,7 @@ class CjkInputTest {
         compose.runOnIdle { ic.performEditorAction(EditorInfo.IME_ACTION_GO) }
         compose.onNode(hasSetTextAction()).assertTextEquals(provisional.last())
         compose.runOnIdle { ic.commitText(committed, 1); ic.finishComposingText() }
-        compose.onNode(hasSetTextAction()).assertTextEquals(committed)
+        awaitEditorText(committed)
         // Reselect and reconvert a segment, exercising replacement rather than appending.
         compose.runOnIdle { ic.setComposingRegion(0, committed.length); ic.setComposingText(committed, 1); ic.finishComposingText() }
         compose.onNode(hasSetTextAction()).assertTextEquals(committed)
@@ -91,14 +99,18 @@ class CjkInputTest {
     @Test fun koreanJamoCompositionAndEnter() = exercise(listOf("ㅎ", "하", "한", "한구", "한국어 검색"), "한국어 검색", false)
     @Test fun engineNameKeepsJapaneseChineseAndKoreanComposition() {
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("customize-search-engines").performScrollTo().performClick()
-        compose.onNodeWithText("Add search engine").performScrollTo().performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
+        compose.onNodeWithTag("customize-search-engines").performClick()
+        compose.onNodeWithTag("search-engines-list").performScrollToNode(hasText("Add search engine"))
+        compose.onNodeWithText("Add search engine").performClick()
         compose.onNodeWithText("Name").performClick()
         val ic = connection(EditorInfo.IME_ACTION_DONE)
         for ((preedit, result) in listOf("にほんご" to "日本語", "zhongwen" to "中文", "ㅎㅏㄴㄱㅜㄱㅇㅓ" to "한국어")) {
             compose.runOnIdle { ic.setSelection(0, ic.getTextBeforeCursor(100, 0)?.length ?: 0); ic.commitText("", 1); ic.setComposingText(preedit, 1) }
+            compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText(preedit)).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Name").assertTextContains(preedit)
             compose.runOnIdle { ic.commitText(result, 1); ic.finishComposingText() }
+            compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction() and hasText(result)).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Name").assertTextContains(result)
         }
         compose.onNodeWithText("Cancel").performClick()

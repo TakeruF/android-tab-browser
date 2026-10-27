@@ -40,6 +40,7 @@ data class Bookmark(val id: String, val url: String, val title: String,
     val isFavorite: Boolean = false, val createdAt: Long = System.currentTimeMillis())
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class NewTabBackground { DEFAULT, SOLID, GRADIENT, PHOTO }
 enum class ArchivePeriod(val days: Int?) { NEVER(null), DAY(1), WEEK(7), MONTH(30) }
 
 data class BrowserSettings(
@@ -67,6 +68,12 @@ data class BrowserSettings(
     val videoPopups: Boolean = true,
     val adBlockingEnabled: Boolean = true,
     val adBlockExcludedHosts: Set<String> = emptySet(),
+    val newTabBackground: NewTabBackground = NewTabBackground.DEFAULT,
+    val newTabColor: Long = 0xFF426B5A,
+    val newTabPhoto: String? = null,
+    // null follows the app language until a translation target is explicitly chosen.
+    val translationTargetLanguage: String? = null,
+    val alwaysTranslateLanguages: Map<String, String> = emptyMap(),
 )
 
 data class WorkspaceSnapshot(

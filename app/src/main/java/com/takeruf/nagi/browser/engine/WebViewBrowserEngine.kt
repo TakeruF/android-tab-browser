@@ -37,6 +37,11 @@ class WebViewBrowserEngine(
     private val tabId: String = java.util.UUID.randomUUID().toString(),
     internal val adBlocker: com.takeruf.nagi.browser.blocking.AdBlocker? = null,
     val privateProfileName: String? = null,
+    private val translationFactory: () -> com.takeruf.nagi.browser.translation.TextTranslationBackend = {
+        com.takeruf.nagi.browser.translation.MlKitTextTranslationBackend()
+    },
+    private val alwaysTranslateRules: () -> Map<String, String> = { emptyMap() },
+    private val rememberAlwaysTranslate: (String, String) -> Unit = { _, _ -> },
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webView = WebView(context)
@@ -51,6 +56,15 @@ class WebViewBrowserEngine(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(PageState(desktopMode = desktopDefault))
     override val state = mutableState.asStateFlow()
+    private val translationNavigation = com.takeruf.nagi.browser.translation.TranslationNavigationState()
+    private var translationWifiOnly = true
+    private var automaticTranslationGeneration = -1L
+    private val pageTranslation = com.takeruf.nagi.browser.translation.PageTranslation(webView, scope, translationFactory) { translation ->
+        if (translation.translatedNodes > 0 && translation.source != null && translation.target != null) {
+            translationNavigation.didTranslate(translation.source, translation.target, translationWifiOnly)
+        }
+        update { it.copy(translation = translation) }
+    }
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
     private val mobileUa = SiteUserAgent.mobile(WebSettings.getDefaultUserAgent(context))
@@ -150,6 +164,10 @@ class WebViewBrowserEngine(
                     if (request.hasGesture() && openLinksInNewTab()) {
                         eventChannel.trySend(EngineEvent.OpenTab(url)); return true
                     }
+                    if (!isSameDocumentFragment(url) && !request.isRedirect) {
+                        if (request.hasGesture()) translationNavigation.followLink()
+                        else if (!state.value.isLoading) translationNavigation.reset()
+                    }
                     val desktop = desktopModeFor(url)
                     if (request.method.equals("GET", true) && !isSameDocumentFragment(url) &&
                         desktop != null && desktop != state.value.desktopMode) {
@@ -161,7 +179,7 @@ class WebViewBrowserEngine(
                         }?.value?.takeIf(String::isNotBlank)
                         val headers = referer?.let { mapOf("Referer" to it) }.orEmpty()
                         view.post {
-                            if (!destroyed && requestGeneration == navigationRequestGeneration) loadUrl(url, headers)
+                            if (!destroyed && requestGeneration == navigationRequestGeneration) loadUrl(url, headers, preserveTranslation = true)
                         }
                         return true
                     }
@@ -180,6 +198,8 @@ class WebViewBrowserEngine(
                 // resources. Keep that document's counts instead of resetting them here.
                 if (blockingDocument.url != url) blockingDocument = BlockingDocument(url)
                 navigationGeneration++
+                translationNavigation.documentStarted()
+                pageTranslation.reset(restore = true)
                 pageDownloads.invalidate()
                 mediaPermissionGranted = false
                 faviconJob?.cancel()
@@ -217,6 +237,7 @@ class WebViewBrowserEngine(
                 metadata()
                 if (!failedNavigation) discoverFavicon(view, url)
                 if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
+                continuePageTranslation(url)
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) {
@@ -316,7 +337,8 @@ class WebViewBrowserEngine(
         webView.setDownloadListener { url, userAgent, disposition, mimeType, _ ->
             // An attachment is not a document navigation. Keep the source page restorable.
             downloadUrl = url
-            update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
+            update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode,
+                translation = it.translation, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
             if (url.startsWith("https://") || url.startsWith("http://")) host.download(
                 DownloadRequest(url, userAgent, disposition, mimeType,
@@ -447,11 +469,13 @@ class WebViewBrowserEngine(
         }
     }
     override fun loadUrl(url: String) = loadUrl(url, emptyMap())
-    private fun loadUrl(url: String, extraHeaders: Map<String, String>) {
+    private fun loadUrl(url: String, extraHeaders: Map<String, String>, preserveTranslation: Boolean = false) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
         navigationRequestGeneration++
+        if (!preserveTranslation) translationNavigation.reset()
         blockingDocument = BlockingDocument(url)
+        pageTranslation.reset(restore = true)
         applySiteDisplayMode(url)
         restoringScroll = null
         downloadUrl = null
@@ -467,6 +491,8 @@ class WebViewBrowserEngine(
         if (extraHeaders.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, extraHeaders)
     }
     override fun reload() { if (!destroyed) {
+        translationNavigation.followLink()
+        pageTranslation.reset(restore = true)
         navigationRequestGeneration++
         blockingDocument = BlockingDocument(state.value.url)
         applySiteDisplayMode(state.value.url)
@@ -495,11 +521,13 @@ class WebViewBrowserEngine(
     }
 
     override fun goBack() { if (state.value.readerArticle != null) { toggleReader(); return }; if (canGoBack()) {
+        translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(-1)
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
     } }
     override fun goForward() { if (canGoForward()) {
+        translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(1)
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goForward()
@@ -558,6 +586,8 @@ class WebViewBrowserEngine(
         if (destroyed) return
         if (state.value.readerArticle != null) { update { it.copy(readerArticle = null) }; return }
         if (state.value.readerLoading || state.value.isLoading || !state.value.url.startsWith("http")) return
+        translationNavigation.reset()
+        pageTranslation.reset(restore = true)
         val generation = navigationGeneration
         val url = state.value.url
         update { it.copy(readerLoading = true) }
@@ -627,10 +657,43 @@ class WebViewBrowserEngine(
         webView.stopLoading()
         update { it.copy(desktopMode = enabled) }; applyUserAgent(enabled); reload()
     }
+    override fun retryGoogleSignInInMobileMode() {
+        if (destroyed || !state.value.desktopMode) return
+        val currentUrl = state.value.url
+        val retryUrl = GoogleSignInRecovery.retryUrl(currentUrl) ?: return
+        siteDisplayModes.remember(currentUrl, false)
+        // loadUrl applies the remembered mode before requesting the sign-in entry point.
+        loadUrl(retryUrl)
+    }
     override fun findInPage(query: String) { (readerSurface ?: webView).findAllAsync(query) }
     override fun findNext(forward: Boolean) { (readerSurface ?: webView).findNext(forward) }
     override fun clearFind() { (readerSurface ?: webView).clearMatches(); update { it.copy(findMatches = 0, activeFindMatch = 0) } }
-    override fun setVisible(visible: Boolean) { if (visible) webView.onResume() else webView.onPause() }
+    private fun continuePageTranslation(url: String) {
+        if (automaticTranslationGeneration == navigationGeneration) return
+        automaticTranslationGeneration = navigationGeneration
+        val continuation = translationNavigation.takeContinuation()
+        if (failedNavigation || state.value.error != null || !(url.startsWith("http://") || url.startsWith("https://"))) return
+        if (continuation == null && alwaysTranslateRules().isEmpty()) return
+        pageTranslation.startAutomatic { language ->
+            com.takeruf.nagi.browser.translation.TranslationNavigationState.choose(language, continuation, alwaysTranslateRules())
+                ?.also { translationWifiOnly = it.wifiOnly }
+        }
+    }
+    override fun translatePage(source: String?, target: String, wifiOnly: Boolean, alwaysTranslate: Boolean) {
+        if (destroyed || state.value.isLoading || state.value.readerLoading || state.value.error != null ||
+            !(state.value.url.startsWith("http://") || state.value.url.startsWith("https://"))) return
+        update { it.copy(readerArticle = null) }
+        translationNavigation.reset()
+        translationWifiOnly = wifiOnly
+        pageTranslation.start(source, target, wifiOnly) { language ->
+            if (alwaysTranslate) rememberAlwaysTranslate(language, target)
+        }
+    }
+    override fun restoreOriginalPage() { if (!destroyed) {
+        translationNavigation.reset()
+        pageTranslation.reset(restore = true)
+    } }
+    override fun setVisible(visible: Boolean) { pageTranslation.setVisible(visible); if (visible) webView.onResume() else webView.onPause() }
     override fun saveState(): EngineSnapshot? {
         if (destroyed) return null
         val bundle = Bundle()
@@ -658,7 +721,7 @@ class WebViewBrowserEngine(
     }
     override fun canSuspend(result: (Boolean) -> Unit) {
         if (destroyed || state.value.isLoading || restoringScroll != null || fileCallback != null || pendingPermissions.isNotEmpty() ||
-            mediaPermissionGranted || fullscreenActive || pageDownloads.isBusy) { result(false); return }
+            mediaPermissionGranted || fullscreenActive || pageDownloads.isBusy || pageTranslation.active) { result(false); return }
         val generation = navigationGeneration
         webView.evaluateJavascript("""
             (function(){
@@ -677,11 +740,12 @@ class WebViewBrowserEngine(
             })()
         """.trimIndent()) { value -> result(!destroyed && generation == navigationGeneration && value == "true" &&
             !state.value.isLoading && fileCallback == null && pendingPermissions.isEmpty() && !mediaPermissionGranted &&
-            !fullscreenActive && !pageDownloads.isBusy) }
+            !fullscreenActive && !pageDownloads.isBusy && !pageTranslation.active) }
     }
     override fun setVideoPopupEnabled(enabled: Boolean) { pageVideo.setEnabled(enabled) }
     override fun destroy() {
         if (destroyed) return
+        pageTranslation.reset(restore = false)
         destroyed = true
         if (fullscreenActive) fullscreenHost.hideVideo(tabId)
         pageVideo.destroy()

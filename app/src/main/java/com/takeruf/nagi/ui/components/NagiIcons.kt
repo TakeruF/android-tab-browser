@@ -9,6 +9,8 @@ import com.composables.icons.lucide.R as LucideR
 
 /** One Lucide family for generic app controls; site favicons and Space emoji keep their identity. */
 object NagiIcons {
+    val Languages: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_languages)
     val BookOpen: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_book_open)
     val SlidersHorizontal: ImageVector

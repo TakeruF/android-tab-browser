@@ -1,6 +1,14 @@
 Nagi 0.1.0 — Third-party notices
 Dependency snapshot: releaseRuntimeClasspath, 2026-10-04
 
+Page translation additions (2026-10-27): Google ML Kit Translation 17.0.3 and
+Language Identification 17.0.6. Copyright Google LLC.
+https://developers.google.com/ml-kit/terms
+https://developers.google.com/ml-kit/language/translation/translation-terms
+Google Translate attribution badge: unmodified official Google branding asset.
+https://cloud.google.com/translate/attribution
+Kotlinx Coroutines Play Services 1.10.2 is covered by the Kotlinx notice below.
+
 AndroidX / Jetpack Compose / Material icons
 Copyright The Android Open Source Project and contributors. Apache-2.0.
 https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt

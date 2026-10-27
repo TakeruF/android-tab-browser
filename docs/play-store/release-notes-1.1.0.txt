@@ -1,0 +1,24 @@
+<en-US>
+• On-device page translation with Google Translate, saved target language and same-tab link continuation.
+• Choose new-tab backgrounds.
+• Retry rejected desktop Google sign-in pages in mobile view.
+• Fix Favorite menu long presses, touch bounds and sidebar rotation stability.
+</en-US>
+<ja-JP>
+• Google Translateによる端末内ページ翻訳。翻訳先を記憶し、同じタブのリンク先でも翻訳を継続。
+• 新しいタブの背景を選択可能に。
+• PC表示でGoogleログインが拒否された際にモバイル表示を案内。
+• お気に入りメニューの長押し・認識範囲と画面回転時の安定性を改善。
+</ja-JP>
+<zh-CN>
+• Google Translate 设备端网页翻译，记住目标语言并在同一标签页内继续翻译链接。
+• 可选择新标签页背景。
+• 桌面模式下 Google 登录受阻时提示尝试移动版。
+• 修复收藏菜单长按、点击范围和屏幕旋转时的稳定性。
+</zh-CN>
+<ko-KR>
+• Google Translate 기기 내 페이지 번역, 대상 언어 저장 및 같은 탭 링크 번역 유지.
+• 새 탭 배경 선택.
+• 데스크톱 Google 로그인 거부 시 모바일 보기 안내.
+• 즐겨찾기 메뉴 길게 누르기, 터치 영역과 회전 안정성 개선.
+</ko-KR>

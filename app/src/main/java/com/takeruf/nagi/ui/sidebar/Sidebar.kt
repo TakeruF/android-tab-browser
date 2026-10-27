@@ -50,12 +50,15 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.domain.model.*
 import com.takeruf.nagi.ui.browser.*
@@ -97,7 +100,13 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     val settleSpec = remember { tween<Float>(250, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)) }
     fun settle(page: Int) {
         settling?.cancel()
-        settling = scope.launch { pager.animateScrollToPage(page, animationSpec = settleSpec) }
+        settling = scope.launch {
+            // The sidebar can enter composition inside BoxWithConstraints' measure pass
+            // (for example after rotation). Pager scrolling forces a remeasure, so start
+            // it on the next frame, after that enclosing layout has finished.
+            withFrameNanos { }
+            pager.animateScrollToPage(page, animationSpec = settleSpec)
+        }
     }
     LaunchedEffect(state.currentSpace?.id, spaces.map { it.id }) {
         if (spaces.isNotEmpty()) settle(selectedPage)
@@ -508,6 +517,12 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
     var menu by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val viewConfiguration = LocalViewConfiguration.current
+    val menuConfiguration = remember(viewConfiguration) {
+        object : ViewConfiguration by viewConfiguration {
+            override val minimumTouchTargetSize = DpSize(24.dp, 24.dp)
+        }
+    }
     val target = drag.destination?.takeIf { it.section == SidebarSection.FAVORITES && it.id == bookmark.id && drag.item?.favorite != true }
     Box(modifier) {
         Box(Modifier.fillMaxWidth().height(58.dp).alpha(if (drag.item?.id == bookmark.id || drag.favoriteLanding?.item?.id == bookmark.id) 0f else 1f)
@@ -518,8 +533,14 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
                 customActions = listOf(CustomAccessibilityAction(strings(R.string.ui_show_actions)) { menu = true; true }) }, contentAlignment = Alignment.Center) {
             Favicon(bookmark.faviconUrl, siteUrl = bookmark.url, fallbackText = bookmark.title)
             Box(Modifier.align(Alignment.TopEnd)) {
-                if (hovered || touch || menu) IconButton(onClick = { menu = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(NagiIcons.Ellipsis, strings(R.string.ui_favorite_actions_for_1_s, bookmark.title), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (hovered || touch || menu) CompositionLocalProvider(
+                    LocalViewConfiguration provides menuConfiguration,
+                    LocalMinimumInteractiveComponentSize provides 24.dp,
+                ) {
+                    IconButton(onClick = { menu = true }, modifier = Modifier.size(24.dp)
+                        .sidebarGestureExclusion(drag, "favorite-actions-${bookmark.id}")) {
+                        Icon(NagiIcons.Ellipsis, strings(R.string.ui_favorite_actions_for_1_s, bookmark.title), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 NagiOverflowMenu(menu, { menu = false }) { NagiOverflowMenuItem(destructive = true, leadingIcon = { Icon(NagiIcons.Trash2, null) }, text = { Text(strings(R.string.ui_remove_favorite)) }, onClick = { onRemove(); menu = false }) }
             }

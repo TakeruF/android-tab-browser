@@ -22,4 +22,4 @@ On 2026-10-06, all 12 selected instrumentation cases (the complete WebView engin
 
 Sources: [Autofill setup and Activity context](https://developer.android.com/identity/autofill/autofill-optimize), [WebView virtual form structure](https://developer.android.com/reference/android/webkit/WebView), [provider web-domain verification and browser allowlists](https://developer.android.com/reference/android/service/autofill/AutofillService#web-security).
 
-These integrations are included in Nagi 0.1.2. See [0.1.2 release validation](VALIDATION.md#2026-10-06--012-release-validation) for the current release checks.
+These integrations were introduced in Nagi 0.1.2. See [Validation](VALIDATION.md) for dated release and candidate checks.

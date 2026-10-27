@@ -57,6 +57,8 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
         SearchEnginesScreen(state, vm, onBack = { customizingEngines = false })
         return
     }
+    var customizingNewTab by remember { mutableStateOf(false) }
+    if (customizingNewTab) NewTabAppearanceDialog(state.settings, vm) { customizingNewTab = false }
     var clearHistory by remember { mutableStateOf(false) }
     var clearSiteData by remember { mutableStateOf(false) }
     val prefs = state.settings
@@ -129,6 +131,11 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             }
         } }
         item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette) {
+            Row(Modifier.fillMaxWidth().testTag("settings-new-tab-background").clip(NagiShapes.Rounded)
+                .clickable { customizingNewTab = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(strings(R.string.ui_new_tab_background), Modifier.weight(1f))
+                Icon(NagiIcons.ChevronRight, null, Modifier.size(20.dp))
+            }
             FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
             }

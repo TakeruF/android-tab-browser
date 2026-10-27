@@ -2,7 +2,7 @@
 
 ## Latest recorded submission — 2026-10-11
 
-Nagi 1.0.0 (`com.takeruf.nagi`, versionCode 8, targetSdk 36) was submitted to the existing Alpha track with four-language release notes and store descriptions. The recorded Console state was **Changes in review**, with Alpha **Active** and 0.3.0 still available to selected testers. Tester selection, feedback address, join links, and all 178 country/region rows were unchanged. Submission does not establish approval or delivery to testers.
+The historical Nagi 1.0.0 (`com.takeruf.nagi`, versionCode 8, targetSdk 36) was submitted to the existing Alpha track with four-language release notes and store descriptions. The recorded Console state was **Changes in review**, with Alpha **Active** and 0.3.0 still available to selected testers. Tester selection, feedback address, join links, and all 178 country/region rows were unchanged. Submission does not establish approval or delivery to testers.
 
 ## Phone screenshots refreshed for 1.0.0
 
@@ -62,7 +62,10 @@ Do not simply answer “no data collected.” The default automatic-region mode 
 | Ask ChatGPT | User-initiated query URL opens the third-party site. No automatic page-content/history upload, no OpenAI API, and no developer-operated AI server. |
 | Camera, microphone, precise location, uploads | Access occurs only for a website after permission/selection. No developer server receives them. Consider the open-web rule rather than equating a manifest permission with developer collection. |
 | Updates | Play delivery only; no GitHub update request in this variant. |
-| Analytics, advertising IDs, automatic crash reports | No such SDK or developer transport in the current implementation. |
+| ML Kit installation / device identifiers | Declare Device or other IDs collected for Analytics and App functionality (model delivery/configuration); not processed ephemerally. SDK diagnostics have no app opt-out. No advertising ID integration. |
+| ML Kit feature events and language configuration | Declare App interactions collected for Analytics; SDK initialization/model events and configured/detected languages are SDK metadata, not page text. |
+| ML Kit performance, device/app configuration and error metrics | Declare Diagnostics and Other app performance data collected for Analytics; not ephemeral. No Crashlytics or developer crash-reporting integration. |
+| ML Kit provider handling | SDK transfers use HTTPS. Use Google's ML Kit disclosure for service-provider treatment; do not invent advertising/marketing, personalization or account-management purposes. Do not promise developer-side deletion of Google SDK records. |
 | Passkeys and Safe Browsing | Android WebView/credential-provider security services; no credential bridge or developer credential storage. Recheck provider documentation if the form asks about platform handling. |
 | Deletion | Local history/site data can be cleared in Settings; Android app-data deletion removes app-private data. Public downloaded files are deleted separately. Do not promise deletion of external providers' server logs. |
 
@@ -96,6 +99,8 @@ Nagi is an early release. Normal Spaces share cookies and site logins. Cloud syn
 
 Windows narrower than 600dp use full-width pages, bottom navigation, and a sheet for tabs, Favorites, and Spaces. Wider windows keep the sidebar. Resizing preserves loaded pages and unfinished input. Automatic mobile or desktop mode applies on the next navigation or reload; saved site choices take priority. Mobile mode requests a phone layout, including supported Client Hints. Empty containers around confirmed blocked advertisements are collapsed while protecting text, images, and controls.
 
+Page translation uses Google Translate through on-device ML Kit (https://cloud.google.com/translate). Download language models, remember your target language, continue translating same-language links in the same tab, and restore the original page. Translation covers page text, excluding images and PDFs. Choose a new-tab background and retry rejected desktop Google sign-in pages in mobile view. ML Kit may send SDK diagnostics and usage information to Google; see the privacy policy.
+
 Privacy policy: https://takeruf.com/en/nagi/privacy
 Support: support@takeruf.com
 
@@ -122,6 +127,8 @@ NagiはAndroidタブレット・スマートフォン向けのワークスペー
 Nagiは初期リリースです。通常のSpace間ではCookieとサイトへのログイン状態を共有します。クラウド同期とアプリ内AIチャットは未対応です。サイト表示、外部サービスへのログイン、AIサービスの動作は各サービスとAndroid WebViewのバージョンに依存します。
 
 600dp未満のウィンドウでは全幅表示、下部ナビゲーション、タブ・お気に入り・Spaceのシートを使います。広いウィンドウではサイドバーを表示。サイズ変更時はページと入力途中の内容を保持し、自動のモバイル・PC表示切替は次のページ移動・再読込時に適用します。サイトごとの指定を優先し、モバイル表示では対応Client Hintsも含めスマートフォン向けの表示を要求します。ブロックが確認された広告の空の親枠を畳み、本文・画像・操作部品を保護します。
+
+Google Translateを通じたML Kitの端末内ページ翻訳に対応（https://cloud.google.com/translate）。言語モデルを取得し、翻訳先を記憶。同じタブで同じ言語のリンク先の翻訳を継続し、原文へ戻せます。画像・PDFは対象外です。新しいタブの背景を選択でき、GoogleログインがPC表示で拒否された場合はモバイル表示を試せます。ML KitはSDKの診断・利用情報をGoogleへ送る場合があります。詳しくはプライバシーポリシーをご確認ください。
 
 プライバシーポリシー：https://takeruf.com/ja/nagi/privacy
 お問い合わせ：support@takeruf.com
@@ -152,6 +159,8 @@ Nagi 目前处于早期发布阶段。普通空间共享 Cookie 和网站登录�
 
 宽度小于600dp的窗口采用全宽网页、底部导航及标签页、收藏和空间面板；宽窗口保留侧边栏。调整窗口大小时保留网页和未完成的输入，自动手机版或电脑版切换在下次导航或刷新时生效，并优先使用各网站的设置。手机版发送手机标识及受支持的Client Hints。折叠已确认拦截的广告周围留下的空容器，并保护正文、图片和操作控件。
 
+通过 Google Translate 的 ML Kit 在设备上翻译网页（https://cloud.google.com/translate）。下载语言模型，记住目标语言，在同一标签页中继续翻译同语言链接，并可恢复原文。仅翻译网页文字，不含图片和 PDF。可选择新标签页背景，Google 登录在桌面模式受阻时可尝试移动版。ML Kit 可能向 Google 发送 SDK 诊断和使用信息，详情请参阅隐私政策。
+
 隐私政策：https://takeruf.com/zh/nagi/privacy
 联系邮箱：support@takeruf.com
 
@@ -178,6 +187,8 @@ Nagi는 Android 태블릿과 휴대전화를 위한 워크스페이스 브라우
 Nagi는 초기 릴리스입니다. 일반 Space는 쿠키와 사이트 로그인 상태를 공유합니다. 클라우드 동기화와 앱 내 AI 채팅은 제공되지 않습니다. 웹사이트 호환성, 타사 로그인 및 AI 서비스의 동작은 해당 서비스와 Android WebView 버전에 따라 달라집니다.
 
 600dp보다 좁은 창은 전체 너비 페이지, 하단 탐색 모음과 탭·즐겨찾기·Space 시트를 사용하고 넓은 창은 사이드바를 유지합니다. 창 크기 변경 시 페이지와 입력 중인 내용을 유지합니다. 자동 모바일·데스크톱 모드는 다음 탐색이나 새로고침에 적용되며 사이트별 설정이 우선합니다. 모바일 모드는 지원되는 Client Hints를 포함해 휴대전화 레이아웃을 요청합니다. 차단이 확인된 광고 주변의 빈 컨테이너를 접고 본문, 이미지와 조작 요소를 보호합니다.
+
+Google Translate를 통한 ML Kit 기기 내 페이지 번역을 지원합니다(https://cloud.google.com/translate). 언어 모델 다운로드, 대상 언어 기억, 같은 탭의 같은 언어 링크 번역 유지와 원문 복원이 가능합니다. 이미지·PDF는 제외됩니다. 새 탭 배경을 선택하고 데스크톱 모드의 Google 로그인 거부 시 모바일 보기를 시도할 수 있습니다. ML Kit는 SDK 진단·사용 정보를 Google에 보낼 수 있습니다. 자세한 내용은 개인정보 처리방침을 확인하세요.
 
 개인정보 처리방침: https://takeruf.com/ko/nagi/privacy
 지원: support@takeruf.com

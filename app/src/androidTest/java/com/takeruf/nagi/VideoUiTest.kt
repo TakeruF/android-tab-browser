@@ -26,13 +26,21 @@ class VideoUiTest {
     private lateinit var web: WebView
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
-    private fun waitFor(predicate: () -> Boolean) = runBlocking {
-        withTimeout(15_000) { while (!predicate()) delay(100) }
+    private fun waitFor(predicate: () -> Boolean) {
+        val callSite = AssertionError("Video condition did not complete")
+        try {
+            runBlocking { withTimeout(15_000) { while (!predicate()) delay(100) } }
+        } catch (failure: TimeoutCancellationException) {
+            callSite.initCause(failure)
+            throw callSite
+        }
     }
     private fun js(script: String): String {
+        val callSite = AssertionError("Video JavaScript did not answer: ${script.take(120)}")
         val result = CompletableDeferred<String>()
         main { web.evaluateJavascript(script) { result.complete(it) } }
-        return runBlocking { withTimeout(5_000) { result.await() } }
+        return try { runBlocking { withTimeout(5_000) { result.await() } } }
+        catch (failure: TimeoutCancellationException) { callSite.initCause(failure); throw callSite }
     }
     private fun views(view: View): List<View> = listOf(view) +
         if (view is ViewGroup) (0 until view.childCount).flatMap { views(view.getChildAt(it)) } else emptyList()
@@ -48,6 +56,17 @@ class VideoUiTest {
         waitFor { js("document.readyState") == "\"complete\"" }
     }
     private fun tap(selector: String, inFrame: Boolean = false) {
+        if (!inFrame) {
+            js("document.querySelector(${JSONObject.quote(selector)}).scrollIntoView({block:'center',inline:'center'}); true")
+            val ready = CompletableDeferred<Unit>()
+            main {
+                web.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                    override fun onComplete(requestId: Long) { ready.complete(Unit) }
+                })
+                web.invalidate()
+            }
+            compose.waitUntil(5_000) { ready.isCompleted }
+        }
         val script = if (inFrame) """
             (()=>{const r=document.querySelector('#player-frame').getBoundingClientRect();
             return JSON.stringify({x:r.x+70,y:r.y+385,w:innerWidth});})()
@@ -66,7 +85,17 @@ class VideoUiTest {
         web.dispatchTouchEvent(down); web.dispatchTouchEvent(up); down.recycle(); up.recycle()
     }
     private fun ticks() = js("window.videoTicks").toIntOrNull() ?: 0
-    private fun assertAdvances() { val before = ticks(); waitFor { ticks() >= before + 3 } }
+    private fun assertAdvances() {
+        val before = ticks()
+        try { waitFor { ticks() >= before + 3 } }
+        catch (failure: AssertionError) {
+            throw AssertionError("Video playback stalled: " + js("""
+                JSON.stringify({ticks:window.videoTicks,video:Array.from(document.querySelectorAll('video')).map(v=>({
+                  paused:v.paused,time:v.currentTime,ready:v.readyState,network:v.networkState,error:v.error?.code})),
+                  height:innerHeight,width:innerWidth})
+            """), failure)
+        }
+    }
     private fun home() { instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close() }
     private fun returnToApp() {
         val activity = compose.activity
