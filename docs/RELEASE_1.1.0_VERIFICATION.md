@@ -1,8 +1,8 @@
-# Nagi 1.1.0 local candidate verification
+# Nagi 1.1.0 release verification
 
 Verified on 2026-10-27. Package `com.takeruf.nagi`, version `1.1.0` / code `9`, minSdk 26, targetSdk 36.
 
-This is a local candidate from the modified working tree. Source hashes, build outputs and test evidence are retained in ignored `artifacts/1.1.0-preflight/`. No clean release commit, CI/review, store submission, or public distribution is established by these checks.
+The final GitHub release is public. Google Play production 1.1.0 has been submitted for review; store availability is not established by submission. Initial working-tree evidence is retained in ignored `artifacts/1.1.0-preflight/`; final clean-build and publication evidence is retained separately in `artifacts/1.1.0-release/`.
 
 ## Initial preflight baseline
 
@@ -60,7 +60,26 @@ The privacy-policy update explains local text processing separately from ML Kit 
 
 After the attribution change, both unit suites passed again (158 GitHub + 147 Play = 305), both Release lint tasks and signed packaging passed, complete GitHub instrumentation passed 195/197 with the two opt-in identity diagnostics skipped, and Play feature instrumentation passed all 15 cases. The real-model smoke tests were enabled. The new 280dp-wide result-bar test verifies the official attribution and Show original action remain in one row. All four deployed privacy pages returned HTTP 200 with the updated ML Kit disclosure and 27 October date.
 
-Final artifact, source, public-download and Console states are appended after the release operations complete.
+Final source, artifact and publication evidence follows.
+
+## Final clean build and publication — 2026-10-27
+
+[App PR 1](https://github.com/TakeruF/android-tab-browser/pull/1) merged as `6b5d0de9fec1d14cbded57609a6613604e16c944`. The APK and AAB were rebuilt in an isolated checkout of that exact commit, verified clean before and after building. The repository had no required remote checks or pending reviews; local test results above cover the same app source. Both Release lint checks had zero errors (56 GitHub / 67 Play warnings).
+
+| Final artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| GitHub APK | 84,252,470 | `befa7d79d107dbedae664ad6ef54332c3ffea67972bac40b4cbc5e9d427ed253` |
+| Play AAB | 73,624,560 | `8935879f251ad1ae2acab7aaa165070b8a8cf4ea22b50ab48473cf36600c06d7` |
+
+APK signature, existing distribution certificate, non-debuggable 9/1.1.0 metadata, bundle signature/validation, channel-specific manifest boundaries, license assets, ZIP alignment and all ten ELF64 libraries' alignment passed again. These are packaging checks, not proof of execution on a 16KB-page device. Google Play accepted the uploaded AAB as 9 (1.1.0), confirming its upload identity is accepted by the existing app.
+
+The separate blackbox test package passed all four final phases: 1.0.0 storage seeding (5.915s), in-place 1.1.0 upgrade verification (2.184s), signed runtime navigation/Split/real-model translation/restoration (15.547s), and cached-model translation/restoration offline (4.314s). Cookie, localStorage, IndexedDB, three original open tabs, two Spaces, Favorites, IDs, ordering, active selections, pin/split state and per-host mobile choice survived. The installed APK hash matches the final artifact. The offline route probe failed with `Network is unreachable` while both guest interfaces were down, and original network settings were restored. The final screenshot shows the small official attribution and Show original action on one row. The original user tablet emulator received the current branded Debug build in place and Nagi remained in the foreground.
+
+[GitHub v1.1.0](https://github.com/TakeruF/android-tab-browser/releases/tag/v1.1.0) publishes the APK, `update.json`, and `SHA256SUMS`, tagged at the clean source commit above. The downloaded APK signature and digest match. An unauthenticated download also returned exactly 84,252,470 bytes with the expected hash, and the public latest-update URL returns 1.1.0 / code 9 with that digest.
+
+Google Play's Publishing overview showed **Changes in review** after sending six changes: Production **1.1.0, Start full rollout**, all four full descriptions, and Data safety. Managed publishing is **off**. Rollout is 100% in the existing 178 countries/regions. The upload retained the same supported-device counts (11,470 phones; 6,480 tablets; no lost devices). The only release warning was increased APK download size; Console estimated 14 MB for new installs and 8.12 MB for updates. SDK initialization and translation feature diagnostics/identifiers are declared separately from on-device page text; the existing approximate-location declaration remains. Automated quick checks were still running after submission. This records submission for review, not approval or actual delivery of 1.1.0.
+
+Four updated privacy-policy URLs returned HTTP 200 with the current Google ML Kit disclosure and date. Website [PR 36](https://github.com/TakeruF/me/pull/36) updates the version, checksum, size, four-language feature copy and both product/homepage download buttons. The new universal APK exceeds [EdgeOne Makers' 25 MB per-file limit](https://pages.edgeone.ai/document/limits-and-quotas), so current download buttons use the verified GitHub asset while previous website APK URLs are retained. PR 36 passed its `web` CI at the corrected head `042a09f8b8d33acc13dbc1f4dace3a6bcaed6c92`, including the homepage-link review fix, and merged as `2c04e69a61b67d00173e6d8ee9062824b720fb18`. Local lint, all four locale builds and 68-page export validation passed. Deployed English, Japanese, Simplified Chinese and Korean home/product pages all returned HTTP 200 and pointed at the verified 1.1.0 asset, with no old download link. Product pages displayed 84.3 MB and the final checksum; EdgeOne Last-Modified values were 09:45:43–09:45:48 UTC on 27 October. The previous 1.0.0 APK remains available at its historical URL.
 
 ## Boundaries
 

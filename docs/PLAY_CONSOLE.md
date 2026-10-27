@@ -1,6 +1,10 @@
-# Google Play closed-test preparation
+# Google Play release preparation
 
-## Latest recorded submission — 2026-10-11
+## Latest recorded production submission — 2026-10-27
+
+Nagi **1.1.0 / code 9** was submitted to Production at 100% rollout in the existing 178 countries/regions, together with four full-description updates and the ML Kit Data safety declaration. The Console showed **Changes in review**, quick checks running, and **Managed publishing off**. The accepted AAB was rebuilt from clean source `6b5d0de9fec1d14cbded57609a6613604e16c944`. No supported devices were lost; the only release warning concerned increased download size. Approval and public 1.1.0 availability are not established. See [final verification](RELEASE_1.1.0_VERIFICATION.md).
+
+## Historical closed-test submission — 2026-10-11
 
 The historical Nagi 1.0.0 (`com.takeruf.nagi`, versionCode 8, targetSdk 36) was submitted to the existing Alpha track with four-language release notes and store descriptions. The recorded Console state was **Changes in review**, with Alpha **Active** and 0.3.0 still available to selected testers. Tester selection, feedback address, join links, and all 178 country/region rows were unchanged. Submission does not establish approval or delivery to testers.
 

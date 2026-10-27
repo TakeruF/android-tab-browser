@@ -15,6 +15,8 @@ Install the APK over an existing GitHub/website installation to keep your worksp
 
 ## Features
 
+Version 1.1.0 adds on-device page translation, remembered target languages, same-tab link continuation, new-tab backgrounds, a mobile-view retry for rejected desktop Google sign-in, and Favorite/sidebar fixes. See [release notes](docs/releases/1.1.0.md) and [release verification](docs/RELEASE_1.1.0_VERIFICATION.md).
+
 Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style mobile sites, resize-safe pages and drafts, and empty blocked-ad container collapse. See [release notes](docs/play-store/release-notes-1.0.0.txt).
 
 - Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.

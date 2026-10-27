@@ -1,8 +1,8 @@
 # Distribution and in-app updates
 
-Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. The local 1.1.0 candidate has `versionCode=9`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
+Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. The public GitHub release 1.1.0 has `versionCode=9`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
 
-See the [1.1.0 draft release notes](releases/1.1.0.md). The dated [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) remains a historical distribution record; local candidate validation does not establish publication.
+See the [1.1.0 release notes](releases/1.1.0.md). The dated [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) remains a historical distribution record; See the [1.1.0 verification](RELEASE_1.1.0_VERIFICATION.md) for current publication evidence; Google Play submission is separate from approval.
 
 ## Signing
 
@@ -59,10 +59,10 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest -Pandr
 ```json
 {
   "applicationId": "com.takeruf.nagi",
-  "versionCode": 8,
-  "versionName": "1.0.0",
+  "versionCode": 9,
+  "versionName": "1.1.0",
   "minSdk": 26,
-  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v1.0.0/nagi-1.0.0.apk",
+  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v1.1.0/nagi-1.1.0.apk",
   "sha256": "64 lowercase hexadecimal characters",
   "size": 123,
   "notes": "English release notes"
