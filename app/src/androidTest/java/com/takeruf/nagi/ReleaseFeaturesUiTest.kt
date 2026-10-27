@@ -52,6 +52,7 @@ class ReleaseFeaturesUiTest {
         compose.onNodeWithTag("url-drop-$tabId").performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement(">")
         compose.onNodeWithText("Bookmarks").assertDoesNotExist()
+        compose.onNodeWithTag("command-suggestions").performScrollToNode(hasText("Open history"))
         compose.onNodeWithText("Open history").assertIsDisplayed()
         screenshot("commands-without-bookmarks")
     }

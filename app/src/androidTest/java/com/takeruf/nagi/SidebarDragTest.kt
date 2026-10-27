@@ -28,10 +28,12 @@ class SidebarDragTest {
     private lateinit var beta: String
     private lateinit var gamma: String
     private var originalFavorites = emptyList<BookmarkEntity>()
+    private lateinit var originalSettings: BrowserSettings
     @Before fun setup() {
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
+            originalSettings = container.settings.settings.first()
             // Earlier browsing tests add favorites. Keep the drag geometry deterministic,
             // then restore those entries rather than accumulating fixture state.
             originalFavorites = container.workspace.dao.observeBookmarks().first().filter { it.isFavorite }
@@ -57,6 +59,7 @@ class SidebarDragTest {
         originalFavorites.forEach { container.workspace.dao.putBookmark(it) }
         if (::spaceId.isInitialized) container.spaces.delete(spaceId)
         if (::beta.isInitialized && container.workspace.dao.tab(beta)?.spaceId == "work") container.tabs.close(beta)
+        if (::originalSettings.isInitialized) container.settings.update { originalSettings }
     }
     private fun tab(title: String) = compose.onNodeWithContentDescription("Tab $title")
     private fun saveScreen(name: String) {
@@ -448,6 +451,63 @@ class SidebarDragTest {
         compose.waitUntil { compose.onAllNodesWithContentDescription("Favorite Gmail").fetchSemanticsNodes().isNotEmpty() }
         compose.waitForIdle()
         assertTrue(favorite("ChatGPT").fetchSemanticsNode().boundsInRoot.left < favorite("Gmail").fetchSemanticsNode().boundsInRoot.left)
+    }
+
+    @Test fun favoriteActionsLongPressDoesNotStartDraggingOrHideTile() {
+        val favorite = compose.onNodeWithContentDescription("Favorite ChatGPT")
+        val actions = compose.onNodeWithContentDescription("Favorite actions for ChatGPT")
+        val before = favorite.captureToImage().toPixelMap().let { it[it.width / 2, it.height - 8] }
+        try {
+            actions.performTouchInput { down(center); advanceEventTime(650); moveBy(Offset.Zero, delayMillis = 1) }
+            compose.onNodeWithTag("favorite-drag-preview").assertDoesNotExist()
+        } finally { actions.performTouchInput { up() } }
+        compose.onNodeWithText("Remove favorite").assertIsDisplayed()
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("input keyevent 4")).use { it.readBytes() }
+        compose.waitForIdle()
+        val after = favorite.captureToImage().toPixelMap().let { it[it.width / 2, it.height - 8] }
+        assertEquals("The favorite tile must remain visible after holding its action button", before, after)
+        compose.onNodeWithTag("favorite-drag-preview").assertDoesNotExist()
+    }
+
+    @Test fun favoriteActionsOnlyCaptureTheirVisible24DpBounds() {
+        val sidebar = compose.onNodeWithTag("sidebar")
+        val host = sidebar.fetchSemanticsNode().boundsInRoot
+        val actions = compose.onNodeWithContentDescription("Favorite actions for ChatGPT").fetchSemanticsNode().boundsInRoot
+        val density = compose.activity.resources.displayMetrics.density
+        val count = runBlocking { container.workspace.dao.tabs(spaceId).count { it.url == "https://example.com/ChatGPT" } }
+        sidebar.performTouchInput { click(Offset(actions.left - 4 * density, actions.center.y) - host.topLeft) }
+        compose.onNodeWithText("Remove favorite").assertDoesNotExist()
+        compose.waitUntil(10_000) {
+            runBlocking { container.workspace.dao.tabs(spaceId).count { it.url == "https://example.com/ChatGPT" } > count }
+        }
+    }
+
+    @Test fun favoriteTouchDropRestoresTileAfterLanding() {
+        val favorite = compose.onNodeWithContentDescription("Favorite ChatGPT")
+        val before = favorite.captureToImage().toPixelMap().let { it[it.width / 2, it.height - 8] }
+        val sidebar = compose.onNodeWithTag("sidebar")
+        val host = sidebar.fetchSemanticsNode().boundsInRoot
+        val from = favorite.fetchSemanticsNode().boundsInRoot.center - host.topLeft
+        val to = compose.onNodeWithContentDescription("Favorite GitHub").fetchSemanticsNode().boundsInRoot.center - host.topLeft
+        sidebar.performTouchInput { down(from); advanceEventTime(650); moveTo(to, delayMillis = 100); up() }
+        compose.waitUntil(10_000) {
+            runBlocking { container.workspace.dao.observeBookmarks().first().filter { it.isFavorite }.map { it.id } } ==
+                listOf("drag-fixture-0", "drag-fixture-2", "drag-fixture-1")
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("favorite-drag-preview").assertDoesNotExist()
+        // PixelCopy can return an earlier native frame while the keyed tile is moving.
+        // Require a stable restored tile, rather than accepting one stale matching frame.
+        var visibleSince = 0L
+        compose.waitUntil(5_000) {
+            val visible = favorite.captureToImage().toPixelMap().let { it[it.width / 2, it.height - 8] } == before
+            val now = android.os.SystemClock.uptimeMillis()
+            if (!visible) visibleSince = 0L else if (visibleSince == 0L) visibleSince = now
+            visible && now - visibleSince >= 200
+        }
+        val after = favorite.captureToImage().toPixelMap().let { it[it.width / 2, it.height - 8] }
+        assertEquals("The favorite tile must become visible after its landing animation", before, after)
     }
 
     @Test fun favoriteTouchDragAcrossRowsCancelRestoresOriginalOrder() {

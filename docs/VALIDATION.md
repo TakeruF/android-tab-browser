@@ -1,6 +1,6 @@
 # Validation
 
-The dated [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) records the current release source, signed artifacts, tests, upgrade, and distribution checks. The [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md) is retained as the previous-release baseline. These are recorded results, not a live Console or deployment status check.
+The dated [1.1.0 local candidate verification](RELEASE_1.1.0_VERIFICATION.md) records pre-release tests and artifact checks. The [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) and [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md) remain historical distribution records. These are recorded results, not a live Console or deployment status check.
 
 ## Repeatable checks
 
@@ -18,6 +18,7 @@ For signed APK/AAB checks and channel-specific publication, follow [RELEASING.md
 
 - [Narrow-window browsing](COMPACT_UI.md): window boundaries, tab sheets, phone UA/Client Hints, per-site choices, and page/draft retention through resizing.
 - [Privacy, Reader, and blocking](PRIVACY_READER_BLOCKING.md): actual WebView requests, exceptions, storage isolation, Reader sanitization, and restoration of blocked-ad containers.
+- [Page translation](PAGE_TRANSLATION.md): page-menu/language controls, live DOM translation and restoration, session cancellation, and an opt-in real-model download/translation smoke test.
 - [Live-site advertising checks](AD_SLOT_COLLAPSE_VALIDATION.md): recorded DOM measurements, content preservation, and remaining detection gaps.
 - [Trackpad history](HISTORY_GESTURES.md): WebView history, gesture dispatch, nested scrolling, Split targeting, and touchscreen exclusion.
 - [Password autofill](PASSWORD_AUTOFILL.md), [passkeys](PASSKEYS.md), [browser integrations](BROWSER_INTEGRATIONS.md), and [localization](LOCALIZATION.md): feature-specific scope and provider/device boundaries.

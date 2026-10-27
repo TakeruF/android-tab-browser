@@ -29,6 +29,10 @@ class ChatGptCommandBarUiTest {
                     onDismiss = {}, onExecute = { executed = it })
             }
         }
+        // Dialog window focus is delivered by Android after composition becomes idle.
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasSetTextAction() and isFocused()).fetchSemanticsNodes().size == 1
+        }
         compose.onNode(hasSetTextAction()).assertIsFocused()
     }
 

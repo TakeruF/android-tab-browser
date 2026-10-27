@@ -15,6 +15,7 @@ data class PageState(
     val visitBlockingExceptionSite: String? = null,
     val readerArticle: com.takeruf.nagi.browser.reader.ReaderArticle? = null,
     val readerLoading: Boolean = false,
+    val translation: com.takeruf.nagi.browser.translation.PageTranslationState = com.takeruf.nagi.browser.translation.PageTranslationState(),
 )
 
 sealed interface EngineEvent {
@@ -39,6 +40,7 @@ interface BrowserEngine {
     fun canScrollHorizontallyAt(x: Float, y: Float, direction: Int, result: (Boolean) -> Unit) { result(true) }
     fun evaluateJavascript(script: String)
     fun setDesktopMode(enabled: Boolean)
+    fun retryGoogleSignInInMobileMode() {}
     fun findInPage(query: String)
     fun findNext(forward: Boolean)
     fun clearFind()
@@ -46,6 +48,8 @@ interface BrowserEngine {
     fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {}
     fun configureVisitBlockingExceptions(sites: Set<String>) {}
     fun toggleReader() {}
+    fun translatePage(source: String?, target: String, wifiOnly: Boolean = true, alwaysTranslate: Boolean = false) {}
+    fun restoreOriginalPage() {}
     fun setVisible(visible: Boolean)
     fun saveState(): EngineSnapshot?
     fun restoreState(snapshot: EngineSnapshot): Boolean

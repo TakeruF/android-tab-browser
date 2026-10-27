@@ -54,6 +54,8 @@ class SidebarDragState {
         favoriteSlots().getOrNull(index)?.second?.let { favoriteLanding = FavoriteLanding(value, it.topLeft) }
     }
     internal val sources = mutableMapOf<String, Triple<SidebarDragItem, Boolean, Rect>>()
+    internal val gestureExclusions = mutableMapOf<String, Rect>()
+    internal fun excludesGestureAt(position: Offset) = gestureExclusions.values.any { it.contains(position) }
     private data class Target(val first: SidebarDestination, val second: Rect, val third: Boolean, val replacementRight: Boolean?)
     private val targets = mutableMapOf<String, Target>()
     fun bounds(key: String, destination: SidebarDestination, rect: Rect, canSplit: Boolean = true, replacementRight: Boolean? = null) {
@@ -130,6 +132,13 @@ fun Modifier.sidebarDraggable(drag: SidebarDragState, item: SidebarDragItem, imm
     return onGloballyPositioned { drag.sources[key] = Triple(item, immediate, it.boundsInRoot()) }
 }
 
+/** Child action buttons own their gestures; holding them must not lift the containing tile. */
+@Composable
+fun Modifier.sidebarGestureExclusion(drag: SidebarDragState, key: String): Modifier {
+    DisposableEffect(drag, key) { onDispose { drag.gestureExclusions.remove(key) } }
+    return onGloballyPositioned { drag.gestureExclusions[key] = it.boundsInRoot() }
+}
+
 @Composable
 fun Modifier.sidebarDragHost(state: SidebarDragState, onStart: () -> Unit, onDrop: () -> Unit): Modifier {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -139,6 +148,7 @@ fun Modifier.sidebarDragHost(state: SidebarDragState, onStart: () -> Unit, onDro
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+            if (state.excludesGestureAt(origin + down.position)) return@awaitEachGesture
             val source = state.sources.values.filter { it.third.contains(origin + down.position) }
                 .minByOrNull { it.third.width * it.third.height }
             if (source != null) {

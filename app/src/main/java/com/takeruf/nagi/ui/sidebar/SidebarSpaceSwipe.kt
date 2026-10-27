@@ -27,6 +27,7 @@ fun Modifier.sidebarSpaceSwipe(
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             if (down.type != PointerType.Touch || drag.item != null) return@awaitEachGesture
+            if (drag.excludesGestureAt(origin + down.position)) return@awaitEachGesture
             // The dedicated favicon handle starts an immediate tab drag.
             if (drag.sources.values.any { it.second && it.third.contains(origin + down.position) }) return@awaitEachGesture
             var claimed = false

@@ -19,6 +19,7 @@ import org.junit.Assert.*
 class PasskeyEngineTest {
     private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var engine: WebViewBrowserEngine
+    private lateinit var server: FixtureServer
     private val host = object : BrowserHost, FullscreenHost {
         override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) = result(null)
         override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) = result(emptySet())
@@ -33,15 +34,18 @@ class PasskeyEngineTest {
         withTimeout(10_000) { engine.state.first { it.title.startsWith(prefix) }.title }
     }
     @Before fun setup() {
+        server = FixtureServer(pages = mapOf("/passkey" to "<html><head><title>Passkey fixture</title></head><body>Passkey fixture</body></html>"))
         scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity {
             engine = WebViewBrowserEngine(it, host, host, { false }, false)
             it.addContentView(engine.surface, android.view.ViewGroup.LayoutParams(-1, -1))
         }
     }
-    @After fun cleanup() { main { engine.destroy() }; scenario.close() }
+    @After fun cleanup() { main { engine.destroy() }; scenario.close(); server.close() }
     private fun securePage() {
-        main { (engine.surface as WebView).loadDataWithBaseURL("https://nagi.test/", "<html><head><title>Passkey fixture</title></head><body>Passkey fixture</body></html>", "text/html", "UTF-8", null) }
+        // Loopback is a secure context. Use a real document navigation rather than a
+        // synthetic HTTPS base URL, which newer WebViews may reject before RP validation.
+        main { engine.loadUrl(server.origin + "/passkey") }
         title("Passkey fixture")
     }
     @Test fun browserModeAndOriginPermissionAreConfigured() {

@@ -37,11 +37,21 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val regionCountry = stringPreferencesKey("search_region_country")
         val regionSource = stringPreferencesKey("search_region_source")
         val regionCheckedAt = longPreferencesKey("search_region_checked_at")
+        val newTabBackground = stringPreferencesKey("new_tab_background")
+        val newTabColor = longPreferencesKey("new_tab_color")
+        val newTabPhoto = stringPreferencesKey("new_tab_photo")
         val archive = stringPreferencesKey("archive_period")
+        val translationTargetLanguage = stringPreferencesKey("translation_target_language")
+        val alwaysTranslateLanguages = stringSetPreferencesKey("always_translate_languages")
     }
     val settings: Flow<BrowserSettings> = store.data.catch {
         if (it is IOException) emit(emptyPreferences()) else throw it
     }.map { p -> BrowserSettings(
+        newTabBackground = enumOrDefault(p[Keys.newTabBackground], NewTabBackground.DEFAULT),
+        newTabColor = p[Keys.newTabColor] ?: 0xFF426B5A,
+        newTabPhoto = p[Keys.newTabPhoto],
+        translationTargetLanguage = p[Keys.translationTargetLanguage],
+        alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]),
         theme = enumOrDefault(p[Keys.theme], ThemeMode.SYSTEM),
         sidebarWidth = (p[Keys.width] ?: 264f).coerceIn(220f, 380f),
         sidebarCollapsed = p[Keys.collapsed] ?: false,
@@ -85,8 +95,19 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 autoVideoPip = p[Keys.autoVideoPip] ?: true,
                 videoPopups = p[Keys.videoPopups] ?: true,
                 adBlockingEnabled = p[Keys.adBlocking] ?: true,
-                adBlockExcludedHosts = p[Keys.adBlockExcluded] ?: emptySet())
+                adBlockExcludedHosts = p[Keys.adBlockExcluded] ?: emptySet(),
+                newTabBackground = enumOrDefault(p[Keys.newTabBackground], NewTabBackground.DEFAULT),
+                newTabColor = p[Keys.newTabColor] ?: 0xFF426B5A,
+                newTabPhoto = p[Keys.newTabPhoto],
+                translationTargetLanguage = p[Keys.translationTargetLanguage],
+                alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
             val next = change(current)
+            next.translationTargetLanguage?.let { p[Keys.translationTargetLanguage] = it } ?: p.remove(Keys.translationTargetLanguage)
+            p[Keys.alwaysTranslateLanguages] = next.alwaysTranslateLanguages.filter { (source, target) -> source != target }
+                .map { (source, target) -> "$source:$target" }.toSet()
+            p[Keys.newTabBackground] = next.newTabBackground.name
+            p[Keys.newTabColor] = next.newTabColor
+            next.newTabPhoto?.let { p[Keys.newTabPhoto] = it } ?: p.remove(Keys.newTabPhoto)
             p[Keys.adBlocking] = next.adBlockingEnabled
             p[Keys.adBlockExcluded] = next.adBlockExcludedHosts
             p[Keys.autoVideoPip] = next.autoVideoPip
@@ -107,6 +128,11 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
             p[Keys.regionCheckedAt] = next.searchRegionCheckedAt
         }
     }
+    private fun translationRules(values: Set<String>?): Map<String, String> = values.orEmpty().mapNotNull { value ->
+        val parts = value.split(':')
+        if (parts.size == 2 && parts.all { it.isNotBlank() } && parts[0] != parts[1]) parts[0] to parts[1] else null
+    }.toMap()
+
     private inline fun <reified T : Enum<T>> enumOrDefault(value: String?, fallback: T): T =
         enumValues<T>().firstOrNull { it.name == value } ?: fallback
 }

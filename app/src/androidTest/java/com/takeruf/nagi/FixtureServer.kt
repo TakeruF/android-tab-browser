@@ -9,7 +9,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /** Device-local HTTP fixture. Integration tests never depend on a public website. */
 class FixtureServer(private val rootIconAvailable: Boolean = true, private val homeIconMarkup: String = "",
-    private val useIcoContainer: Boolean = false) : AutoCloseable {
+    private val useIcoContainer: Boolean = false, private val pages: Map<String, String> = emptyMap(),
+    private val redirects: Map<String, String> = emptyMap()) : AutoCloseable {
     private val socket = ServerSocket(0)
     private val executor = Executors.newCachedThreadPool()
     val origin = "http://127.0.0.1:${socket.localPort}"
@@ -31,6 +32,10 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
                 }
                 requests.add(Request(path, headers["user-agent"].orEmpty(), headers["referer"], headers["sec-ch-ua-mobile"]))
+                redirects[path]?.let { destination ->
+                    client.getOutputStream().write(("HTTP/1.1 302 Found\r\nLocation: $destination\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").toByteArray())
+                    return@use
+                }
                 if (path == "/mode-redirect") {
                     client.getOutputStream().write(("HTTP/1.1 302 Found\r\nLocation: http://localhost:${socket.localPort}/ua-redirect-target\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").toByteArray())
                     return@use
@@ -75,7 +80,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     client.getOutputStream().write(data)
                     return@use
                 }
-                val body = if (path.startsWith("/blocked-media")) """
+                val body = pages[path] ?: if (path.startsWith("/blocked-media")) """
                     <html><head><title>Blocked media fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
                     <div id="image-slot" style="height:140px"><div><img id="blocked-image" src="https://googleads.g.doubleclick.net/pagead/qa-image.png" width="120" height="100"></div></div>
                     <div id="frame-slot" style="height:200px"><iframe id="blocked-frame" src="https://googleads.g.doubleclick.net/pagead/qa-frame.html"></iframe></div>

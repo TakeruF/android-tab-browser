@@ -88,7 +88,7 @@ class BrowserScrollTest {
         compose.waitUntil(5_000) {
             val current = metrics(view).let { value -> listOf("x", "y", "nx", "ny").map { value.getDouble(it) } }
             if (current != previous) { previous = current; lastChange = SystemClock.uptimeMillis() }
-            SystemClock.uptimeMillis() - lastChange >= 200
+            SystemClock.uptimeMillis() - lastChange >= 300
         }
         return metrics(view)
     }
@@ -118,11 +118,19 @@ class BrowserScrollTest {
 
     @Test fun mouseWheelScrollsPageInBothAxesAndDirections() {
         val view = webViews().single()
-        scroll(view, InputDevice.SOURCE_MOUSE, vertical = -3f, horizontal = -3f)
-        compose.waitUntil(5_000) { metrics(view).let { it.getInt("x") > 0 && it.getInt("y") > 0 && it.getInt("wheels") == 1 } }
+        // Android mouse axes use negative for down and positive for right.
+        // Exercise each direction independently, including the reverse movement.
+        scroll(view, InputDevice.SOURCE_MOUSE, vertical = -3f)
+        compose.waitUntil(5_000) { metrics(view).let { it.getInt("y") > 0 && it.getInt("wheels") == 1 } }
+        settledMetrics(view)
+        scroll(view, InputDevice.SOURCE_MOUSE, horizontal = 3f)
+        compose.waitUntil(5_000) { metrics(view).getInt("x") > 0 }
         val before = settledMetrics(view)
-        scroll(view, InputDevice.SOURCE_MOUSE, vertical = 1f, horizontal = 1f)
-        compose.waitUntil(5_000) { metrics(view).let { it.getInt("x") < before.getInt("x") && it.getInt("y") < before.getInt("y") } }
+        scroll(view, InputDevice.SOURCE_MOUSE, horizontal = -1f)
+        compose.waitUntil(5_000) { metrics(view).getInt("x") < before.getInt("x") }
+        settledMetrics(view)
+        scroll(view, InputDevice.SOURCE_MOUSE, vertical = 1f)
+        compose.waitUntil(5_000) { metrics(view).getInt("y") < before.getInt("y") }
     }
 
     @Test fun touchpadScrollReachesNestedHtmlScroller() {

@@ -94,6 +94,7 @@ class NagiStrings(private val context: Context) {
         "Region unavailable · current engine kept" -> invoke(R.string.ui_region_unavailable_current_engine_kept)
         "Detecting region…" -> invoke(R.string.ui_detecting_region)
         "Check again" -> invoke(R.string.ui_check_again)
+        "Could not load this photo. Try another image." -> invoke(R.string.ui_new_tab_photo_error)
         "Open links in new tab" -> invoke(R.string.ui_open_links_in_new_tab)
         "Page links you tap open as a new tab" -> invoke(R.string.ui_page_links_you_tap_open_as_a_new_tab)
         "Restore tabs on launch" -> invoke(R.string.ui_restore_tabs_on_launch)

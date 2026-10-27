@@ -13,7 +13,10 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
     splitRatio: Float, onSplitRatio: (Float) -> Unit, showFind: Boolean, onFind: (Boolean) -> Unit,
     onOmnibox: () -> Unit, onOpenUrl: (String) -> Unit, onSplit: () -> Unit,
     onCloseSplit: () -> Unit, onSwap: () -> Unit,
-    leftTabId: String? = null, compactWindow: Boolean = false, desktopDefault: Boolean = state.settings.desktopDefault) {
+    leftTabId: String? = null, compactWindow: Boolean = false, desktopDefault: Boolean = state.settings.desktopDefault,
+    onTranslationOptions: (com.takeruf.nagi.domain.model.BrowserTab, com.takeruf.nagi.browser.engine.BrowserEngine) -> Unit = { _, _ -> }) {
+    var customizingNewTab by remember { mutableStateOf(false) }
+    if (customizingNewTab) NewTabAppearanceDialog(state.settings, vm) { customizingNewTab = false }
     val left = state.visibleTabs.firstOrNull { it.id == leftTabId } ?: state.activeTab ?: return
     val right = state.visibleTabs.firstOrNull { it.id == rightTabId && it.id != left.id }
     val generation by sessions.generation.collectAsState()
@@ -28,6 +31,8 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
             BrowserPane(tab, engine, state, focused = right == null || rightFocused == isRight,
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
                 onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
+                onCustomizeNewTab = { customizingNewTab = true },
+                onTranslationOptions = { onTranslationOptions(tab, engine) },
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap, compactWindow = compactWindow,
                 onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->
                     engine.configureContentBlocking(prefs.adBlockingEnabled, prefs.adBlockExcludedHosts)

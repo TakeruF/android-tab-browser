@@ -23,6 +23,8 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     private val initialized = MutableStateFlow(false)
     private val startupError = MutableStateFlow<String?>(null)
     private val spacePreview = MutableStateFlow<SpacePreview?>(null)
+    val canChooseNewTabPhoto get() = !container.isPrivate
+    val importingNewTabPhoto = MutableStateFlow(false)
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val state = combine(container.workspace.snapshot, container.settings.settings, initialized, startupError, spacePreview) { workspace, settings, ready, error, preview ->
         val displayed = if (preview == null) workspace else workspace.copy(spaces = workspace.spaces.map { space ->
@@ -86,6 +88,31 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     fun removeBookmark(id: String) = action { container.library.removeBookmark(id) }
     fun clearHistory() = action { container.library.clearHistory() }
     fun deleteHistory(id: Long) = action { container.library.deleteHistory(id) }
+    fun importNewTabPhoto(uri: android.net.Uri) {
+        if (!canChooseNewTabPhoto || importingNewTabPhoto.value) return
+        importingNewTabPhoto.value = true
+        // Finish the import when the editor closes or the Activity is recreated.
+        container.scope.launch {
+            var imported: String? = null
+            var saved = false
+            try {
+                imported = container.newTabPhotos.import(uri)
+                val old = container.settings.settings.first().newTabPhoto
+                container.settings.update { it.copy(newTabPhoto = imported, newTabBackground = NewTabBackground.PHOTO) }
+                saved = true
+                withContext(Dispatchers.IO) {
+                    container.newTabPhotos.delete(old)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                messages.emit("Could not load this photo. Try another image.")
+            } finally {
+                if (!saved) container.newTabPhotos.delete(imported)
+                importingNewTabPhoto.value = false
+            }
+        }
+    }
     fun updateSettings(change: (BrowserSettings) -> BrowserSettings) = action { container.settings.update(change) }
     fun setSiteContentBlocking(host: String, enabled: Boolean, onApplied: (BrowserSettings) -> Unit) = action {
         container.settings.update { it.copy(adBlockExcludedHosts =

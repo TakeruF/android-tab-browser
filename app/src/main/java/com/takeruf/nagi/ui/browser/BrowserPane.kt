@@ -36,7 +36,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onOmnibox: () -> Unit, onOpen: (String) -> Unit,
     onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit,
     onAdBlockingChange: (String, Boolean) -> Unit = { _, _ -> },
-    onVisitBlockingChange: (Boolean) -> Unit = {}, compactWindow: Boolean = false) {
+    onVisitBlockingChange: (Boolean) -> Unit = {}, onCustomizeNewTab: () -> Unit = {}, compactWindow: Boolean = false,
+    onTranslationOptions: () -> Unit = {}) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -124,6 +125,13 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                 onClick = { siteHost?.let { onAdBlockingChange(it, !siteBlocking) }; pageMenu = false })
                         }
                         if (compact) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) }, text = { Text(strings(R.string.ui_reload)) }, onClick = { engine.reload(); pageMenu = false })
+                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Languages, null) }, text = { Text(strings(R.string.ui_translate_page)) },
+                            modifier = Modifier.testTag("translate-page"), enabled = !page.isLoading && !page.readerLoading && page.error == null &&
+                                (page.url.startsWith("https://") || page.url.startsWith("http://")),
+                            onClick = { onFocus(); pageMenu = false; onTranslationOptions() })
+                        if (page.translation.active) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) },
+                            text = { Text(strings(R.string.ui_translation_original)) }, modifier = Modifier.testTag("menu-translation-restore"),
+                            onClick = { pageMenu = false; engine.restoreOriginalPage() })
                         NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Smartphone else NagiIcons.Monitor, null) }, text = { Text(if (page.desktopMode) strings(R.string.ui_use_mobile_site) else strings(R.string.ui_use_desktop_site)) }, onClick = { engine.setDesktopMode(!page.desktopMode); pageMenu = false })
                         NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.BookOpen, null) },
                             text = { Text(strings(if (page.readerArticle != null) R.string.ui_exit_reader else R.string.ui_reader_mode)) },
@@ -162,10 +170,15 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 FindInPageBar(query, { query = it }, "${if (page.findMatches == 0) 0 else page.activeFindMatch + 1}/${page.findMatches}",
                     onPrevious = { engine.findNext(false) }, onNext = { engine.findNext(true) }, onClose = onCloseFind)
             }
+            PageTranslationBar(page.translation, onRestore = engine::restoreOriginalPage)
+            key(tab.id, engine) {
+                GoogleSignInRecoveryBar(page, onSwitchToMobile = { onFocus(); engine.retryGoogleSignInInMobileMode() })
+            }
             Box(Modifier.fillMaxSize()) {
                 if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
-                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), onOmnibox, compactWindow)
+                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), { onFocus(); onOmnibox() }, compactWindow,
+                        state.settings, onCustomizeNewTab)
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(NagiShapes.Bottom), onFocus)

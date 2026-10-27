@@ -25,10 +25,12 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Japanese, Chinese, and Korean IME composition, keyboard shortcuts, and mouse/trackpad scrolling.
 - Video picture-in-picture when returning Home, plus draggable/resizable in-browser pop-out videos across tabs and Spaces. Both are independently configurable under **Settings → Video**, enabled by default.
 - Find in page, remembered desktop/mobile display choices per website, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
+- Customizable new-tab backgrounds: solid colors, gradients, or a photo resized and stored on your device. Open the palette on a new tab or use Settings → Appearance.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
 - Bookmark management, link/image context menus, site-data clearing, and verified in-app APK updates.
 - Website password autofill through the selected Android system provider; see [password autofill](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).
+- On-device web page translation powered by [Google Translate](https://cloud.google.com/translate) through ML Kit. Open **… → Translate this page** to choose languages; download language models once, then translate offline. Includes automatic language detection, same-tab link continuation, optional always-translate rules, newly added text, and original-text restoration; see [page translation](docs/PAGE_TRANSLATION.md).
 - Supported external app links with an optional launch-blocking setting, disabled by default.
 
 See the supported behavior and limitations below, including WebView requirements and device-validation coverage.

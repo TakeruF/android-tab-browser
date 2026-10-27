@@ -14,14 +14,14 @@ import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.ui.theme.NagiSystemBars
 
 @Composable
-fun ThemeColorEditor(current: Long, onDismiss: () -> Unit, onPreview: (Long) -> Unit = {}, onSave: (Long) -> Unit) {
+fun ThemeColorEditor(current: Long, onDismiss: () -> Unit, onPreview: (Long) -> Unit = {}, title: String? = null, onSave: (Long) -> Unit) {
     val strings = rememberNagiStrings()
     var hex by remember { mutableStateOf("%06X".format(current and 0xFFFFFF)) }
     val valid = hex.removePrefix("#").matches(Regex("[0-9a-fA-F]{6}"))
     LaunchedEffect(hex) {
         if (valid) onPreview(0xFF000000 or hex.removePrefix("#").toLong(16))
     }
-    AlertDialog(onDismissRequest = onDismiss, title = { NagiSystemBars(); Text(strings(R.string.ui_custom_theme_color)) },
+    AlertDialog(onDismissRequest = onDismiss, title = { NagiSystemBars(); Text(title ?: strings(R.string.ui_custom_theme_color)) },
         text = {
             OutlinedTextField(hex, { hex = it }, label = { Text(strings(R.string.ui_hex_color)) }, singleLine = true,
                 isError = !valid, supportingText = { Text(strings(R.string.ui_six_hexadecimal_digits_for_example_3568c0)) },
