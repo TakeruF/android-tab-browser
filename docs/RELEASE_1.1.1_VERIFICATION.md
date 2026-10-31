@@ -2,7 +2,7 @@
 
 Verified on 2026-10-31. Package `com.takeruf.nagi`, version **1.1.1 / code 10**, minSdk 26, targetSdk 36. The user requested the patch-version increase from 1.1.0 / code 9.
 
-This is a **local working-tree candidate**, based on `e56a48f26d87bc1428e88259bd0283b5267f89b5` plus the existing authentication and compact-UI changes. It has not been committed, published, or submitted to Google Play. Existing unrelated work was retained. Evidence is in ignored `artifacts/1.1.1-preflight/`; `source-start.json` fingerprints the source used by the final full suite. The checks below do not establish that a future clean publication build is identical.
+This initial preflight describes a **local working-tree candidate**, based on `e56a48f26d87bc1428e88259bd0283b5267f89b5` plus the existing authentication and compact-UI changes. At the time of this preflight it had not been committed, published, or submitted to Google Play. Subsequent source-review fixes, clean Play artifacts and Console draft preparation are recorded separately in [Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md). Existing unrelated work was retained. Evidence is in ignored `artifacts/1.1.1-preflight/`; `source-start.json` fingerprints the source used by the final full suite. The checks below do not establish that a future clean publication build is identical.
 
 ## Completed checks
 

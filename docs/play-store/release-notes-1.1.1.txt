@@ -4,6 +4,7 @@
 • Improve new-window browser identity and cookie-policy handling.
 • Add an optional bottom search bar and refine compact controls.
 • New releases and updates are distributed through Google Play.
+• Keep website view state consistent after attachment downloads.
 </en-US>
 <ja-JP>
 • サイトごとに端末標準表示を選択可能に。
@@ -11,6 +12,7 @@
 • 新しいウィンドウへのブラウザ情報・Cookie設定の引継ぎを改善。
 • 下部検索バーの設定を追加し、狭い画面の操作部を調整。
 • 今後の新規リリース・更新はGoogle Playに一本化。
+• 添付ファイルのダウンロード後の表示モード保持を修正。
 </ja-JP>
 <zh-CN>
 • 可为各网站选择设备默认视图。
@@ -18,6 +20,7 @@
 • 改进新窗口的浏览器标识和 Cookie 策略传递。
 • 新增可选底部搜索栏，调整窄屏操作控件。
 • 后续新版本及更新统一通过 Google Play 分发。
+• 修复附件下载后的网站视图状态保持。
 </zh-CN>
 <ko-KR>
 • 사이트별 기기 기본 보기를 선택할 수 있습니다.
@@ -25,4 +28,5 @@
 • 새 창의 브라우저 정보와 쿠키 정책 전달을 개선했습니다.
 • 하단 검색창 설정을 추가하고 좁은 화면 조작부를 다듬었습니다.
 • 앞으로 새 버전과 업데이트는 Google Play로 배포합니다.
+• 첨부파일 다운로드 후 사이트 보기 상태를 유지하도록 수정했습니다.
 </ko-KR>

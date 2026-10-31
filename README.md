@@ -132,7 +132,7 @@ See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains 
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest --no-parallel
 ```
 
-Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). The [1.1.1 local preflight](docs/RELEASE_1.1.1_VERIFICATION.md) records 313 unit passes across both source sets, 221 complete-suite passes with seven opt-in skips, 19 Play feature passes, signed artifact checks and update/storage/runtime coverage. These are dated local results, not proof of Play publication or completed account login.
+Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). The [final 1.1.1 Play preparation](docs/RELEASE_1.1.1_PLAY_PREPARATION.md) records 151 Play unit passes and 222 full-suite passes with seven opt-in skips and no failures, plus signed artifact/runtime checks and the saved Console stop point. The [initial preflight](docs/RELEASE_1.1.1_VERIFICATION.md) remains a separate dated record. These results do not establish Play publication or completed account login.
 
 Replace `emulator-5554` with your device serial. [Validation guidance](docs/VALIDATION.md) covers repeatable checks, retained evidence and remaining device validation. Historical release evidence remains under `docs/RELEASE_*_VERIFICATION.md`.
 
@@ -141,7 +141,7 @@ Replace `emulator-5554` with your device serial. [Validation guidance](docs/VALI
 | ![Nagi 0.1.1 dark theme](docs/screenshots/readme-home-dark.png) | ![Nagi 0.1.1 Split browsing](docs/screenshots/readme-split.png) |
 
 
-README screenshots are historical captures of the signed 0.1.1 Release on the API-36 tablet emulator; they do not show all 1.0.0 controls. The Split image uses local demonstration pages.
+README screenshots are historical captures of the signed 0.1.1 Release on the API-36 tablet emulator; they do not show all current controls. The Split image uses local demonstration pages.
 
 ## License
 

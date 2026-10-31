@@ -4,7 +4,7 @@
 
 The user selected Google Play as the sole official distribution channel starting with **1.1.1 / code 10**. New GitHub tags record source versions; APKs and updater manifests are no longer published. See [release workflow and migration](RELEASING.md) and [four-language 1.1.1 notes](play-store/release-notes-1.1.1.txt).
 
-The live Console was rechecked: production **1.1.0** is active at 100% in 178 countries/regions; Publishing overview initially had no unpublished changes. The earlier review-pending record below is historical. Preparation of 1.1.1 must stop before sending changes for review or starting a rollout; a saved draft is not submission or store availability. Final artifact and saved-draft evidence will be recorded separately.
+The live Console was rechecked: production **1.1.0** is active at 100% in 178 countries/regions; Publishing overview initially had no unpublished changes. The earlier review-pending record below is historical. Preparation of 1.1.1 must stop before sending changes for review or starting a rollout; a saved draft is not submission or store availability. The reviewed AAB has now been accepted as 10 (1.1.1), with all four note languages, and saved as one Production change in Publishing overview. The remaining action, **Submit 1 change for review**, has not been pressed. See [final Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md) for artifact, test and saved-state evidence.
 
 ## Latest recorded production submission — 2026-10-27
 
@@ -31,7 +31,7 @@ See [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) for the date
 
 Use only `app/build/outputs/bundle/playRelease/app-play-release.aab`, generated with `./gradlew :app:bundlePlayRelease`. Check that versionCode is higher than any previous Console upload. The Play artifact excludes GitHub APK self-updates, the APK installer, `REQUEST_INSTALL_PACKAGES`, and the update FileProvider.
 
-Configure Play App Signing with the existing Nagi distribution key if in-place migration from the public APK is required. Confirm the actual Play app-signing certificate; signing the AAB with an upload key alone does not establish that compatibility. Expected existing distribution certificate SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`.
+Use the configured existing upload key and verify that Play accepts it. Keep the established Play app-signing identity; do not change keys or the application ID to force migration from the legacy APK channel. Play and legacy APK signing certificates differ, so an in-place switch and data retention are not guaranteed. Signing the AAB with the upload key does not establish cross-channel compatibility. Existing local distribution/upload-certificate SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`.
 
 ## Policy and support URLs
 
