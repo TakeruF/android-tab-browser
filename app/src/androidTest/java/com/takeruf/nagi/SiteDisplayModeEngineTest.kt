@@ -25,10 +25,11 @@ class SiteDisplayModeEngineTest {
     private lateinit var engine: WebViewBrowserEngine
     private lateinit var store: SiteDisplayModeStore
     private var automaticDesktop = true
+    private val downloads = java.util.concurrent.CopyOnWriteArrayList<DownloadRequest>()
     private val host = object : BrowserHost, FullscreenHost {
         override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) = result(null)
         override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) = result(emptySet())
-        override fun download(request: DownloadRequest) {}
+        override fun download(request: DownloadRequest) { downloads.add(request) }
         override fun openExternal(url: String) {}
         override fun showMessage(message: String) {}
         override fun showFullscreen(view: View, exit: () -> Unit) = exit()
@@ -239,6 +240,54 @@ class SiteDisplayModeEngineTest {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
                 assertEquals(WebSettingsCompat.getUserAgentMetadata(native.settings), WebSettingsCompat.getUserAgentMetadata(view.settings))
         } finally { native.destroy() }
+    }
+
+    @Test fun crossHostAttachmentKeepsIdentityFlagsCoherentAndReloadRestoresSourceChoice() {
+        val cases = listOf(
+            SiteDisplayMode.DEVICE_DEFAULT to SiteDisplayMode.DESKTOP,
+            SiteDisplayMode.DESKTOP to SiteDisplayMode.DEVICE_DEFAULT,
+            SiteDisplayMode.DEVICE_DEFAULT to SiteDisplayMode.MOBILE,
+            SiteDisplayMode.MOBILE to SiteDisplayMode.DEVICE_DEFAULT,
+        )
+        cases.forEachIndexed { index, (sourceMode, targetMode) ->
+            val source = "${server.origin}/ua-download-source-$index"
+            val attachment = "${server.origin.replace("127.0.0.1", "localhost")}/download-mode-$index"
+            fun remember(url: String, mode: SiteDisplayMode) {
+                if (mode == SiteDisplayMode.DEVICE_DEFAULT) store.rememberDeviceDefault(url)
+                else store.remember(url, mode == SiteDisplayMode.DESKTOP)
+            }
+            remember(source, sourceMode)
+            remember(attachment, targetMode)
+            main { engine.loadUrl(source) }
+            if (sourceMode == SiteDisplayMode.DEVICE_DEFAULT) awaitDeviceMode(source)
+            else awaitMode(source, sourceMode == SiteDisplayMode.DESKTOP)
+            val previousDownloads = downloads.size
+            main { engine.evaluateJavascript("location.href='$attachment'") }
+            runBlocking { withTimeout(15_000) {
+                while (downloads.size == previousDownloads) kotlinx.coroutines.delay(25)
+            } }
+            val previousRequests = server.requests.count { it.path == Uri.parse(source).path }
+            main {
+                val state = engine.state.value
+                assertEquals("An attachment must retain the visible source URL", source, state.url)
+                assertFalse(state.isLoading)
+                assertEquals(targetMode == SiteDisplayMode.DESKTOP, state.desktopMode)
+                assertEquals(targetMode == SiteDisplayMode.DEVICE_DEFAULT, state.deviceDefaultMode)
+                assertEquals(downloads.last().userAgent, (engine.surface as WebView).settings.userAgentString)
+                engine.reload()
+            }
+            runBlocking { withTimeout(15_000) {
+                while (server.requests.count { it.path == Uri.parse(source).path } <= previousRequests)
+                    kotlinx.coroutines.delay(25)
+            } }
+            if (sourceMode == SiteDisplayMode.DEVICE_DEFAULT) {
+                awaitDeviceMode(source, previousRequests + 1)
+                assertNativeIdentity(source)
+            } else {
+                awaitMode(source, sourceMode == SiteDisplayMode.DESKTOP)
+                assertFalse(engine.state.value.deviceDefaultMode)
+            }
+        }
     }
 
     @Test fun deviceDefaultChoiceKeepsNativeIdentityAcrossLinksAndNewEngines() {

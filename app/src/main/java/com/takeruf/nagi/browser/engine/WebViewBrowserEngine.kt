@@ -354,6 +354,7 @@ class WebViewBrowserEngine(
             // An attachment is not a document navigation. Keep the source page restorable.
             downloadUrl = url
             update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode,
+                deviceDefaultMode = it.deviceDefaultMode,
                 translation = it.translation, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
             if (url.startsWith("https://") || url.startsWith("http://")) host.download(
