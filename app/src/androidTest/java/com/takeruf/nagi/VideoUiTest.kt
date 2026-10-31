@@ -100,6 +100,15 @@ class VideoUiTest {
             """), failure)
         }
     }
+    private fun minimizeVideo() {
+        // Native fullscreen callbacks and playback-state delivery are asynchronous.
+        // Require a laid-out control in the merged tree before injecting its click.
+        compose.waitUntil(15_000) {
+            compose.onAllNodesWithTag("video-minimize").fetchSemanticsNodes().singleOrNull()
+                ?.boundsInRoot?.let { it.width > 0f && it.height > 0f } == true
+        }
+        compose.onNodeWithTag("video-minimize").assertIsDisplayed().performClick()
+    }
     private fun home() { instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close() }
     private fun returnToApp() {
         val activity = compose.activity
@@ -187,14 +196,14 @@ class VideoUiTest {
         compose.onNodeWithTag("video-popup-play-pause").performClick(); assertAdvances()
         compose.onNodeWithTag("video-popup-expand").performClick()
         compose.onNodeWithTag("video-fullscreen").assertExists(); assertAdvances()
-        compose.onNodeWithTag("video-minimize").performClick()
+        minimizeVideo()
         home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
         returnToApp(); compose.onNodeWithTag("video-popup").assertExists()
         assertEquals(resizedWidth, compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot.width, 1f)
         compose.onNodeWithTag("video-popup-return").performClick()
         compose.onNodeWithTag("video-popup").assertDoesNotExist()
         waitFor { js("!!document.fullscreenElement") == "false" }; assertAdvances()
-        tap("#fullscreen-video"); compose.onNodeWithTag("video-minimize").performClick()
+        tap("#fullscreen-video"); minimizeVideo()
         compose.onNodeWithTag("video-popup-close").performClick()
         waitFor { js("document.getElementById('player').paused") == "true" }
     }
