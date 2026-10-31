@@ -368,4 +368,10 @@
     <string name="ui_google_sign_in_mobile_retry">모바일 보기로 재시도</string>
     <string name="ui_google_sign_in_hint_dismiss">로그인 안내 닫기</string>
     <string name="ui_google_translation_attribution">Powered by Google Translate</string>
+    <string name="ui_bottom_search_bar">검색창을 하단에 표시</string>
+    <string name="ui_bottom_search_bar_description">휴대전화 레이아웃에서 검색창을 화면 하단에 표시합니다</string>
+    <string name="ui_use_device_default_site">기기 기본 보기 사용</string>
+    <string name="ui_human_verification_hint">사람 확인이 진행되지 않으면 기기 기본 보기로 새로고침해 보세요.</string>
+    <string name="ui_human_verification_retry">기기 보기로 새로고침</string>
+    <string name="ui_human_verification_dismiss">사람 확인 안내 닫기</string>
 </resources>

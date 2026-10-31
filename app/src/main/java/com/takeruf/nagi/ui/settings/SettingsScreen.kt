@@ -131,6 +131,9 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             }
         } }
         item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette) {
+            SettingToggle(strings(R.string.ui_bottom_search_bar), strings(R.string.ui_bottom_search_bar_description), prefs.bottomSearchBar) { value ->
+                vm.updateSettings { it.copy(bottomSearchBar = value) }
+            }
             Row(Modifier.fillMaxWidth().testTag("settings-new-tab-background").clip(NagiShapes.Rounded)
                 .clickable { customizingNewTab = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings(R.string.ui_new_tab_background), Modifier.weight(1f))

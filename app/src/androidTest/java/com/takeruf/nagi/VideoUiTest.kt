@@ -58,14 +58,7 @@ class VideoUiTest {
     private fun tap(selector: String, inFrame: Boolean = false) {
         if (!inFrame) {
             js("document.querySelector(${JSONObject.quote(selector)}).scrollIntoView({block:'center',inline:'center'}); true")
-            val ready = CompletableDeferred<Unit>()
-            main {
-                web.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
-                    override fun onComplete(requestId: Long) { ready.complete(Unit) }
-                })
-                web.invalidate()
-            }
-            compose.waitUntil(5_000) { ready.isCompleted }
+            awaitVisualState()
         }
         val script = if (inFrame) """
             (()=>{const r=document.querySelector('#player-frame').getBoundingClientRect();
@@ -76,6 +69,16 @@ class VideoUiTest {
         """
         val rect = JSONObject(JSONTokener(js(script)).nextValue() as String)
         tapAt(rect.getDouble("x"), rect.getDouble("y"), rect.getDouble("w"))
+    }
+    private fun awaitVisualState() {
+        val ready = CompletableDeferred<Unit>()
+        main {
+            web.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                override fun onComplete(requestId: Long) { ready.complete(Unit) }
+            })
+            web.invalidate()
+        }
+        compose.waitUntil(5_000) { ready.isCompleted }
     }
     private fun tapAt(x: Double, y: Double, viewport: Double) = main {
         val scale = web.width / viewport
@@ -92,9 +95,19 @@ class VideoUiTest {
             throw AssertionError("Video playback stalled: " + js("""
                 JSON.stringify({ticks:window.videoTicks,video:Array.from(document.querySelectorAll('video')).map(v=>({
                   paused:v.paused,time:v.currentTime,ready:v.readyState,network:v.networkState,error:v.error?.code})),
-                  height:innerHeight,width:innerWidth})
+                  frameReady:window.frameReady,framePaused:window.framePaused,
+                  frameRectRevision:window.frameRectRevision,height:innerHeight,width:innerWidth})
             """), failure)
         }
+    }
+    private fun minimizeVideo() {
+        // Native fullscreen callbacks and playback-state delivery are asynchronous.
+        // Require a laid-out control in the merged tree before injecting its click.
+        compose.waitUntil(15_000) {
+            compose.onAllNodesWithTag("video-minimize").fetchSemanticsNodes().singleOrNull()
+                ?.boundsInRoot?.let { it.width > 0f && it.height > 0f } == true
+        }
+        compose.onNodeWithTag("video-minimize").assertIsDisplayed().performClick()
     }
     private fun home() { instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close() }
     private fun returnToApp() {
@@ -183,21 +196,27 @@ class VideoUiTest {
         compose.onNodeWithTag("video-popup-play-pause").performClick(); assertAdvances()
         compose.onNodeWithTag("video-popup-expand").performClick()
         compose.onNodeWithTag("video-fullscreen").assertExists(); assertAdvances()
-        compose.onNodeWithTag("video-minimize").performClick()
+        minimizeVideo()
         home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
         returnToApp(); compose.onNodeWithTag("video-popup").assertExists()
         assertEquals(resizedWidth, compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot.width, 1f)
         compose.onNodeWithTag("video-popup-return").performClick()
         compose.onNodeWithTag("video-popup").assertDoesNotExist()
         waitFor { js("!!document.fullscreenElement") == "false" }; assertAdvances()
-        tap("#fullscreen-video"); compose.onNodeWithTag("video-minimize").performClick()
+        tap("#fullscreen-video"); minimizeVideo()
         compose.onNodeWithTag("video-popup-close").performClick()
         waitFor { js("document.getElementById('player').paused") == "true" }
     }
     @Test fun crossOriginFrameAssistantKeepsPlayingAndClosingSourceTabClosesPopup() {
         open("/video-frame")
         fun tapFrame(name: String) {
-            waitFor { js("!!window.frameRects?." + name) == "true" }
+            // A child can report DOM coordinates before the video metadata changes
+            // its layout or WebView commits that layout to the native hit-test surface.
+            waitFor { js("!!window.frameRects?.$name && window.frameReady >= 2") == "true" }
+            js("document.querySelector('#player-frame').scrollIntoView({block:'start'}); true")
+            val revision = js("window.frameRectRevision").toInt()
+            awaitVisualState()
+            waitFor { js("window.frameRectRevision > $revision") == "true" }
             val rect = JSONObject(JSONTokener(js("""
                 (()=>{const f=document.querySelector('#player-frame').getBoundingClientRect(),r=window.frameRects.$name;
                 return JSON.stringify({x:f.x+r.x,y:f.y+r.y,w:innerWidth});})()

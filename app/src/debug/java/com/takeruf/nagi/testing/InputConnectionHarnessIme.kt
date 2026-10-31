@@ -15,12 +15,15 @@ class InputConnectionHarnessIme : InputMethodService() {
             private set
         @Volatile var bound = false
             private set
+        @Volatile var inputStartSequence = 0L
+            private set
     }
     override fun onBindInput() { super.onBindInput(); bound = true }
     override fun onUnbindInput() { bound = false; active = null; editor = null; super.onUnbindInput() }
     override fun onDestroy() { bound = false; active = null; editor = null; super.onDestroy() }
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting); editor = attribute; active = currentInputConnection
+        inputStartSequence++
     }
     override fun onFinishInput() { active = null; editor = null; super.onFinishInput() }
     override fun onCreateInputView(): View = TextView(this).apply {

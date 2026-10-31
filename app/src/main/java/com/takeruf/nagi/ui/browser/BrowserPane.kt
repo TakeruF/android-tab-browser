@@ -6,6 +6,8 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -61,97 +63,118 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
         }, strings(R.string.ui_share_link)))
     }
     var pageMenu by remember { mutableStateOf(false) }
-    Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
+    val bottomSearchBar = compactWindow && state.settings.bottomSearchBar
+    Surface(shape = if (bottomSearchBar) NagiShapes.Top else NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
         border = if (split && focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier.fillMaxSize()) {
-        Column {
+        @Composable
+        fun AddressBar() {
             BoxWithConstraints {
-            val compact = compactWindow || maxWidth < 320.dp
-            // Each address action takes 32dp; retain share, then copy, then the shield.
-            val inlineShare = maxWidth >= 296.dp
-            val inlineCopy = maxWidth >= 328.dp
-            val inlineBlocking = maxWidth >= 360.dp
-            Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
-                if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
-                if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
-                Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Rounded,
-                    color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.weight(1f).height(40.dp)
-                        .testTag("url-drop-${tab.id}")) {
+                val compact = compactWindow || maxWidth < 320.dp
+                // Each address action takes 32dp; retain share, then copy, then the shield.
+                val inlineShare = maxWidth >= 296.dp
+                val inlineCopy = maxWidth >= 328.dp
+                val inlineBlocking = maxWidth >= 360.dp
+                Row(Modifier.fillMaxWidth().height(56.dp).testTag("browser-address-bar-${tab.id}").padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
+                    if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
+                    if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
+                    Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Rounded,
+                        color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.weight(1f).height(40.dp)
+                            .testTag("url-drop-${tab.id}")) {
+                        Box {
+                        WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
+                        Row(Modifier.fillMaxSize().padding(start = 12.dp, end = if (inlineShare) 4.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
+                            Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/"),
+                                Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (inlineBlocking) ContentBlockingShield(page, state.settings, onFocus = onFocus,
+                                onPauseVisit = { paused ->
+                                    onVisitBlockingChange(paused)
+                                    engine.reload()
+                                }, onSiteBlockingChange = onAdBlockingChange)
+                            if (inlineCopy) {
+                                AddressActionButton(onClick = copyLink, enabled = canShareLink, modifier = Modifier.testTag("address-copy-url:${tab.id}")) {
+                                    Icon(if (linkCopied) NagiIcons.Check else NagiIcons.Link,
+                                        strings(if (linkCopied) R.string.ui_link_copied else R.string.ui_copy_link), Modifier.size(16.dp))
+                                }
+                            }
+                            if (inlineShare) {
+                                AddressActionButton(onClick = shareLink, enabled = canShareLink, modifier = Modifier.testTag("address-share-url:${tab.id}")) {
+                                    Icon(NagiIcons.Share, strings(R.string.ui_share_link), Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                        }
+                    }
                     Box {
-                    WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
-                    Row(Modifier.fillMaxSize().padding(start = 12.dp, end = if (inlineShare) 4.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
-                        Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/"),
-                            Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (inlineBlocking) ContentBlockingShield(page, state.settings, onFocus = onFocus,
-                            onPauseVisit = { paused ->
-                                onVisitBlockingChange(paused)
-                                engine.reload()
-                            }, onSiteBlockingChange = onAdBlockingChange)
-                        if (inlineCopy) {
-                            AddressActionButton(onClick = copyLink, enabled = canShareLink, modifier = Modifier.testTag("address-copy-url:${tab.id}")) {
-                                Icon(if (linkCopied) NagiIcons.Check else NagiIcons.Link,
-                                    strings(if (linkCopied) R.string.ui_link_copied else R.string.ui_copy_link), Modifier.size(16.dp))
+                        ToolButton(NagiIcons.Ellipsis, strings(R.string.ui_page_menu)) { onFocus(); pageMenu = true }
+                        NagiOverflowMenu(pageMenu, { pageMenu = false }) {
+                            if (!inlineShare) {
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Share, null) }, text = { Text(strings(R.string.ui_share_link)) }, enabled = canShareLink,
+                                    modifier = Modifier.testTag("menu-share-url:${tab.id}"), onClick = { pageMenu = false; shareLink() })
                             }
-                        }
-                        if (inlineShare) {
-                            AddressActionButton(onClick = shareLink, enabled = canShareLink, modifier = Modifier.testTag("address-share-url:${tab.id}")) {
-                                Icon(NagiIcons.Share, strings(R.string.ui_share_link), Modifier.size(16.dp))
+                            if (!inlineCopy) {
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Link, null) }, text = { Text(strings(R.string.ui_copy_link)) }, enabled = canShareLink,
+                                    modifier = Modifier.testTag("menu-copy-url:${tab.id}"), onClick = { pageMenu = false; copyLink() })
                             }
-                        }
-                    }
-                    }
-                }
-                Box {
-                    ToolButton(NagiIcons.Ellipsis, strings(R.string.ui_page_menu)) { onFocus(); pageMenu = true }
-                    NagiOverflowMenu(pageMenu, { pageMenu = false }) {
-                        if (!inlineShare) {
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Share, null) }, text = { Text(strings(R.string.ui_share_link)) }, enabled = canShareLink,
-                                modifier = Modifier.testTag("menu-share-url:${tab.id}"), onClick = { pageMenu = false; shareLink() })
-                        }
-                        if (!inlineCopy) {
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Link, null) }, text = { Text(strings(R.string.ui_copy_link)) }, enabled = canShareLink,
-                                modifier = Modifier.testTag("menu-copy-url:${tab.id}"), onClick = { pageMenu = false; copyLink() })
-                        }
-                        if (!inlineBlocking) {
-                            val siteHost = com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url)
-                            val siteBlocking = state.settings.adBlockingEnabled && siteHost !in state.settings.adBlockExcludedHosts
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ShieldCheck, null) },
-                                text = { Text(strings(if (siteBlocking) R.string.ui_disable_site_blocking else R.string.ui_enable_site_blocking, page.blockedRequests)) },
-                                enabled = siteHost != null && state.settings.adBlockingEnabled,
-                                modifier = Modifier.testTag("site-ad-blocking"),
-                                onClick = { siteHost?.let { onAdBlockingChange(it, !siteBlocking) }; pageMenu = false })
-                        }
-                        if (compact) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) }, text = { Text(strings(R.string.ui_reload)) }, onClick = { engine.reload(); pageMenu = false })
-                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Languages, null) }, text = { Text(strings(R.string.ui_translate_page)) },
-                            modifier = Modifier.testTag("translate-page"), enabled = !page.isLoading && !page.readerLoading && page.error == null &&
-                                (page.url.startsWith("https://") || page.url.startsWith("http://")),
-                            onClick = { onFocus(); pageMenu = false; onTranslationOptions() })
-                        if (page.translation.active) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) },
-                            text = { Text(strings(R.string.ui_translation_original)) }, modifier = Modifier.testTag("menu-translation-restore"),
-                            onClick = { pageMenu = false; engine.restoreOriginalPage() })
-                        NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Smartphone else NagiIcons.Monitor, null) }, text = { Text(if (page.desktopMode) strings(R.string.ui_use_mobile_site) else strings(R.string.ui_use_desktop_site)) }, onClick = { engine.setDesktopMode(!page.desktopMode); pageMenu = false })
-                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.BookOpen, null) },
-                            text = { Text(strings(if (page.readerArticle != null) R.string.ui_exit_reader else R.string.ui_reader_mode)) },
-                            modifier = Modifier.testTag("reader-mode"), enabled = canShareLink && !page.isLoading && !page.readerLoading,
-                            onClick = { engine.toggleReader(); pageMenu = false })
-                        if ((context as? com.takeruf.nagi.MainActivity)?.isPrivateBrowsing != true)
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Lock, null) }, text = { Text(strings(R.string.ui_private_mode)) },
-                                modifier = Modifier.testTag("open-private-mode"),
-                                onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenu = false })
-                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenu = false })
-                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
-                        if (!split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
-                        else {
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenu = false })
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_split_view)) }, onClick = { onCloseSplit(); pageMenu = false })
+                            if (!inlineBlocking) {
+                                val siteHost = com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url)
+                                val siteBlocking = state.settings.adBlockingEnabled && siteHost !in state.settings.adBlockExcludedHosts
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ShieldCheck, null) },
+                                    text = { Text(strings(if (siteBlocking) R.string.ui_disable_site_blocking else R.string.ui_enable_site_blocking, page.blockedRequests)) },
+                                    enabled = siteHost != null && state.settings.adBlockingEnabled,
+                                    modifier = Modifier.testTag("site-ad-blocking"),
+                                    onClick = { siteHost?.let { onAdBlockingChange(it, !siteBlocking) }; pageMenu = false })
+                            }
+                            if (compact) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) }, text = { Text(strings(R.string.ui_reload)) }, onClick = { engine.reload(); pageMenu = false })
+                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Languages, null) }, text = { Text(strings(R.string.ui_translate_page)) },
+                                modifier = Modifier.testTag("translate-page"), enabled = !page.isLoading && !page.readerLoading && page.error == null &&
+                                    (page.url.startsWith("https://") || page.url.startsWith("http://")),
+                                onClick = { onFocus(); pageMenu = false; onTranslationOptions() })
+                            if (page.translation.active) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) },
+                                text = { Text(strings(R.string.ui_translation_original)) }, modifier = Modifier.testTag("menu-translation-restore"),
+                                onClick = { pageMenu = false; engine.restoreOriginalPage() })
+                            if (engine.supportsDeviceDefaultMode) {
+                                NagiOverflowMenuItem(leadingIcon = { Icon(if (!page.desktopMode && !page.deviceDefaultMode) NagiIcons.Check else NagiIcons.Smartphone, null) },
+                                    text = { Text(strings(R.string.ui_use_mobile_site)) }, enabled = page.desktopMode || page.deviceDefaultMode,
+                                    modifier = Modifier.testTag("display-mode:mobile").semantics { selected = !page.desktopMode && !page.deviceDefaultMode },
+                                    onClick = { engine.setDesktopMode(false); pageMenu = false })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Check else NagiIcons.Monitor, null) },
+                                    text = { Text(strings(R.string.ui_use_desktop_site)) }, enabled = !page.desktopMode,
+                                    modifier = Modifier.testTag("display-mode:desktop").semantics { selected = page.desktopMode },
+                                    onClick = { engine.setDesktopMode(true); pageMenu = false })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(if (page.deviceDefaultMode) NagiIcons.Check else NagiIcons.Smartphone, null) },
+                                    text = { Text(strings(R.string.ui_use_device_default_site)) },
+                                    enabled = !page.deviceDefaultMode && com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url) != null,
+                                    modifier = Modifier.testTag("display-mode:device-default").semantics { selected = page.deviceDefaultMode },
+                                    onClick = { engine.setDeviceDefaultMode(); pageMenu = false })
+                            } else {
+                                NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Smartphone else NagiIcons.Monitor, null) }, text = { Text(if (page.desktopMode) strings(R.string.ui_use_mobile_site) else strings(R.string.ui_use_desktop_site)) }, onClick = { engine.setDesktopMode(!page.desktopMode); pageMenu = false })
+                            }
+                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.BookOpen, null) },
+                                text = { Text(strings(if (page.readerArticle != null) R.string.ui_exit_reader else R.string.ui_reader_mode)) },
+                                modifier = Modifier.testTag("reader-mode"), enabled = canShareLink && !page.isLoading && !page.readerLoading,
+                                onClick = { engine.toggleReader(); pageMenu = false })
+                            if ((context as? com.takeruf.nagi.MainActivity)?.isPrivateBrowsing != true)
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Lock, null) }, text = { Text(strings(R.string.ui_private_mode)) },
+                                    modifier = Modifier.testTag("open-private-mode"),
+                                    onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenu = false })
+                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenu = false })
+                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
+                            if (!split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
+                            else {
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenu = false })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_split_view)) }, onClick = { onCloseSplit(); pageMenu = false })
+                            }
                         }
                     }
                 }
             }
-            }
+        }
+        Column {
+            if (!bottomSearchBar) AddressBar()
             // Keep page titles aligned across both split panes.
             if (split) Row(Modifier.fillMaxWidth().height(48.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings.tabTitle(tab), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -173,8 +196,10 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             PageTranslationBar(page.translation, onRestore = engine::restoreOriginalPage)
             key(tab.id, engine) {
                 GoogleSignInRecoveryBar(page, onSwitchToMobile = { onFocus(); engine.retryGoogleSignInInMobileMode() })
+                HumanVerificationRecoveryBar(page, engine.supportsDeviceDefaultMode,
+                    onRetry = { onFocus(); engine.setDeviceDefaultMode() })
             }
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}")) {
                 if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
                     NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), { onFocus(); onOmnibox() }, compactWindow,
@@ -193,6 +218,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     }
                 }
             }
+            if (bottomSearchBar) AddressBar()
         }
     }
 }

@@ -8,10 +8,10 @@ import android.view.inputmethod.ExtractedTextRequest
 import android.view.MotionEvent
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.accessibility.AccessibilityNodeInfo
 import android.accessibilityservice.AccessibilityServiceInfo
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
 import com.takeruf.nagi.ui.browser.BrowserSurface
 import com.takeruf.nagi.testing.AutofillHarnessService
@@ -231,7 +231,7 @@ class WebViewEngineTest {
             scenario.onActivity { activity ->
                 val surface = (engine as AndroidEngineSurface).surface
                 (surface.parent as? ViewGroup)?.removeView(surface)
-                activity.setContent { BrowserSurface(engine, Modifier.fillMaxSize()) }
+                activity.setContent { BrowserSurface(engine, Modifier.fillMaxSize().safeDrawingPadding()) }
             }
             main { engine.loadUrl("${server.origin}/login") }
             await { it.title == "Fixture Login" && !it.isLoading }
@@ -239,16 +239,23 @@ class WebViewEngineTest {
             runBlocking { withTimeout(15_000) { while (!AutofillHarnessService.offered) delay(50) } }
             assertTrue(AutofillHarnessService.fieldHints.contains("username"))
             assertTrue(AutofillHarnessService.fieldHints.contains("current-password"))
-            var suggestion: AccessibilityNodeInfo? = null
+            var suggestionBounds: android.graphics.Rect? = null
             runBlocking { withTimeout(15_000) {
-                while (suggestion == null) {
-                    suggestion = automation.windows.asSequence().mapNotNull { it.root }
+                var previousBounds: android.graphics.Rect? = null
+                var stableSamples = 0
+                while (suggestionBounds == null) {
+                    if (android.os.Build.VERSION.SDK_INT >= 36) automation.clearCache()
+                    val suggestion = automation.windows.asSequence().mapNotNull { it.root }
                         .flatMap { it.findAccessibilityNodeInfosByText(AutofillHarnessService.LABEL).asSequence() }.firstOrNull()
-                    if (suggestion == null) delay(50)
+                    val bounds = android.graphics.Rect()
+                    suggestion?.getBoundsInScreen(bounds)
+                    if (suggestion?.isVisibleToUser == true && !bounds.isEmpty && bounds == previousBounds) stableSamples++
+                    else stableSamples = 0
+                    previousBounds = bounds
+                    if (stableSamples >= 2) suggestionBounds = bounds else delay(50)
                 }
             } }
-            val bounds = android.graphics.Rect()
-            suggestion!!.getBoundsInScreen(bounds)
+            val bounds = checkNotNull(suggestionBounds)
             shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
             main { engine.evaluateJavascript("""
                 var check=setInterval(()=>{if(document.getElementById('login-user').value==='fixture-user'

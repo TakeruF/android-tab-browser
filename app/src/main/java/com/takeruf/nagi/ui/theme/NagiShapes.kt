@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 object NagiShapes {
     val Radius = 12.dp
     val Rounded = RoundedCornerShape(Radius)
+    val Top = RoundedCornerShape(topStart = Radius, topEnd = Radius)
     val Sidebar = RoundedCornerShape(topEnd = Radius, bottomEnd = Radius)
     val Bottom = RoundedCornerShape(bottomStart = Radius, bottomEnd = Radius)
     val Material = Shapes(

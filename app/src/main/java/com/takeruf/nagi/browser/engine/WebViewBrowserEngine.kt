@@ -25,7 +25,7 @@ import org.json.JSONObject
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
 private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String,
-    val desktopMode: Boolean) : EngineSnapshot
+    val desktopMode: Boolean, val deviceDefaultMode: Boolean = false) : EngineSnapshot
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebViewBrowserEngine(
@@ -67,7 +67,8 @@ class WebViewBrowserEngine(
     }
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
-    private val mobileUa = SiteUserAgent.mobile(WebSettings.getDefaultUserAgent(context))
+    private val deviceUa = WebSettings.getDefaultUserAgent(context)
+    private val mobileUa = SiteUserAgent.mobile(deviceUa)
     private val defaultUaMetadata = if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
         WebSettingsCompat.getUserAgentMetadata(webView.settings) else null
     private val favicons = if (privateProfileName == null) FaviconStore.get(context) else null
@@ -87,6 +88,9 @@ class WebViewBrowserEngine(
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val popupViews = mutableSetOf<WebView>()
     private var destroyed = false
+    private val humanVerification = PageHumanVerification(webView, scope) { status ->
+        update { it.copy(humanVerification = status) }
+    }
     private var failedNavigation = false
     private var documentPage = mutableState.value
     private var downloadUrl: String? = null
@@ -129,7 +133,7 @@ class WebViewBrowserEngine(
         }
         cookies.setAcceptCookie(true)
         cookies.setAcceptThirdPartyCookies(webView, false)
-        applyUserAgent(desktopDefault)
+        applyUserAgent(if (desktopDefault) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
         webView.setOnLongClickListener { if (nativePageDrag()) startLinkDrag() else showPageContextMenu() }
         webView.setOnContextClickListener { showPageContextMenu() }
@@ -168,9 +172,9 @@ class WebViewBrowserEngine(
                         if (request.hasGesture()) translationNavigation.followLink()
                         else if (!state.value.isLoading) translationNavigation.reset()
                     }
-                    val desktop = desktopModeFor(url)
+                    val mode = displayModeFor(url)
                     if (request.method.equals("GET", true) && !isSameDocumentFragment(url) &&
-                        desktop != null && desktop != state.value.desktopMode) {
+                        mode != null && mode != currentDisplayMode()) {
                         // The UA setter can reload the old visible URL while WebView is
                         // processing a link or redirect. Cancel this request first, then
                         // start the target with its chosen UA after the callback returns.
@@ -198,6 +202,7 @@ class WebViewBrowserEngine(
                 // resources. Keep that document's counts instead of resetting them here.
                 if (blockingDocument.url != url) blockingDocument = BlockingDocument(url)
                 navigationGeneration++
+                humanVerification.reset()
                 translationNavigation.documentStarted()
                 pageTranslation.reset(restore = true)
                 pageDownloads.invalidate()
@@ -214,6 +219,7 @@ class WebViewBrowserEngine(
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 if (url == downloadUrl) return
+                if (url != state.value.url) humanVerification.locationChanged()
                 update { it.copy(url = url, visitBlockingExceptionSite = visitExceptionFor(url), canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 metadata()
             }
@@ -231,6 +237,7 @@ class WebViewBrowserEngine(
                 documentPage = state.value
                 pageDownloads.installFallback()
                 pageVideo.installFallback()
+                humanVerification.documentFinished()
                 installCosmeticFiltering()
                 restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
                 if (privateProfileName == null) cookies.flush()
@@ -279,6 +286,15 @@ class WebViewBrowserEngine(
                 if (!isUserGesture || popupViews.size >= 2) return false
                 val popup = WebView(context)
                 if (privateProfileName != null) PrivateProfiles.attach(popup, privateProfileName)
+                // This temporary window captures the target URL before a real tab is
+                // created. Keep its browser identity and cookie policy with the opener;
+                // the destination tab will still apply its own saved site display mode.
+                popup.settings.userAgentString = view.settings.userAgentString
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)) {
+                    WebSettingsCompat.setUserAgentMetadata(popup.settings,
+                        WebSettingsCompat.getUserAgentMetadata(view.settings))
+                }
+                cookies.setAcceptThirdPartyCookies(popup, cookies.acceptThirdPartyCookies(view))
                 popupViews.add(popup)
                 popup.postDelayed({ if (popupViews.remove(popup)) {
                     popup.destroy(); host.showMessage(strings(R.string.ui_blank_script_generated_popups_are_not_supported_in_this_mvp))
@@ -338,6 +354,7 @@ class WebViewBrowserEngine(
             // An attachment is not a document navigation. Keep the source page restorable.
             downloadUrl = url
             update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode,
+                deviceDefaultMode = it.deviceDefaultMode,
                 translation = it.translation, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
             if (url.startsWith("https://") || url.startsWith("http://")) host.download(
@@ -474,6 +491,7 @@ class WebViewBrowserEngine(
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
         navigationRequestGeneration++
         if (!preserveTranslation) translationNavigation.reset()
+        humanVerification.reset()
         blockingDocument = BlockingDocument(url)
         pageTranslation.reset(restore = true)
         applySiteDisplayMode(url)
@@ -491,6 +509,7 @@ class WebViewBrowserEngine(
         if (extraHeaders.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, extraHeaders)
     }
     override fun reload() { if (!destroyed) {
+        humanVerification.reset()
         translationNavigation.followLink()
         pageTranslation.reset(restore = true)
         navigationRequestGeneration++
@@ -614,27 +633,39 @@ class WebViewBrowserEngine(
             }
         }
     }
-    private fun applyUserAgent(desktop: Boolean) {
+    private fun applyUserAgent(mode: SiteDisplayMode) {
+        humanVerification.setDesktopMode(mode == SiteDisplayMode.DESKTOP)
+        val desktop = mode == SiteDisplayMode.DESKTOP
         val version = Regex("Chrome/([0-9.]+)").find(mobileUa)?.groupValues?.get(1) ?: "130.0.0.0"
-        webView.settings.userAgentString = if (desktop)
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$version Safari/537.36" else mobileUa
+        webView.settings.userAgentString = when (mode) {
+            SiteDisplayMode.DEVICE_DEFAULT -> deviceUa
+            SiteDisplayMode.DESKTOP -> "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$version Safari/537.36"
+            SiteDisplayMode.MOBILE -> mobileUa
+        }
         // Client Hints can otherwise keep reporting the underlying tablet/phone
         // even after the UA string changes. Keep both signals in the selected mode.
         defaultUaMetadata?.let { defaults ->
-            val metadata = UserAgentMetadata.Builder(defaults).setMobile(!desktop)
+            val metadata = UserAgentMetadata.Builder(defaults)
+            if (mode != SiteDisplayMode.DEVICE_DEFAULT) metadata.setMobile(!desktop)
             if (desktop) metadata.setPlatform("Linux").setPlatformVersion("")
                 .setArchitecture("x86").setBitness(64).setModel("").setWow64(false)
             WebSettingsCompat.setUserAgentMetadata(webView.settings, metadata.build())
         }
     }
-    private fun desktopModeFor(url: String): Boolean? =
-        if (SiteDisplayModeStore.siteHost(url) == null) null else siteDisplayModes.desktopMode(url) ?: defaultDesktopMode()
+    private fun currentDisplayMode(): SiteDisplayMode = when {
+        state.value.deviceDefaultMode -> SiteDisplayMode.DEVICE_DEFAULT
+        state.value.desktopMode -> SiteDisplayMode.DESKTOP
+        else -> SiteDisplayMode.MOBILE
+    }
+    private fun displayModeFor(url: String): SiteDisplayMode? =
+        if (SiteDisplayModeStore.siteHost(url) == null) null else siteDisplayModes.mode(url)
+            ?: if (defaultDesktopMode()) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE
     private fun applySiteDisplayMode(url: String) {
-        val desktop = desktopModeFor(url) ?: return
-        if (state.value.desktopMode == desktop) return
+        val mode = displayModeFor(url) ?: return
+        if (currentDisplayMode() == mode) return
         webView.stopLoading()
-        update { it.copy(desktopMode = desktop) }
-        applyUserAgent(desktop)
+        update { it.copy(desktopMode = mode == SiteDisplayMode.DESKTOP, deviceDefaultMode = mode == SiteDisplayMode.DEVICE_DEFAULT) }
+        applyUserAgent(mode)
     }
     private fun applyHistoryDisplayMode(offset: Int) {
         val history = webView.copyBackForwardList()
@@ -651,11 +682,22 @@ class WebViewBrowserEngine(
     override fun setDesktopMode(enabled: Boolean) {
         if (destroyed) return
         siteDisplayModes.remember(state.value.url, enabled)
-        if (state.value.desktopMode == enabled) return
+        changeDisplayMode(if (enabled) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE)
+    }
+    override val supportsDeviceDefaultMode: Boolean get() = true
+    override fun setDeviceDefaultMode() {
+        if (destroyed || SiteDisplayModeStore.siteHost(state.value.url) == null) return
+        siteDisplayModes.rememberDeviceDefault(state.value.url)
+        changeDisplayMode(SiteDisplayMode.DEVICE_DEFAULT)
+    }
+    private fun changeDisplayMode(mode: SiteDisplayMode) {
+        if (currentDisplayMode() == mode) return
         // Changing the UA during a load already restarts WebView's request. Stop it first
         // so this explicit reload is the only request triggered by the display toggle.
         webView.stopLoading()
-        update { it.copy(desktopMode = enabled) }; applyUserAgent(enabled); reload()
+        update { it.copy(desktopMode = mode == SiteDisplayMode.DESKTOP, deviceDefaultMode = mode == SiteDisplayMode.DEVICE_DEFAULT) }
+        applyUserAgent(mode)
+        reload()
     }
     override fun retryGoogleSignInInMobileMode() {
         if (destroyed || !state.value.desktopMode) return
@@ -693,12 +735,16 @@ class WebViewBrowserEngine(
         translationNavigation.reset()
         pageTranslation.reset(restore = true)
     } }
-    override fun setVisible(visible: Boolean) { pageTranslation.setVisible(visible); if (visible) webView.onResume() else webView.onPause() }
+    override fun setVisible(visible: Boolean) {
+        pageTranslation.setVisible(visible)
+        humanVerification.setVisible(visible)
+        if (visible) webView.onResume() else webView.onPause()
+    }
     override fun saveState(): EngineSnapshot? {
         if (destroyed) return null
         val bundle = Bundle()
         return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY,
-            state.value.url, state.value.desktopMode) else null
+            state.value.url, state.value.desktopMode, state.value.deviceDefaultMode) else null
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
@@ -707,8 +753,8 @@ class WebViewBrowserEngine(
         // Restore the cached document in the mode in which it was fetched. Current
         // window defaults and per-site choices apply on the next navigation/reload,
         // not by replacing a page merely because it is selected or restored.
-        update { it.copy(desktopMode = snapshot.desktopMode) }
-        applyUserAgent(snapshot.desktopMode)
+        update { it.copy(desktopMode = snapshot.desktopMode, deviceDefaultMode = snapshot.deviceDefaultMode) }
+        applyUserAgent(currentDisplayMode())
         restoringScroll = snapshot.scrollX to snapshot.scrollY
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
         if (!restored) restoringScroll = null
@@ -747,6 +793,7 @@ class WebViewBrowserEngine(
         if (destroyed) return
         pageTranslation.reset(restore = false)
         destroyed = true
+        humanVerification.destroy()
         if (fullscreenActive) fullscreenHost.hideVideo(tabId)
         pageVideo.destroy()
         pageDownloads.destroy()

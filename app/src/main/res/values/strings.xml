@@ -370,4 +370,10 @@
     <string name="ui_google_sign_in_mobile_retry">Try mobile view</string>
     <string name="ui_google_sign_in_hint_dismiss">Dismiss sign-in hint</string>
     <string name="ui_google_translation_attribution">Powered by Google Translate</string>
+    <string name="ui_bottom_search_bar">Search bar at bottom</string>
+    <string name="ui_bottom_search_bar_description">Place the search bar at the bottom in phone layouts</string>
+    <string name="ui_use_device_default_site">Use device default view</string>
+    <string name="ui_human_verification_hint">If human verification is stuck, try reloading in device default view.</string>
+    <string name="ui_human_verification_retry">Reload in device view</string>
+    <string name="ui_human_verification_dismiss">Dismiss verification hint</string>
 </resources>

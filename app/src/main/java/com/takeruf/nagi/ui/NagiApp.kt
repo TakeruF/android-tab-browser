@@ -445,9 +445,10 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                     .padding(vertical = 16.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
                             }
                         }
-                        Surface(shape = NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
+                        val flatBottom = sidebarAdaptation.compact && state.settings.bottomSearchBar && route == "browser"
+                        Surface(shape = if (flatBottom) NagiShapes.Top else NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
                             .padding(if (sidebarAdaptation.compact) PaddingValues(0.dp) else PaddingValues(top = 8.dp, end = 8.dp, bottom = 8.dp)),
-                            color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+                            color = MaterialTheme.colorScheme.surface, shadowElevation = if (flatBottom) 0.dp else 1.dp) {
                             Box(Modifier.fillMaxSize()) {
                                 NavHost(navController = nav, startDestination = "browser") {
                                     composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
