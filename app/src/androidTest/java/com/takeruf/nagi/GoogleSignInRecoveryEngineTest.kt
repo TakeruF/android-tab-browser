@@ -40,6 +40,7 @@ class GoogleSignInRecoveryEngineTest {
     }
     private fun createEngine(desktop: Boolean) {
         scenario.onActivity { activity ->
+            activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             engine = WebViewBrowserEngine(activity, host, host, { false }, desktop,
                 siteDisplayModes = store, privateProfileName = profile)
             val view = engine.surface

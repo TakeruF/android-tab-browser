@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare verified APK/update metadata; no signing secrets or network mutation."""
+"""Legacy APK archive helper (through 1.1.0); new releases use Google Play."""
 import argparse
 import hashlib
 import json
@@ -25,6 +25,8 @@ if not match or match[1] != "com.takeruf.nagi":
 name = match[3]
 if not re.fullmatch(r"\d+\.\d+\.\d+", name) or "application-debuggable" in metadata:
     raise SystemExit("Expected a non-debuggable stable release APK")
+if tuple(map(int, name.split("."))) > (1, 1, 0):
+    raise SystemExit("APK publication retired after 1.1.0; upload the signed playRelease AAB to Google Play instead")
 min_sdk = int(re.search(r"sdkVersion:'(\d+)'", metadata)[1])
 args.out.mkdir(parents=True, exist_ok=True)
 output = args.out / f"nagi-{name}.apk"

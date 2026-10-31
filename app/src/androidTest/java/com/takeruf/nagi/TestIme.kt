@@ -22,14 +22,19 @@ class TestIme : AutoCloseable {
             System.currentTimeMillis() < deadline) Thread.sleep(25)
         check(InputConnectionHarnessIme.bound && InputConnectionHarnessIme.editor != null) { "The system did not bind the test IME" }
     }
-    fun connection(viewId: Int? = null, action: Int? = null): InputConnection {
+    val inputStartSequence: Long get() = InputConnectionHarnessIme.inputStartSequence
+    fun connection(viewId: Int? = null, action: Int? = null, afterStart: Long? = null): InputConnection {
         val deadline = System.currentTimeMillis() + 10_000
         while (System.currentTimeMillis() < deadline) {
+            val sequence = inputStartSequence
             InputConnectionHarnessIme.active?.let {
                 val editor = InputConnectionHarnessIme.editor
                 if (editor != null && editor.inputType != InputType.TYPE_NULL &&
+                    (afterStart == null || sequence > afterStart) &&
                     (viewId == null || editor.fieldId == viewId) &&
-                    (action == null || editor.imeOptions and EditorInfo.IME_MASK_ACTION == action)) return it
+                    (action == null || editor.imeOptions and EditorInfo.IME_MASK_ACTION == action) &&
+                    sequence == inputStartSequence && it === InputConnectionHarnessIme.active &&
+                    editor === InputConnectionHarnessIme.editor) return it
             }
             Thread.sleep(25)
         }

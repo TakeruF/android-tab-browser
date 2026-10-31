@@ -105,7 +105,9 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     <html><head><title>Video Frame</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body style="margin:0"><iframe id="player-frame" allow="fullscreen; autoplay" src="http://localhost:${socket.localPort}/video"
                     style="width:100%;height:440px;border:0"></iframe><script>window.videoTicks=0;
-                    addEventListener('message',e=>{if(e.data.type==='ticks')window.videoTicks=e.data.ticks;if(e.data.type==='rects')window.frameRects=e.data.rects;});</script></body></html>
+                    addEventListener('message',e=>{if(e.data.type==='ticks')window.videoTicks=e.data.ticks;if(e.data.type==='rects'){
+                    window.frameRects=e.data.rects;window.frameRectRevision=e.data.revision;
+                    window.frameReady=e.data.ready;window.framePaused=e.data.paused;}});</script></body></html>
                 """
                 else if (path.startsWith("/video")) """
                     <html><head><title>Video Fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -116,7 +118,8 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     window.videoTicks++;parent.postMessage({type:'ticks',ticks:window.videoTicks},'*');});
                     if(parent!==window)setInterval(()=>{let rects={};for(const [key,selector] of Object.entries({start:'#start-video',assistant:'[data-nagi-video-assistant]'})){
                     let e=document.querySelector(selector);if(e&&e.getBoundingClientRect().width){let r=e.getBoundingClientRect();rects[key]={x:r.x+r.width/2,y:r.y+r.height/2};}}
-                    parent.postMessage({type:'rects',rects},'*');},250);</script></body></html>
+                    const v=document.getElementById('player');window.frameRevision=(window.frameRevision||0)+1;
+                    parent.postMessage({type:'rects',rects,revision:window.frameRevision,ready:v.readyState,paused:v.paused},'*');},250);</script></body></html>
                 """
                 else if (path.startsWith("/features")) """
                     <html><head><title>Fixture Features</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>

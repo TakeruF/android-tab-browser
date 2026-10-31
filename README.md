@@ -7,13 +7,16 @@ A workspace browser for Android tablets and phones, built with Kotlin, Jetpack C
 ## Download
 
 <a href="https://play.google.com/store/apps/details?id=com.takeruf.nagi"><img src="docs/badges/google-play.png" alt="Get it on Google Play" height="90"></a>
-<a href="https://github.com/TakeruF/android-tab-browser/releases/latest"><img src="docs/badges/github.png" alt="Get it on GitHub" height="90"></a>
 
 [Website & download details](https://takeruf.com/nagi)
 
-Install the APK over an existing GitHub/website installation to keep your workspace. Version 0.1.0 does not include an updater; install a newer APK manually, then use **Settings → App updates** for future releases. Google Play installations receive updates through Play. Local Debug builds, Play installations, and the former `com.orbit.browser` package have different signing or package identities; see [channel requirements](docs/RELEASING.md).
+Google Play is the sole official distribution channel for new Nagi releases, starting with 1.1.1. Play handles installation and updates. GitHub hosts source code, version tags and release notes; existing APK releases are historical archives.
+
+Existing GitHub/website APKs and Google Play use different signing certificates. Android may refuse an in-place switch; uninstalling removes app-private tabs, bookmarks, settings and site data. Do not uninstall assuming your workspace will migrate. See [distribution and migration](docs/RELEASING.md).
 
 ## Features
+
+The 1.1.1 candidate adds per-site device-default view, desktop human-verification recovery hints and an optional bottom search bar. Store submission and availability are recorded separately in [release preparation](docs/PLAY_CONSOLE.md). See [1.1.1 notes](docs/releases/1.1.1.md) and [emulator verification](docs/RELEASE_1.1.1_VERIFICATION.md).
 
 Version 1.1.0 adds on-device page translation, remembered target languages, same-tab link continuation, new-tab backgrounds, a mobile-view retry for rejected desktop Google sign-in, and Favorite/sidebar fixes. See [release notes](docs/releases/1.1.0.md) and [release verification](docs/RELEASE_1.1.0_VERIFICATION.md).
 
@@ -29,7 +32,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Find in page, remembered desktop/mobile display choices per website, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
 - Customizable new-tab backgrounds: solid colors, gradients, or a photo resized and stored on your device. Open the palette on a new tab or use Settings → Appearance.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
-- Bookmark management, link/image context menus, site-data clearing, and verified in-app APK updates.
+- Bookmark management, link/image context menus, site-data clearing, and Google Play-managed updates.
 - Website password autofill through the selected Android system provider; see [password autofill](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).
 - On-device web page translation powered by [Google Translate](https://cloud.google.com/translate) through ML Kit. Open **… → Translate this page** to choose languages; download language models once, then translate offline. Includes automatic language detection, same-tab link continuation, optional always-translate rules, newly added text, and original-text restoration; see [page translation](docs/PAGE_TRANSLATION.md).
@@ -49,16 +52,16 @@ Open this directory in Android Studio, sync Gradle, and run `app` on an Android 
 ```sh
 git clone https://github.com/TakeruF/android-tab-browser.git
 cd android-tab-browser
-./gradlew :app:assembleGithubDebug --no-parallel
-adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
+./gradlew :app:assemblePlayDebug --no-parallel
+adb install -r app/build/outputs/apk/play/debug/app-play-debug.apk
 adb shell am start -n com.takeruf.nagi/.MainActivity
 ```
 
 Set `ANDROID_HOME` or add `sdk.dir` to the Git-ignored `local.properties`. Debug development needs no release keystore; Release signing is configured separately outside Git. With multiple devices, use `adb -s <serial>`.
 
-The Debug APK is `app/build/outputs/apk/github/debug/app-github-debug.apk`. Generate the signed Release with `./gradlew :app:assembleGithubRelease`; see [distribution and in-app updates](docs/RELEASING.md) for signing and publication.
+The development APK is `app/build/outputs/apk/play/debug/app-play-debug.apk`. Build the signed Google Play upload bundle with `./gradlew :app:bundlePlayRelease` (output: `app/build/outputs/bundle/playRelease/app-play-release.aab`). It contains no GitHub update transport, APK installer, install permission or update FileProvider. See [signing and release preparation](docs/RELEASING.md).
 
-Build the Google Play upload bundle with `./gradlew :app:bundlePlayRelease` (output: `app/build/outputs/bundle/playRelease/app-play-release.aab`). The `github` flavor keeps verified APK updates; the `play` flavor contains no GitHub update transport or APK installer and directs users to Google Play. Both use `com.takeruf.nagi`; see signing/channel-switch requirements in [RELEASING.md](docs/RELEASING.md).
+The legacy `github` source set remains for historical reproducibility and regression checks; it is no longer an official release channel. Local Debug builds use a separate signing identity and are not Play updates.
 
 Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), also available from Settings in all four interface languages.
 
@@ -124,28 +127,19 @@ See [Arc references and refinements](docs/ARC_REFINEMENT.md). CJK input retains 
 ## Tests and screenshots
 
 ```sh
-./gradlew :app:testGithubDebugUnitTest :app:testPlayDebugUnitTest :app:lintGithubDebug :app:lintPlayDebug --no-parallel
-./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest --no-parallel
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest --no-parallel
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayDebug :app:lintPlayRelease --no-parallel
+./gradlew :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --no-parallel
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest --no-parallel
 ```
 
-Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). The recorded [1.0.0 verification on 2026-10-11](docs/RELEASE_1.0.0_VERIFICATION.md) used JDK 17 / SDK 36 and an API-36 ARM64 emulator:
+Signed Release checks require the external signing configuration described in [RELEASING.md](docs/RELEASING.md). The [1.1.1 local preflight](docs/RELEASE_1.1.1_VERIFICATION.md) records 313 unit passes across both source sets, 221 complete-suite passes with seven opt-in skips, 19 Play feature passes, signed artifact checks and update/storage/runtime coverage. These are dated local results, not proof of Play publication or completed account login.
 
-| Check | Result |
-| --- | --- |
-| Unit tests | GitHub 147 and Play 136 passed; no failures, errors, or skips |
-| Targeted instrumentation | 29 cases passed in the final combined Play Debug run |
-| Release Lint | 0 errors; 51 GitHub and 62 Play warnings |
-| Signed GitHub APK / Play AAB | Built from a clean release-source checkout; signatures, alignment, and bundle validation checked |
-| Public 0.3.0 → 1.0.0 APK upgrade | Saved tab and full URL retained after cold launch |
-
-Replace `emulator-5554` with your device serial. These are recorded release results; the complete instrumentation suite was not run for 1.0.0. [Validation guidance](docs/VALIDATION.md) covers repeatable checks, retained evidence, and remaining device validation. Physical devices, manufacturer-specific IMEs, real camera/microphone/location/trackpad hardware, Android 8–15 device behavior, and general production video compatibility remain unverified; updater unit tests cover API 26 and 35 with Robolectric.
+Replace `emulator-5554` with your device serial. [Validation guidance](docs/VALIDATION.md) covers repeatable checks, retained evidence and remaining device validation. Historical release evidence remains under `docs/RELEASE_*_VERIFICATION.md`.
 
 | Dark theme | Split browsing |
 | --- | --- |
 | ![Nagi 0.1.1 dark theme](docs/screenshots/readme-home-dark.png) | ![Nagi 0.1.1 Split browsing](docs/screenshots/readme-split.png) |
 
-![App updates in Nagi 0.1.1](docs/screenshots/readme-updates.png)
 
 README screenshots are historical captures of the signed 0.1.1 Release on the API-36 tablet emulator; they do not show all 1.0.0 controls. The Split image uses local demonstration pages.
 

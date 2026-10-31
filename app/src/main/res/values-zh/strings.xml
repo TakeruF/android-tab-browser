@@ -368,4 +368,10 @@
     <string name="ui_google_sign_in_mobile_retry">用移动版重试</string>
     <string name="ui_google_sign_in_hint_dismiss">关闭登录提示</string>
     <string name="ui_google_translation_attribution">Powered by Google Translate</string>
+    <string name="ui_bottom_search_bar">搜索栏置于底部</string>
+    <string name="ui_bottom_search_bar_description">在手机版布局中将搜索栏显示在屏幕底部</string>
+    <string name="ui_use_device_default_site">使用设备默认视图</string>
+    <string name="ui_human_verification_hint">如果人机验证无法继续，可尝试使用设备默认视图重新加载。</string>
+    <string name="ui_human_verification_retry">用设备视图重新加载</string>
+    <string name="ui_human_verification_dismiss">关闭验证提示</string>
 </resources>

@@ -6,6 +6,7 @@ import android.view.KeyEvent as AndroidKeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inspector.WindowInspector
+import com.takeruf.nagi.testing.InputConnectionHarnessIme
 import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -45,9 +46,14 @@ class CjkInputTest {
         ime.close(); server.close()
         runBlocking { container.engines.delete("cjk-fixture") }
     }
-    private fun connection(action: Int = EditorInfo.IME_ACTION_GO): InputConnection {
+    private var selectedConnection: InputConnection? = null
+    private var selectedStartSequence = 0L
+    private fun connection(action: Int = EditorInfo.IME_ACTION_GO, afterStart: Long? = null): InputConnection {
         compose.waitForIdle()
-        return ime.connection(action = action)
+        return ime.connection(action = action, afterStart = afterStart).also {
+            selectedConnection = it
+            selectedStartSequence = ime.inputStartSequence
+        }
     }
     private fun key(ic: InputConnection, code: Int) {
         compose.runOnIdle {
@@ -59,16 +65,28 @@ class CjkInputTest {
     private fun awaitEditorText(value: String) {
         // The system InputConnection dispatches through Binder; Compose being idle
         // does not mean the IME edit has reached the editor yet.
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(hasSetTextAction() and hasText(value)).fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(5_000) {
+                compose.onAllNodes(hasSetTextAction() and hasText(value)).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (failure: ComposeTimeoutException) {
+            // Binding provenance only. Do not log editor contents or query values.
+            throw AssertionError("IME update timed out; selectedStart=$selectedStartSequence; " +
+                "currentStart=${ime.inputStartSequence}; selectedConnectionIsCurrent=" +
+                (selectedConnection === InputConnectionHarnessIme.active), failure)
         }
         compose.onNode(hasSetTextAction()).assertTextEquals(value)
     }
     private fun exercise(provisional: List<String>, committed: String, useImeAction: Boolean) {
         ime.awaitBinding()
+        val previousStart = ime.inputStartSequence
         compose.runOnIdle { compose.activity.window.callback.dispatchKeyEvent(AndroidKeyEvent(0, 0, AndroidKeyEvent.ACTION_DOWN,
             AndroidKeyEvent.KEYCODE_L, 0, AndroidKeyEvent.META_CTRL_ON)) }
-        val ic = connection()
+        // Both the new-tab editor and omnibox use IME_ACTION_GO. Action alone can
+        // match the old editor before the system binds the new Dialog's editor.
+        // The opt-out is a controlled diagnostic comparison, never the suite default.
+        val fresh = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("cjkFreshConnection") != "false"
+        val ic = connection(afterStart = previousStart.takeIf { fresh })
         provisional.forEach { value ->
             compose.runOnIdle { ic.setComposingText(value, 1) }
             awaitEditorText(value)

@@ -116,6 +116,58 @@ class CompactBrowserUiTest {
         assertEquals("編集中の文章", data.getString("editable"))
     }
 
+    @Test fun bottomSearchSettingMovesAddressAndInputAndPreservesPageAcrossWidths() {
+        open("${server.origin}/scroll"); awaitTitle("Fixture Scroll")
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val view = webViews().single()
+        fun assertAddressPosition(bottom: Boolean) {
+            val address = compose.onNodeWithTag("browser-address-bar-$active").fetchSemanticsNode().boundsInRoot
+            val content = compose.onNodeWithTag("browser-content-$active").fetchSemanticsNode().boundsInRoot
+            if (bottom) assertTrue("Address bar below page", address.top >= content.bottom - 1f)
+            else assertTrue("Address bar above page", address.bottom <= content.top + 1f)
+        }
+        assertAddressPosition(false)
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_settings)).performClick()
+        val label = compose.activity.getString(R.string.ui_bottom_search_bar)
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
+        compose.onNodeWithText(label).performClick()
+        compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().bottomSearchBar } }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_back_to_browser)).performClick()
+        compose.waitForIdle()
+        assertAddressPosition(true)
+        assertSame(view, webViews().single())
+        compose.runOnIdle { view.scrollTo(0, 420) }
+        compose.waitUntil(5_000) { view.scrollY > 0 }
+        var scroll = 0
+        compose.runOnIdle { scroll = view.scrollY }
+        for (width in listOf(1000, 360)) {
+            resize(width)
+            assertAddressPosition(width < 600)
+            assertSame(view, webViews().single())
+            assertEquals(scroll, view.scrollY)
+        }
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("browser-address-bar-$active").fetchSemanticsNodes().isNotEmpty() }
+        assertAddressPosition(true)
+        compose.onNodeWithTag("url-drop-$active").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("command-input").fetchSemanticsNodes().isNotEmpty() }
+        val input = compose.onNodeWithTag("command-input").fetchSemanticsNode().boundsInRoot
+        val suggestions = compose.onNodeWithTag("command-suggestions").fetchSemanticsNode().boundsInRoot
+        assertTrue("Suggestions above bottom input", suggestions.bottom <= input.top)
+        compose.onNodeWithTag("command-input").performTextReplacement("${server.origin}/two")
+        resize(1000)
+        compose.onNodeWithTag("command-input").assertTextEquals("${server.origin}/two")
+        resize(360)
+        compose.onNodeWithTag("command-input").assertTextEquals("${server.origin}/two")
+        compose.onNodeWithTag("command-input").performKeyInput { pressKey(Key.Enter) }
+        awaitTitle("Fixture Two")
+        assertAddressPosition(true)
+        runBlocking { container.settings.update { it.copy(bottomSearchBar = false) } }
+        compose.waitForIdle()
+        assertAddressPosition(false)
+    }
+
     @Test fun thumbControlsOpenSelectCloseTabsAndSwitchSpaces() {
         open("${server.origin}/one"); awaitTitle("Fixture One")
         val first = runBlocking { container.workspace.dao.tabs(spaceId).first { it.title == "Fixture One" }.id }

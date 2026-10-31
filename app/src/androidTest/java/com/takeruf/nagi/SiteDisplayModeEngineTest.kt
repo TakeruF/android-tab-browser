@@ -6,6 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebSettings
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.takeruf.nagi.browser.engine.*
@@ -46,6 +49,7 @@ class SiteDisplayModeEngineTest {
     }
     private fun createEngine(desktop: Boolean = true) {
         scenario.onActivity {
+            it.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             engine = WebViewBrowserEngine(it, host, host, { false }, desktop,
                 siteDisplayModes = store, defaultDesktopMode = { automaticDesktop })
             it.addContentView(engine.surface, ViewGroup.LayoutParams(-1, -1))
@@ -215,5 +219,89 @@ class SiteDisplayModeEngineTest {
         main { engine.reload() }
         awaitMode(url, false)
         assertNull(store.desktopMode(url))
+    }
+
+    private fun awaitDeviceMode(url: String, minimumRequests: Int = 1) = runBlocking {
+        withTimeout(15_000) {
+            engine.state.first {
+                it.url == url && it.deviceDefaultMode && !it.desktopMode && !it.isLoading &&
+                    it.title.startsWith("Fixture") && server.requests.count { r -> r.path == Uri.parse(url).path } >= minimumRequests
+            }
+        }
+    }
+
+    private fun assertNativeIdentity(url: String) = main {
+        val view = engine.surface as WebView
+        val native = WebView(view.context)
+        try {
+            assertEquals(WebSettings.getDefaultUserAgent(view.context), view.settings.userAgentString)
+            assertEquals(view.settings.userAgentString, server.requests.last { it.path == Uri.parse(url).path }.userAgent)
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
+                assertEquals(WebSettingsCompat.getUserAgentMetadata(native.settings), WebSettingsCompat.getUserAgentMetadata(view.settings))
+        } finally { native.destroy() }
+    }
+
+    @Test fun deviceDefaultChoiceKeepsNativeIdentityAcrossLinksAndNewEngines() {
+        val first = "${server.origin}/ua-device-first"
+        val next = "${server.origin}/ua-device-next"
+        main { engine.loadUrl(first) }
+        awaitMode(first, true)
+        main { engine.setDeviceDefaultMode() }
+        awaitDeviceMode(first, 2)
+        assertNativeIdentity(first)
+        assertEquals(SiteDisplayMode.DEVICE_DEFAULT, store.mode(first))
+        main { engine.evaluateJavascript("location.href='$next'") }
+        awaitDeviceMode(next)
+        assertNativeIdentity(next)
+        assertEquals(2, server.requests.count { it.path == "/ua-device-first" })
+        main { engine.destroy() }
+        createEngine(false)
+        main { engine.loadUrl(next) }
+        awaitDeviceMode(next, 2)
+        assertNativeIdentity(next)
+        // Mobile and device-default are distinct even though desktopMode is false for both.
+        main { engine.setDesktopMode(false) }
+        awaitMode(next, false)
+        assertFalse(engine.state.value.deviceDefaultMode)
+        assertEquals(SiteDisplayMode.MOBILE, store.mode(next))
+        main { engine.setDesktopMode(true) }
+        awaitMode(next, true)
+        assertFalse(engine.state.value.deviceDefaultMode)
+        assertEquals(4, server.requests.count { it.path == "/ua-device-next" })
+    }
+
+    @Test fun deviceDefaultChoiceSurvivesCrossHostBackAndForward() {
+        val device = "${server.origin}/ua-device-back"
+        val mobile = "${server.origin.replace("127.0.0.1", "localhost")}/ua-device-other"
+        store.rememberDeviceDefault(device)
+        store.remember(mobile, false)
+        main { engine.loadUrl(device) }
+        awaitDeviceMode(device)
+        main { engine.evaluateJavascript("location.href='$mobile'") }
+        awaitMode(mobile, false)
+        main { engine.goBack() }
+        awaitDeviceMode(device)
+        assertNativeIdentity(device)
+        main { engine.goForward() }
+        awaitMode(mobile, false)
+        assertFalse(engine.state.value.deviceDefaultMode)
+    }
+
+    @Test fun deviceDefaultSnapshotKeepsItsIdentityUntilReloadUsesTheNewChoice() {
+        val url = "${server.origin}/ua-device-snapshot"
+        store.rememberDeviceDefault(url)
+        main { engine.loadUrl(url) }
+        awaitDeviceMode(url)
+        var snapshot: EngineSnapshot? = null
+        main { snapshot = engine.saveState(); engine.destroy() }
+        assertNotNull(snapshot)
+        store.remember(url, true)
+        createEngine()
+        main { assertTrue(engine.restoreState(snapshot!!)) }
+        awaitDeviceMode(url)
+        main { assertEquals(WebSettings.getDefaultUserAgent((engine.surface as WebView).context), (engine.surface as WebView).settings.userAgentString) }
+        main { engine.reload() }
+        awaitMode(url, true)
+        assertFalse(engine.state.value.deviceDefaultMode)
     }
 }

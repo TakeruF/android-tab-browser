@@ -51,7 +51,11 @@ class PrivacyReaderUiTest {
         loadArticle()
         pageMenu()
         compose.onNodeWithTag("open-private-mode").performClick()
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag("close-private-mode").fetchSemanticsNodes().isNotEmpty() }
+        // Cross-Activity transitions can briefly have no registered Compose root.
+        compose.waitUntil(15_000) {
+            compose.onAllNodesWithTag("close-private-mode")
+                .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         var secured = false
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val lifecycle = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
@@ -60,8 +64,21 @@ class PrivacyReaderUiTest {
         }
         assertTrue(secured)
         compose.onNodeWithTag("close-private-mode").performClick()
-        compose.waitUntil(15_000) { compose.onAllNodesWithTag("close-private-mode").fetchSemanticsNodes().isEmpty() }
+        val pageMenu = compose.activity.getString(R.string.ui_page_menu)
+        var normalResumed = false
+        compose.waitUntil(15_000) {
+            val ready = compose.onAllNodesWithTag("close-private-mode").fetchSemanticsNodes(atLeastOneRootRequired = false).isEmpty() &&
+                compose.onAllNodesWithContentDescription(pageMenu).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            if (ready) InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val lifecycle = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                normalResumed = lifecycle.getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
+                    .filterIsInstance<MainActivity>().any { it !is PrivateActivity &&
+                        it.window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE == 0 }
+            }
+            ready && normalResumed
+        }
         compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.ui_page_menu)).onFirst().assertExists()
+        assertTrue("Normal browsing must resume without the private window flag", normalResumed)
     }
     private fun shield() { compose.onAllNodesWithTag("ad-blocking-shield").onFirst().performClick() }
     @Test fun shieldPausesVisitAndResumesWithoutSavingException() {

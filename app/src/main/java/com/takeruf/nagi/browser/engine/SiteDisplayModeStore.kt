@@ -6,6 +6,8 @@ import android.net.Uri
 import java.net.IDN
 import java.util.Locale
 
+enum class SiteDisplayMode { MOBILE, DESKTOP, DEVICE_DEFAULT }
+
 /** Explicit display choices are shared by every tab and survive Activity/process recreation. */
 class SiteDisplayModeStore(
     context: Context,
@@ -13,18 +15,30 @@ class SiteDisplayModeStore(
         .getSharedPreferences("site_display_modes", Context.MODE_PRIVATE),
     private val inMemory: Boolean = false,
 ) {
-    private val choices = mutableMapOf<String, Boolean>()
-    fun desktopMode(url: String): Boolean? {
+    private val choices = mutableMapOf<String, SiteDisplayMode>()
+    fun mode(url: String): SiteDisplayMode? {
         val key = siteHost(url) ?: return null
         if (inMemory) return choices[key]
-        return if (preferences.contains(key)) preferences.getBoolean(key, false) else null
+        if (preferences.getBoolean("device-default:$key", false)) return SiteDisplayMode.DEVICE_DEFAULT
+        return if (preferences.contains(key)) {
+            if (preferences.getBoolean(key, false)) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE
+        } else null
     }
+
+    fun desktopMode(url: String): Boolean? = mode(url)?.let { it == SiteDisplayMode.DESKTOP }
 
     fun remember(url: String, desktop: Boolean) {
         val key = siteHost(url) ?: return
-        if (inMemory) { choices[key] = desktop; return }
+        if (inMemory) { choices[key] = if (desktop) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE; return }
         // apply() updates memory synchronously, before a new tab or Activity can read it.
-        preferences.edit().putBoolean(key, desktop).apply()
+        preferences.edit().putBoolean(key, desktop).remove("device-default:$key").apply()
+    }
+
+    fun rememberDeviceDefault(url: String) {
+        val key = siteHost(url) ?: return
+        if (inMemory) { choices[key] = SiteDisplayMode.DEVICE_DEFAULT; return }
+        // Keep the existing Boolean preference readable by older versions.
+        preferences.edit().putBoolean(key, false).putBoolean("device-default:$key", true).apply()
     }
 
     companion object {

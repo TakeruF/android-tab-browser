@@ -368,4 +368,10 @@
     <string name="ui_google_sign_in_mobile_retry">モバイル版で再試行</string>
     <string name="ui_google_sign_in_hint_dismiss">ログインの案内を閉じる</string>
     <string name="ui_google_translation_attribution">Powered by Google Translate</string>
+    <string name="ui_bottom_search_bar">検索バーを下部に配置</string>
+    <string name="ui_bottom_search_bar_description">スマホ向けUIで検索バーを画面下部に表示します</string>
+    <string name="ui_use_device_default_site">端末標準表示を使用</string>
+    <string name="ui_human_verification_hint">人間確認が進まない場合は、端末標準表示で再試行できます。</string>
+    <string name="ui_human_verification_retry">端末標準で再読込</string>
+    <string name="ui_human_verification_dismiss">人間確認の案内を閉じる</string>
 </resources>

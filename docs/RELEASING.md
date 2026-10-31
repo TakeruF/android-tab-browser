@@ -1,72 +1,40 @@
-# Distribution and in-app updates
+# Google Play distribution and release preparation
 
-Nagi is distributed through [GitHub Releases](https://github.com/TakeruF/android-tab-browser/releases) and [takeruf.com/nagi](https://takeruf.com/nagi). The package is `com.takeruf.nagi`. The public GitHub release 1.1.0 has `versionCode=9`, minSdk 26, targetSdk 36, and a signed, R8-optimized APK with `debuggable=false`.
+Starting with **1.1.1 / versionCode 10**, Google Play is Nagi's sole official distribution channel. Package: `com.takeruf.nagi`, minSdk 26, targetSdk 36. [Install and update through Google Play](https://play.google.com/store/apps/details?id=com.takeruf.nagi).
 
-See the [1.1.0 release notes](releases/1.1.0.md). The dated [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) remains a historical distribution record; See the [1.1.0 verification](RELEASE_1.1.0_VERIFICATION.md) for current publication evidence; Google Play submission is separate from approval.
+GitHub holds source, version tags and release notes. Existing APKs and updater manifests through 1.1.0 remain historical archives; new releases do not publish an APK, `update.json` or APK checksum for sideloading. Website and profile install actions point to Play. A source tag or GitHub note does not establish Play availability.
 
-## Signing
+## Signing and migration
 
-Release signing reads the Properties file specified by `NAGI_SIGNING_PROPERTIES`, defaulting to `~/.config/nagi/release-signing.properties`. Required fields are `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. A Release build without signing configuration must fail; do not distribute unsigned APKs.
+Signing reads `NAGI_SIGNING_PROPERTIES`, defaulting to `~/.config/nagi/release-signing.properties`. Required fields: `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Keep signing material outside Git and never log passwords or private keys. A signed Release build must fail if configuration is missing.
 
-Version 1.0.0 uses the same distribution key as the 0.1.0 APK published at takeruf.com/nagi. Verify the original public APK's package, version, and certificate fingerprint when configuring signing. Keeping the same package and signature allows an in-place update without uninstalling. Local Debug builds have a different signature and cannot update to this distribution in place. Keep using the distribution key for future releases.
+The existing local distribution/upload-certificate SHA-256 is `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`. The upload key and Google Play app-signing key are different roles. Verify the Console upload certificate and the highest previously uploaded versionCode before each upload; do not change keys or the application ID to solve a mismatch.
 
-The signing configuration and keystore are outside Git in `~/.config/nagi/`, with file permissions 600. Back up the private key and passwords securely. Publish only the certificate fingerprint and APK checksum.
+The previously checked Play app-signing certificate differs from the GitHub/website APK certificate. The same application ID therefore does **not** guarantee an in-place switch. Android can reject the update. Uninstalling removes app-private tabs, bookmarks, settings, cookies and website storage. There is no verified automatic cross-channel workspace migration; do not instruct users to uninstall as a routine update step. The former `com.orbit.browser` package is also a separate app. Reconfirm Console signing before making a new migration claim.
 
-Signing-certificate SHA-256: `a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc`.
+## Build and verification
 
-The former `com.orbit.browser` package and any other application ID are separate apps under Android's update rules.
-
-## Update flow
-
-Once on startup, and when requested from Settings → App updates, the app fetches `releases/latest/download/update.json` over HTTPS. Check failures do not block browsing. A higher version code displays an update button; downloading starts only after user interaction.
-
-The APK is stored in the app's private cache. Checks cover size, SHA-256, package, version name/code, minSdk, and the installed app's signing certificate. Different signatures/packages, downgrades, and corrupt files never reach the installer. Verification runs again immediately before installation. Partial files are deleted after completion, failure, or cancellation.
-
-On Android 8+, the app opens the install-from-this-source setting when needed, then Android's standard installation confirmation. Installation is not automatic in the background. Version 0.1.0 has no updater: install 0.1.1 manually, then use in-app checks for future versions.
-
-## GitHub and Google Play variants
-
-The `distribution` flavor dimension provides `github` and `play` variants. Both keep the application ID `com.takeruf.nagi`, the existing database, and shared browser features.
-
-- `github`: `./gradlew :app:assembleGithubRelease`; APK at `app/build/outputs/apk/github/release/app-github-release.apk`. The APK updater, installer, FileProvider, and `REQUEST_INSTALL_PACKAGES` are included only in this source set.
-- `play`: `./gradlew :app:bundlePlayRelease`; AAB at `app/build/outputs/bundle/playRelease/app-play-release.aab`. There is no APK update transport, installer, install permission, or update FileProvider. Settings opens the app's Google Play listing; Play manages delivery and updates.
-
-The current Play app-signing certificate differs from the GitHub distribution certificate, so installed users must stay within their current channel for an in-place update. The same application ID does not by itself guarantee cross-channel upgrades. To preserve installed GitHub users' data when moving to Play, configure Play App Signing using the existing distribution signing key; a distinct Play app-signing certificate prevents in-place upgrades. The upload certificate and Play app-signing certificate serve different roles. Before uploading, check the Play certificate and use a version code higher than any already uploaded artifact. Do not change the existing distribution key to solve a Play signing mismatch.
-
-The privacy policy is hosted at `https://takeruf.com/nagi/privacy` with English, Japanese, Simplified Chinese, and Korean pages. See [Play Console preparation](PLAY_CONSOLE.md) for declarations and store copy.
-
-Verification commands:
+The `play` variant has no GitHub APK update transport, installer, `REQUEST_INSTALL_PACKAGES` or update FileProvider. Settings directs users to Google Play. The legacy `github` source set is retained solely for historical reproducibility and regression checks; its existence is not an active distribution channel. `scripts/prepare_release.py` rejects APK versions newer than 1.1.0.
 
 ```sh
-./gradlew :app:testGithubDebugUnitTest :app:testPlayDebugUnitTest
-./gradlew :app:lintGithubRelease :app:lintPlayRelease
-./gradlew :app:assembleGithubRelease :app:bundlePlayRelease
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.takeruf.nagi.ReleaseFeaturesUiTest
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayDebug :app:lintPlayRelease --no-parallel
+./gradlew :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --no-parallel
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest --no-parallel
+./gradlew :app:bundlePlayRelease --no-parallel
 ```
 
-## Publication
+Upload artifact: `app/build/outputs/bundle/playRelease/app-play-release.aab`. Developer/test APKs are local validation artifacts, not public downloads. Verify the bundle signature, version/package, non-debuggable flag, bundletool validation, native alignment, license assets and Play manifest boundaries. Compare source and installed-artifact evidence separately; 16KB packaging alignment does not establish 16KB runtime execution.
 
-1. Increment version name/code and write English release notes.
-2. Verify unit/instrumentation tests, Lint, and the signed Release.
-3. Commit only relevant changes and generate the APK from a clean checkout of that commit.
-4. Run `scripts/prepare_release.py APK --notes RELEASE_NOTES --out OUTPUT_DIR` to produce the APK, `update.json`, and `SHA256SUMS`.
-5. Push the commit and upload all three assets to a GitHub Release tagged `v<versionName>`.
-6. Re-fetch the public JSON/APK and verify checksum, signature, package, and version. Check the app's update flow too.
-7. Update the website's APK, displayed version/size/checksum, feature descriptions, and installation guidance; verify the deployed page and downloaded bytes.
+The [1.1.1 preflight](RELEASE_1.1.1_VERIFICATION.md) records the tested working-tree candidate; clean release-source builds and Console preparation are recorded separately. [1.1.0 verification](RELEASE_1.1.0_VERIFICATION.md) remains a dated record of the former dual-channel publication.
 
-`update.json` schema:
+## Preparation and stop point
 
-```json
-{
-  "applicationId": "com.takeruf.nagi",
-  "versionCode": 9,
-  "versionName": "1.1.0",
-  "minSdk": 26,
-  "apkUrl": "https://github.com/TakeruF/android-tab-browser/releases/download/v1.1.0/nagi-1.1.0.apk",
-  "sha256": "64 lowercase hexadecimal characters",
-  "size": 123,
-  "notes": "English release notes"
-}
-```
+1. Increment versionName/versionCode and prepare release notes in English, Japanese, Simplified Chinese and Korean.
+2. Verify relevant unit, instrumentation, lint and signed runtime checks. Review the complete candidate diff and preserve unrelated work.
+3. Commit the intended source; rebuild the Play AAB from the selected clean revision and record its hash/signature. Create an immutable source tag `v<versionName>` on that revision. Never move old release tags.
+4. Keep new GitHub release notes as a draft until their publication state is appropriate. Link to Play and clearly separate source version from store availability. Do not attach the AAB or publish a new APK/updater manifest.
+5. In Play Console, inspect the current app, signing, version codes, track and pending changes. Upload the AAB, add four-language notes, retain intended countries/device support and resolve validation errors.
+6. Save the production release as a draft. Check Publishing overview and record the exact remaining action. **For the current request, stop before sending changes for review, starting a rollout or publishing.** Do not click those actions.
+7. Separately report local source/tag, GitHub draft, website/profile deployment, accepted bundle, Console saved draft, review submission and actual store availability. Preparation proves only the stages reached.
 
-The updater uses public GitHub HTTPS assets with no embedded API key or GitHub token. The host sees the source IP and Nagi-version User-Agent, but receives no browsing history or search queries. When GitHub is unreachable, display an error and allow retry.
+Privacy policy: `https://takeruf.com/nagi/privacy`, with English, Japanese, Simplified Chinese and Korean bodies. See [Play Console preparation](PLAY_CONSOLE.md) for declarations and store copy. Existing declarations must be checked against the exact candidate; no unrelated privacy/targeting changes are implied by distribution consolidation.

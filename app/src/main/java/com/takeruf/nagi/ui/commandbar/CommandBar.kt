@@ -8,6 +8,8 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -67,17 +69,21 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         NagiSystemBars()
         val windowInfo = LocalWindowInfo.current
-        LaunchedEffect(windowInfo) {
+        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.Center) {
+        val compact = maxWidth < 600.dp
+        val bottomSearchBar = compact && settings.bottomSearchBar
+        LaunchedEffect(windowInfo, bottomSearchBar) {
             // A Dialog has its own window. Focusing before that window is ready can
             // leave the IME attached to the non-editable browser window instead.
             snapshotFlow { windowInfo.isWindowFocused }.first { it }
             focus.requestFocus()
         }
-        BoxWithConstraints(Modifier.safeDrawingPadding().imePadding(), contentAlignment = Alignment.Center) {
-        val compact = maxWidth < 600.dp
+        // Keep taps outside the panel dismissible even though the dialog fills the window.
+        Box(Modifier.matchParentSize().pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
         Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.onSurface, shadowElevation = 16.dp,
-            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(if (compact) 0.96f else 0.85f).heightIn(max = 640.dp)
+            modifier = Modifier.align(if (bottomSearchBar) Alignment.BottomCenter else Alignment.Center).widthIn(max = 720.dp).fillMaxWidth(if (compact) 0.96f else 0.85f).heightIn(max = 640.dp)
+                .pointerInput(Unit) { detectTapGestures { /* Consume taps on the panel background. */ } }
                 .onPreviewKeyEvent { event ->
                     // The IME gets pre-dispatch first. If a composition key still reaches the app,
                     // consume it here so Compose cannot move focus or execute an unfinished query.
@@ -92,25 +98,31 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                     }
                 }) {
             Column {
-                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(NagiIcons.Search, null, Modifier.padding(start = 12.dp))
-                    TextField(state = input, shape = NagiShapes.Rounded, lineLimits = TextFieldLineLimits.SingleLine,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        onKeyboardAction = { execute() },
-                        placeholder = { Text(strings(if (compact) R.string.ui_search_or_enter_url else R.string.ui_search_enter_a_url_or_type_for_commands),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent),
-                        modifier = Modifier.weight(1f).focusRequester(focus).semantics {
-                            stateDescription = if (input.composition == null) strings(R.string.ui_ready) else strings(R.string.ui_composing)
-                        })
-                    if (compact) IconButton(onClick = onDismiss) {
-                        Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings(R.string.ui_search)))
-                    } else TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text("Esc") }
+                @Composable
+                fun SearchInput() {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(NagiIcons.Search, null, Modifier.padding(start = 12.dp))
+                        TextField(state = input, shape = NagiShapes.Rounded, lineLimits = TextFieldLineLimits.SingleLine,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            onKeyboardAction = { execute() },
+                            placeholder = { Text(strings(if (compact) R.string.ui_search_or_enter_url else R.string.ui_search_enter_a_url_or_type_for_commands),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent),
+                            modifier = Modifier.weight(1f).testTag("command-input").focusRequester(focus).semantics {
+                                stateDescription = if (input.composition == null) strings(R.string.ui_ready) else strings(R.string.ui_composing)
+                            })
+                        if (compact) IconButton(onClick = onDismiss) {
+                            Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings(R.string.ui_search)))
+                        } else TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text("Esc") }
+                    }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                if (!bottomSearchBar) {
+                    SearchInput()
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
                 LazyColumn(state = list, modifier = Modifier.weight(1f, fill = false).testTag("command-suggestions"), contentPadding = PaddingValues(12.dp)) {
                     itemsIndexed(suggestions, key = { _, item -> item.id }) { index, item ->
                         val active = selected == index
@@ -165,6 +177,10 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                         }
                     }
                     if (suggestions.isEmpty()) item { Text(strings(R.string.ui_no_matches), Modifier.padding(16.dp)) }
+                }
+                if (bottomSearchBar) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SearchInput()
                 }
                 if (!compact) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

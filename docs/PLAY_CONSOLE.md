@@ -1,5 +1,11 @@
 # Google Play release preparation
 
+## Current preparation — 2026-10-31
+
+The user selected Google Play as the sole official distribution channel starting with **1.1.1 / code 10**. New GitHub tags record source versions; APKs and updater manifests are no longer published. See [release workflow and migration](RELEASING.md) and [four-language 1.1.1 notes](play-store/release-notes-1.1.1.txt).
+
+The live Console was rechecked: production **1.1.0** is active at 100% in 178 countries/regions; Publishing overview initially had no unpublished changes. The earlier review-pending record below is historical. Preparation of 1.1.1 must stop before sending changes for review or starting a rollout; a saved draft is not submission or store availability. Final artifact and saved-draft evidence will be recorded separately.
+
 ## Latest recorded production submission — 2026-10-27
 
 Nagi **1.1.0 / code 9** was submitted to Production at 100% rollout in the existing 178 countries/regions, together with four full-description updates and the ML Kit Data safety declaration. The Console showed **Changes in review**, quick checks running, and **Managed publishing off**. The accepted AAB was rebuilt from clean source `6b5d0de9fec1d14cbded57609a6613604e16c944`. No supported devices were lost; the only release warning concerned increased download size. Approval and public 1.1.0 availability are not established. See [final verification](RELEASE_1.1.0_VERIFICATION.md).

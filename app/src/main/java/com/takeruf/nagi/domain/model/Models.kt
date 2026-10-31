@@ -74,6 +74,7 @@ data class BrowserSettings(
     // null follows the app language until a translation target is explicitly chosen.
     val translationTargetLanguage: String? = null,
     val alwaysTranslateLanguages: Map<String, String> = emptyMap(),
+    val bottomSearchBar: Boolean = false,
 )
 
 data class WorkspaceSnapshot(
