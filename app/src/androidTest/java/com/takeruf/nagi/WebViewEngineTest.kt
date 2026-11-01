@@ -36,6 +36,7 @@ class WebViewEngineTest {
     private val fullscreenRequests = CopyOnWriteArrayList<View>()
     private val contextActions = CopyOnWriteArrayList<List<PageContextAction>>()
     private val copiedLinks = CopyOnWriteArrayList<String>()
+    private val messages = CopyOnWriteArrayList<String>()
     private val generatedFiles = CopyOnWriteArrayList<Pair<GeneratedDownload, ByteArray>>()
     private val host = object : BrowserHost, FullscreenHost {
         override fun showContextMenu(title: String, actions: List<PageContextAction>) { contextActions.add(actions) }
@@ -48,7 +49,7 @@ class WebViewEngineTest {
             generatedFiles.add(request to file.readBytes()); file.delete()
         }
         override fun openExternal(url: String) {}
-        override fun showMessage(message: String) {}
+        override fun showMessage(message: String) { messages.add(message) }
         override fun showFullscreen(view: View, exit: () -> Unit) { fullscreenRequests.add(view); exit() }
         override fun hideFullscreen() {}
     }
@@ -78,12 +79,86 @@ class WebViewEngineTest {
         siteDisplayModes = SiteDisplayModeStore(context, displayPreferences)
         server = FixtureServer(); scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity {
-            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes)
+            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes, passwordAutofillApproved = true)
             (engine as AndroidEngineSurface).surface.id = View.generateViewId()
             it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
     }
     @After fun cleanup() { main { engine.destroy() }; scenario.close(); server.close(); ime.close() }
+    @Test fun darkPreferencePreservesImplicitWhiteCanvasAndAuthoredDarkBackground() {
+        server.close()
+        server = FixtureServer(pages = mapOf("/theme-canvas" to """
+            <!doctype html><meta name="viewport" content="width=device-width">
+            <style>html,body{margin:0;color:#111;background:transparent!important}header{height:80px;background:#fff}</style>
+            <header>Light site header</header><main>Black text with an implicit background</main>
+            <script>requestAnimationFrame(()=>requestAnimationFrame(()=>document.title='Canvas ready'))</script>
+        """.trimIndent()))
+        main { engine.loadUrl("${server.origin}/theme-canvas") }
+        await { it.title == "Canvas ready" && !it.isLoading }
+        main {
+            engine.setDarkTheme(true)
+            engine.evaluateJavascript("requestAnimationFrame(()=>requestAnimationFrame(()=>document.title='Dark preference applied'))")
+        }
+        await { it.title == "Dark preference applied" }
+        fun canvasPixel(): Int {
+            val point = IntArray(2)
+            main {
+                val view = (engine as AndroidEngineSurface).surface
+                view.getLocationOnScreen(point)
+                point[0] += view.width * 3 / 4
+                point[1] += view.height / 2
+            }
+            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            return try { bitmap.getPixel(point[0], point[1]) } finally { bitmap.recycle() }
+        }
+        fun awaitCanvas(expected: Int) {
+            var pixel = canvasPixel()
+            try {
+                runBlocking { withTimeout(5_000) {
+                    while (pixel != expected) { delay(50); pixel = canvasPixel() }
+                } }
+            } catch (error: TimeoutCancellationException) {
+                throw AssertionError("Canvas ${engine.state.value.title}: expected ${Integer.toHexString(expected)}, actual ${Integer.toHexString(pixel)}", error)
+            }
+        }
+        // A transparent HTML/body canvas must remain readable in a dark app.
+        awaitCanvas(android.graphics.Color.WHITE)
+        main { engine.evaluateJavascript("""
+            document.documentElement.style.setProperty('background','#101112','important');
+            document.body.style.color='#eeeeee';
+            document.title='Authored dark canvas';
+        """.trimIndent()) }
+        await { it.title == "Authored dark canvas" }
+        awaitCanvas(android.graphics.Color.rgb(16,17,18))
+        main { engine.setDarkTheme(false) }
+        awaitCanvas(android.graphics.Color.rgb(16,17,18))
+        assertEquals(1, server.requests.count { it.path == "/theme-canvas" })
+    }
+
+    @Test fun websiteColorSchemeChangesWithoutReloadingOrLosingPageState() {
+        main {
+            engine.setDarkTheme(true)
+            engine.loadUrl("${server.origin}/one")
+        }
+        await { !it.isLoading && it.url.endsWith("/one") }
+        main { engine.evaluateJavascript("""
+            const themeStyle = document.createElement('style');
+            themeStyle.textContent = 'body {color: rgb(10, 20, 30) !important} @media(prefers-color-scheme:dark) {body {color: rgb(200, 210, 220) !important}}';
+            document.head.appendChild(themeStyle);
+            window.themeChanges = 0;
+            window.themeQuery = matchMedia('(prefers-color-scheme: dark)');
+            window.reportTheme = () => document.title = 'scheme:' + themeQuery.matches + ':' + themeChanges + ':' + getComputedStyle(document.body).color;
+            themeQuery.addEventListener('change', () => { themeChanges++; reportTheme(); });
+            reportTheme();
+        """.trimIndent()) }
+        await { it.title == "scheme:true:0:rgb(200, 210, 220)" }
+        main { engine.setDarkTheme(false) }
+        await { it.title == "scheme:false:1:rgb(10, 20, 30)" }
+        main { engine.setDarkTheme(true) }
+        await { it.title == "scheme:true:2:rgb(200, 210, 220)" }
+        assertEquals(1, server.requests.count { it.path == "/one" })
+    }
+
     @Test fun blobAndDataExportsKeepNameMimeAndBytesEvenAfterObjectUrlRevocation() {
         main { engine.loadUrl("${server.origin}/features") }; await { it.title == "Fixture Features" && !it.isLoading }
         clickElement("blob-download")
@@ -213,7 +288,46 @@ class WebViewEngineTest {
         } } }
         main { engine.goBack() }; await { it.title == "Fixture One" && !it.isLoading }
     }
+    @Test fun passwordAutofillIsUnavailableByDefaultUntilApproval() {
+        main { engine.destroy() }
+        scenario.onActivity { activity ->
+            engine = WebViewBrowserEngine(activity, host, host, { false }, false)
+            activity.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
+        }
+        main {
+            assertFalse(engine.supportsPasswordAutofill)
+            assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS,
+                (engine as AndroidEngineSurface).surface.importantForAutofill)
+            engine.requestPasswordAutofill()
+        }
+        assertEquals(listOf("Unavailable — awaiting approval"), messages.toList())
+    }
+
     @Test fun passwordProviderFillsWebsiteFieldsThroughComposeSurface() {
+        passwordProviderFillsWebsiteFields(manual = false)
+    }
+    @Test fun manuallyRequestedPasswordFillsAfterAutomaticSuggestionsAreUnavailable() {
+        passwordProviderFillsWebsiteFields(manual = true)
+    }
+    @Test fun manuallyRequestedPasswordFillsWithoutProviderUiCallback() {
+        passwordProviderFillsWebsiteFields(manual = true, suppressUiCallback = true)
+    }
+    @Test fun identifierOnlyLoginCanManuallyRequestCredentialsWithoutProviderUiCallback() {
+        passwordProviderFillsWebsiteFields(manual = true, suppressUiCallback = true, identifierOnly = true)
+    }
+    @Test fun manualAutofillWithoutMatchesStillRequestsProviderAndReportsRequest() {
+        passwordProviderFillsWebsiteFields(manual = true, declineManual = true)
+    }
+    private fun passwordProviderFillsWebsiteFields(manual: Boolean, suppressUiCallback: Boolean = false, identifierOnly: Boolean = false, declineManual: Boolean = false) {
+        if (identifierOnly) {
+            server.close()
+            server = FixtureServer(pages = mapOf("/login" to """
+                <!doctype html><title>Fixture Login</title><meta name="viewport" content="width=device-width">
+                <form><label for="login-user">Login ID</label>
+                <input id="login-user" name="username" autocomplete="username" required>
+                <button type="submit">Continue</button></form>
+            """.trimIndent()))
+        }
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val automation = instrumentation.uiAutomation
         fun shell(command: String) = automation.executeShellCommand(command).use { descriptor ->
@@ -221,24 +335,80 @@ class WebViewEngineTest {
         }
         val previous = Settings.Secure.getString(instrumentation.targetContext.contentResolver, "autofill_service")
         val previousInfo = automation.serviceInfo
+        var stage = "load form"
+        var otherTab: BrowserEngine? = null
         try {
+            AutofillHarnessService.declineManualRequests = declineManual
             AutofillHarnessService.offered = false
             AutofillHarnessService.fieldHints = emptySet()
+            AutofillHarnessService.offerOnlyOnManualRequest = manual
+            AutofillHarnessService.manualRequests = 0
+            AutofillHarnessService.automaticRequestsDeclined = 0
             shell("settings put secure autofill_service com.takeruf.nagi/.testing.AutofillHarnessService")
             automation.serviceInfo = automation.serviceInfo.apply {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             }
             scenario.onActivity { activity ->
+                // A newer background tab must not replace this tab's autofill callback.
+                if (manual) otherTab = WebViewBrowserEngine(activity, host, host, { false }, false, passwordAutofillApproved = true)
+                if (suppressUiCallback) activity.getSystemService(android.view.autofill.AutofillManager::class.java)
+                    .registerCallback(object : android.view.autofill.AutofillManager.AutofillCallback() {})
                 val surface = (engine as AndroidEngineSurface).surface
                 (surface.parent as? ViewGroup)?.removeView(surface)
-                activity.setContent { BrowserSurface(engine, Modifier.fillMaxSize().safeDrawingPadding()) }
+                activity.setContent {
+                    if (manual) androidx.compose.material3.MaterialTheme {
+                        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                        com.takeruf.nagi.ui.browser.BrowserPane(
+                            tab = com.takeruf.nagi.domain.model.BrowserTab("autofill", "fixture"), engine = engine,
+                            state = com.takeruf.nagi.ui.browser.BrowserUiState(), focused = true,
+                            split = false, showFind = false, onCloseFind = {}, onFind = {}, onFocus = {},
+                            onOmnibox = {}, onOpen = {}, onSplit = {}, onCloseSplit = {}, onCloseTab = {}, onSwap = {})
+                        }
+                    } else BrowserSurface(engine, Modifier.fillMaxSize().safeDrawingPadding())
+                }
             }
             main { engine.loadUrl("${server.origin}/login") }
             await { it.title == "Fixture Login" && !it.isLoading }
+            instrumentation.waitForIdleSync()
             clickElement("login-user")
+            if (manual) {
+                stage = "decline automatic request"
+                runBlocking { withTimeout(10_000) { while (AutofillHarnessService.automaticRequestsDeclined == 0) delay(50) } }
+                assertFalse(AutofillHarnessService.offered)
+                fun tap(label: String) {
+                    fun find(node: android.view.accessibility.AccessibilityNodeInfo): android.view.accessibility.AccessibilityNodeInfo? {
+                        if ((node.contentDescription?.toString() == label || node.text?.toString() == label) && node.isVisibleToUser) return node
+                        repeat(node.childCount) { index -> node.getChild(index)?.let { child -> find(child)?.let { return it } } }
+                        return null
+                    }
+                    runBlocking { withTimeout(10_000) {
+                        while (true) {
+                            if (android.os.Build.VERSION.SDK_INT >= 36) automation.clearCache()
+                            val node = automation.windows.asSequence().mapNotNull { it.root }.mapNotNull(::find).firstOrNull()
+                            if (node != null) {
+                                val bounds = android.graphics.Rect(); node.getBoundsInScreen(bounds)
+                                shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                                break
+                            }
+                            delay(50)
+                        }
+                    } }
+                }
+                stage = "open page menu"
+                tap("Page menu")
+                stage = "choose manual autofill"
+                tap("Fill saved password")
+            }
+            if (declineManual) {
+                runBlocking { withTimeout(10_000) { while (AutofillHarnessService.manualRequests == 0 || messages.none { it == "Requested suggestions from your autofill service." }) delay(50) } }
+                assertTrue(AutofillHarnessService.manualRequests > 0)
+                assertFalse(messages.any { it.startsWith("Tap a login field first") })
+                return
+            }
+            stage = "offer credentials"
             runBlocking { withTimeout(15_000) { while (!AutofillHarnessService.offered) delay(50) } }
             assertTrue(AutofillHarnessService.fieldHints.contains("username"))
-            assertTrue(AutofillHarnessService.fieldHints.contains("current-password"))
+            if (!identifierOnly) assertTrue(AutofillHarnessService.fieldHints.contains("current-password"))
             var suggestionBounds: android.graphics.Rect? = null
             runBlocking { withTimeout(15_000) {
                 var previousBounds: android.graphics.Rect? = null
@@ -256,14 +426,22 @@ class WebViewEngineTest {
                 }
             } }
             val bounds = checkNotNull(suggestionBounds)
+            if (manual) shell("screencap -p /data/local/tmp/nagi-autofill-manual-suggestion.png")
             shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
             main { engine.evaluateJavascript("""
                 var check=setInterval(()=>{if(document.getElementById('login-user').value==='fixture-user'
-                    && document.getElementById('login-password').value==='fixture-password'){
+                    && (${identifierOnly} || document.getElementById('login-password').value==='fixture-password')){
                     clearInterval(check);document.title='Fixture Autofilled';}},50);
             """) }
             await { it.title == "Fixture Autofilled" }
+            if (manual) assertTrue(AutofillHarnessService.manualRequests > 0)
+        } catch (error: Throwable) {
+            shell("screencap -p /data/local/tmp/nagi-autofill-failure.png")
+            throw AssertionError("Autofill failed at: $stage; manualRequests=${AutofillHarnessService.manualRequests}; messages=$messages", error)
         } finally {
+            main { otherTab?.destroy() }
+            AutofillHarnessService.offerOnlyOnManualRequest = false
+            AutofillHarnessService.declineManualRequests = false
             automation.serviceInfo = previousInfo
             if (previous == null) shell("settings delete secure autofill_service")
             else shell("settings put secure autofill_service $previous")
@@ -293,7 +471,7 @@ class WebViewEngineTest {
         main { snapshot = engine.saveState(); engine.destroy() }
         assertNotNull(snapshot)
         scenario.onActivity {
-            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes)
+            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes, passwordAutofillApproved = true)
             it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
         main { assertTrue(engine.restoreState(snapshot!!)) }

@@ -1,0 +1,16 @@
+<en-US>
+Improved Picture-in-Picture (PiP) functionality.
+Adjusted the app icon appearance in dark mode.
+</en-US>
+<ja-JP>
+PiP（ピクチャー・イン・ピクチャー）機能を改善しました。
+ダークモード時のアプリアイコンの表示を調整しました。
+</ja-JP>
+<zh-CN>
+优化了画中画（PiP）功能。
+调整了深色模式下应用图标的显示效果。
+</zh-CN>
+<ko-KR>
+PIP(화면 속 화면) 기능을 개선했습니다.
+다크 모드에서 앱 아이콘이 표시되는 방식을 조정했습니다.
+</ko-KR>

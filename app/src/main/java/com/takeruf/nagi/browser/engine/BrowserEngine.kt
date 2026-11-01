@@ -45,10 +45,12 @@ interface BrowserEngine {
     val supportsDeviceDefaultMode: Boolean get() = false
     fun setDeviceDefaultMode() {}
     fun retryGoogleSignInInMobileMode() {}
+    val supportsPasswordAutofill: Boolean get() = false
+    fun requestPasswordAutofill() {}
     fun findInPage(query: String)
     fun findNext(forward: Boolean)
     fun clearFind()
-    fun setVideoPopupEnabled(enabled: Boolean) {}
+    fun setDarkTheme(dark: Boolean) {}
     fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {}
     fun configureVisitBlockingExceptions(sites: Set<String>) {}
     fun toggleReader() {}

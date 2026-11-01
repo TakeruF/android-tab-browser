@@ -7,6 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -45,7 +46,8 @@ class VideoUiTest {
     private fun views(view: View): List<View> = listOf(view) +
         if (view is ViewGroup) (0 until view.childCount).flatMap { views(view.getChildAt(it)) } else emptyList()
     private fun shortcut(key: Int) = main {
-        compose.activity.window.callback.dispatchKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, key, 0, KeyEvent.META_CTRL_ON))
+        compose.activity.window.callback.dispatchKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, key, 0,
+            if (key == KeyEvent.KEYCODE_ESCAPE) 0 else KeyEvent.META_CTRL_ON))
     }
     private fun open(path: String = "/video") {
         shortcut(KeyEvent.KEYCODE_L)
@@ -100,14 +102,27 @@ class VideoUiTest {
             """), failure)
         }
     }
-    private fun minimizeVideo() {
-        // Native fullscreen callbacks and playback-state delivery are asynchronous.
-        // Require a laid-out control in the merged tree before injecting its click.
-        compose.waitUntil(15_000) {
-            compose.onAllNodesWithTag("video-minimize").fetchSemanticsNodes().singleOrNull()
-                ?.boundsInRoot?.let { it.width > 0f && it.height > 0f } == true
+    private fun assertPageSurfaceRestored() {
+        compose.waitUntil(10_000) {
+            var shown = false
+            main { shown = web.isShown && web.parent != null && web.width > 100 && web.height > 100 }
+            shown
         }
-        compose.onNodeWithTag("video-minimize").assertIsDisplayed().performClick()
+        assertEquals("false", js("!!document.querySelector('[data-nagi-video-target]')"))
+    }
+    private fun switchToNewTab() {
+        shortcut(KeyEvent.KEYCODE_T)
+        compose.waitUntil(10_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        shortcut(KeyEvent.KEYCODE_ESCAPE)
+        compose.waitUntil(10_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty() }
+        compose.waitForIdle()
+    }
+    private fun showPopupControls() {
+        if (compose.onAllNodesWithTag("video-popup-controls").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithTag("video-popup-toggle-controls").performClick()
+        }
+        compose.onNodeWithTag("video-popup-controls").assertExists()
     }
     private fun home() { instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close() }
     private fun returnToApp() {
@@ -130,6 +145,7 @@ class VideoUiTest {
             container.workspace.ready.await()
             container.settings.update { it.copy(autoVideoPip = true, videoPopups = true, desktopDefault = false, automaticSearchRegion = false) }
             container.spaces.create("Video QA ${System.nanoTime()}")
+            container.tabs.create(requireNotNull(container.settings.settings.first().selectedSpaceId), server.origin + "/one", select = false)
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Page menu").fetchSemanticsNodes().isNotEmpty() }
     }
@@ -153,7 +169,7 @@ class VideoUiTest {
         pipAction()
         assertAdvances()
         returnToApp(); compose.onNodeWithTag("video-fullscreen").assertExists(); assertAdvances()
-        compose.onNodeWithText("Exit fullscreen").performClick()
+        compose.onNodeWithContentDescription("Exit fullscreen").performClick()
         waitFor { js("!!document.fullscreenElement") == "false" }
     }
     @Test fun desktopVideoPipDoesNotSwitchTheBrowserToMobileOrReloadThePlayer() {
@@ -175,39 +191,110 @@ class VideoUiTest {
             assertFalse(server.requests.first { it.path == "/video" }.userAgent.contains("Android"))
         } finally { shell("wm size $original") }
     }
-    @Test fun popupKeepsPlayingAcrossTabsAndSupportsDragResizePauseExpandAndReturn() {
+    @Test fun popupAutomaticallyKeepsPlayingAcrossTabsAndSupportsDragResizePauseAndReturn() {
         open(); tap("#start-video"); assertAdvances()
-        waitFor { js("!!document.querySelector('[data-nagi-video-assistant]')") == "true" }
-        tap("[data-nagi-video-assistant]")
+        assertEquals("false", js("!!document.querySelector('[data-nagi-video-assistant]')"))
+        switchToNewTab()
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
         assertAdvances()
-        shortcut(KeyEvent.KEYCODE_T)
-        compose.onNodeWithText("Esc").performClick()
-        compose.onNodeWithTag("video-popup").assertExists(); assertAdvances()
-        screenshot("video-popup-other-tab")
+        assertEquals("true", js("!!document.querySelector('[data-nagi-video-target]')"))
+        compose.onNodeWithTag("video-popup-controls").assertDoesNotExist()
+        screenshot("video-popup-video-only")
+        val unadorned = compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot
+        // A physical tap reveals our controls without toggling the underlying site's video.
+        compose.onNodeWithTag("video-popup-toggle-controls").performTouchInput { click(center) }
+        compose.onNodeWithTag("video-popup-controls").assertExists()
+        assertEquals("false", js("document.getElementById('player').paused"))
+        compose.waitUntil(5_000) { compose.onNodeWithTag("video-popup-time").fetchSemanticsNode().config
+            .getOrElse(androidx.compose.ui.semantics.SemanticsProperties.Text) { emptyList() }
+            .any { !it.text.contains("--:--") } }
+        assertEquals(unadorned, compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot)
+        val playButton = compose.onNodeWithTag("video-popup-play-pause").fetchSemanticsNode().boundsInRoot
+        assertEquals(unadorned.center.x, playButton.center.x, 1f)
+        assertEquals(unadorned.center.y, playButton.center.y, 1f)
+        val closeButton = compose.onNodeWithTag("video-popup-close").fetchSemanticsNode().boundsInRoot
+        assertTrue(closeButton.center.x > unadorned.center.x && closeButton.center.y < unadorned.center.y)
+        screenshot("video-popup-tapped-controls")
+        compose.mainClock.advanceTimeBy(3_100)
+        compose.waitUntil(6_000) { compose.onAllNodesWithTag("video-popup-controls").fetchSemanticsNodes().isEmpty() }
+        assertAdvances()
         val before = compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithTag("video-popup-drag").performTouchInput { swipeUp() }
         val after = compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot
         assertTrue(after.top < before.top)
-        compose.onNodeWithTag("video-popup-resize").performClick()
+        compose.onNodeWithTag("video-popup-drag").performTouchInput {
+            pinch(start0 = Offset(width * 0.35f, height / 2f), start1 = Offset(width * 0.65f, height / 2f),
+                end0 = Offset(width * 0.15f, height / 2f), end1 = Offset(width * 0.85f, height / 2f))
+        }
         val resizedWidth = compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot.width
+        assertTrue(resizedWidth > before.width)
+        showPopupControls()
         compose.onNodeWithTag("video-popup-play-pause").performClick()
         waitFor { js("document.getElementById('player').paused") == "true" }
         compose.onNodeWithTag("video-popup-play-pause").performClick(); assertAdvances()
-        compose.onNodeWithTag("video-popup-expand").performClick()
-        compose.onNodeWithTag("video-fullscreen").assertExists(); assertAdvances()
-        minimizeVideo()
         home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
         returnToApp(); compose.onNodeWithTag("video-popup").assertExists()
         assertEquals(resizedWidth, compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot.width, 1f)
+        showPopupControls()
         compose.onNodeWithTag("video-popup-return").performClick()
-        compose.onNodeWithTag("video-popup").assertDoesNotExist()
-        waitFor { js("!!document.fullscreenElement") == "false" }; assertAdvances()
-        tap("#fullscreen-video"); minimizeVideo()
+        compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
+        waitFor { js("!!document.querySelector('[data-nagi-video-target]')") == "false" }
+        assertPageSurfaceRestored()
+        assertAdvances()
+        switchToNewTab()
+        compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+        showPopupControls()
         compose.onNodeWithTag("video-popup-close").performClick()
         waitFor { js("document.getElementById('player').paused") == "true" }
     }
-    @Test fun crossOriginFrameAssistantKeepsPlayingAndClosingSourceTabClosesPopup() {
+    @Test fun mouseCornersResizeWithoutMovingTheOppositeCornerOrStealingTouchControls() {
+        open(); tap("#start-video"); assertAdvances(); switchToNewTab()
+        compose.onNodeWithTag("video-popup").assertExists()
+        val density = compose.activity.resources.displayMetrics.density
+        compose.onNodeWithTag("video-popup-drag").performTouchInput {
+            swipe(center, center + Offset(-250f * density, -160f * density), durationMillis = 400)
+        }
+        js("""
+            window.resizeMediaEvents=[];
+            const resizePlayer=document.getElementById('player');
+            for(const name of ['pause','play','seeking','seeked','ended'])resizePlayer.addEventListener(name,()=>
+                resizeMediaEvents.push({name,time:resizePlayer.currentTime}));
+            const originalPause=resizePlayer.pause.bind(resizePlayer);
+            resizePlayer.pause=()=>{resizeMediaEvents.push({name:'pause-call',stack:new Error().stack});originalPause();};true
+        """.trimIndent())
+        for ((left, top) in listOf(true to true, false to true, true to false, false to false)) {
+            val before = compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot
+            val inset = 6f * density
+            val start = Offset(if (left) before.left + inset else before.right - inset,
+                if (top) before.top + inset else before.bottom - inset)
+            val delta = Offset((if (left) -40f else 40f) * density,
+                (if (top) -22.5f else 22.5f) * density)
+            // Split the drag across layouts to catch feedback when the top/left origin moves.
+            compose.onRoot().performMouseInput { moveTo(start); press(); moveTo(start + delta / 2f, delayMillis = 100) }
+            compose.waitForIdle()
+            compose.onRoot().performMouseInput { moveTo(start + delta, delayMillis = 100); release() }
+            compose.waitForIdle()
+            val after = compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot
+            assertTrue("Corner $left/$top must grow the video", after.width > before.width + 20f * density)
+            assertEquals(before.width / before.height, after.width / after.height, 0.01f)
+            assertEquals(if (left) before.right else before.left, if (left) after.right else after.left, 2f)
+            assertEquals(if (top) before.bottom else before.top, if (top) after.bottom else after.top, 2f)
+            compose.onNodeWithTag("video-popup-controls").assertDoesNotExist()
+            assertEquals("Playback after corner $left/$top: " + js("JSON.stringify(window.resizeMediaEvents)"),
+                "false", js("document.getElementById('player').paused"))
+        }
+        assertAdvances()
+        screenshot("video-popup-mouse-corner-resized")
+        // The same corner remains a normal reveal tap for touch, and the nearby X stays clickable.
+        compose.onNodeWithTag("video-popup-toggle-controls").performTouchInput {
+            click(Offset(6f * density, 6f * density))
+        }
+        compose.onNodeWithTag("video-popup-controls").assertExists()
+        compose.onNodeWithTag("video-popup-close").performMouseInput { click(center) }
+        compose.onNodeWithTag("video-popup").assertDoesNotExist()
+        waitFor { js("document.getElementById('player').paused") == "true" }
+    }
+    @Test fun crossOriginFrameAutomaticallyPopsOutAndClosingSourceTabClosesPopup() {
         open("/video-frame")
         fun tapFrame(name: String) {
             // A child can report DOM coordinates before the video metadata changes
@@ -223,7 +310,7 @@ class VideoUiTest {
             """)).nextValue() as String)
             tapAt(rect.getDouble("x"), rect.getDouble("y"), rect.getDouble("w"))
         }
-        tapFrame("start"); assertAdvances(); tapFrame("assistant")
+        tapFrame("start"); assertAdvances(); switchToNewTab()
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
         assertAdvances()
         runBlocking { container.spaces.create("Other Video Space ${System.nanoTime()}") }
@@ -233,11 +320,73 @@ class VideoUiTest {
         runBlocking { container.tabs.close(sourceId) }
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
     }
-    @Test fun bothSettingsAreIndependentAndOffDisablesAssistantAndHomePip() {
+    @Test fun oneTabInlineVideoAutomaticallyEntersHomePipAndRestoresPage() {
+        open(); tap("#start-video"); assertAdvances()
+        runBlocking {
+            val space = container.settings.settings.first().selectedSpaceId
+            val other = container.workspace.dao.observeTabs().first().single { it.spaceId == space && it.url == server.origin + "/one" }
+            container.tabs.close(other.id)
+        }
+        compose.waitForIdle()
+        assertEquals("false", js("!!document.querySelector('[data-nagi-video-assistant]')"))
+        assertEquals("false", js("!!document.fullscreenElement"))
+        SystemClock.sleep(1000)
+        home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
+        screenshot("video-inline-home-pip")
+        returnToApp()
+        compose.waitUntil { compose.onAllNodesWithTag("video-fullscreen").fetchSemanticsNodes().isEmpty() }
+        waitFor { js("!!document.querySelector('[data-nagi-video-target]')") == "false" }
+        assertPageSurfaceRestored()
+        assertAdvances()
+        assertEquals(1, server.requests.count { it.path == "/video" })
+    }
+    @Test fun selectingSourceTabClosesPopupAndKeepsSameVideoPlaying() {
+        open(); tap("#start-video"); assertAdvances()
+        val sourceId = runBlocking { container.workspace.dao.observeTabs().first().first { it.url == server.origin + "/video" }.id }
+        switchToNewTab()
+        compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+        waitFor { runBlocking {
+            val space = container.settings.settings.first().selectedSpaceId
+            container.workspace.dao.spaces().first { it.id == space }.activeTabId != sourceId
+        } }
+        compose.onNodeWithTag("video-popup").assertExists(); assertAdvances()
+        val before = ticks()
+        runBlocking { container.tabs.select(sourceId) }
+        compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
+        waitFor { js("!!document.fullscreenElement") == "false" }
+        assertPageSurfaceRestored()
+        assertAdvances()
+        assertTrue(ticks() > before)
+        assertEquals(1, server.requests.count { it.path == "/video" })
+    }
+    @Test fun returningFromPopupPreservesDesktopPageZoomAcrossRepeatedTabSwitches() {
+        open()
+        js("document.querySelector('meta[name=viewport]').content='width=1440'; true")
+        tap("#start-video"); assertAdvances()
+        main { web.zoomBy(1.25f) }
+        assertAdvances()
+        val originalScale = js("visualViewport.scale").toDouble()
+        val originalWidth = web.width
+        val sourceId = runBlocking { container.workspace.dao.observeTabs().first().first { it.url == server.origin + "/video" }.id }
+        repeat(3) {
+            switchToNewTab()
+            compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+            assertAdvances()
+            runBlocking { container.tabs.select(sourceId) }
+            compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
+            assertPageSurfaceRestored()
+            waitFor { web.width == originalWidth }
+            assertAdvances()
+            assertEquals("Page zoom changed after popup return $it", originalScale,
+                js("visualViewport.scale").toDouble(), 0.02)
+        }
+        assertEquals(1, server.requests.count { it.path == "/video" })
+    }
+    @Test fun bothAutomaticSettingsAreIndependentAndPersistWhenDisabled() {
         open(); tap("#start-video"); assertAdvances()
         compose.onNodeWithContentDescription("Settings").performClick()
         val pipTitle = "Automatically enter picture-in-picture"
-        val popupTitle = "Pop-out videos"
+        val popupTitle = "Automatically pop out videos"
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText(pipTitle))
         compose.onNodeWithText(pipTitle).performClick()
         waitFor { runBlocking { !container.settings.settings.first().autoVideoPip } }
@@ -246,9 +395,8 @@ class VideoUiTest {
         waitFor { runBlocking { !container.settings.settings.first().videoPopups } }
         compose.onNodeWithContentDescription("Back to browser").performClick()
         tap("#start-video"); assertAdvances()
-        waitFor { js("document.querySelector('[data-nagi-video-assistant]').style.display") == "\"none\"" }
-        tap("#fullscreen-video")
-        compose.onNodeWithTag("video-minimize").assertDoesNotExist()
+        switchToNewTab()
+        compose.onNodeWithTag("video-popup").assertDoesNotExist()
         home(); SystemClock.sleep(1200); assertFalse(compose.activity.isInPictureInPictureMode)
         returnToApp()
         compose.activityRule.scenario.recreate()
@@ -261,7 +409,7 @@ class VideoUiTest {
         waitFor { js("document.getElementById('player').paused") == "true" }
         SystemClock.sleep(1000); home(); SystemClock.sleep(1200)
         assertFalse(compose.activity.isInPictureInPictureMode); returnToApp()
-        compose.onNodeWithText("Exit fullscreen").performClick()
+        compose.onNodeWithContentDescription("Exit fullscreen").performClick()
         main { web.loadUrl(server.origin + "/one") }
         waitFor { js("document.title") == "\"Fixture One\"" }
         tap("#fullscreen")

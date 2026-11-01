@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import com.takeruf.nagi.ui.components.NagiIcons
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import android.view.autofill.AutofillManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
@@ -50,6 +52,13 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
     val strings = rememberNagiStrings()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val autofillApproved = com.takeruf.nagi.browser.engine.PasswordAutofillAvailability.approved
+    val autofillManager = remember(context) { if (autofillApproved) context.getSystemService(AutofillManager::class.java) else null }
+    var autofillEnabled by remember { mutableStateOf(autofillManager?.isEnabled == true) }
+    LifecycleResumeEffect(autofillManager) {
+        autofillEnabled = autofillManager?.isEnabled == true
+        onPauseOrDispose { }
+    }
     var customizingEngines by rememberSaveable { mutableStateOf(false) }
     val settingsListState = rememberLazyListState()
     BackHandler(enabled = customizingEngines) { customizingEngines = false }
@@ -184,8 +193,11 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 TextButton(shape = NagiShapes.Rounded, enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
             }
         } }
-        item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound) {
+        if (autofillApproved) item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(strings(if (autofillManager?.isAutofillSupported != true) R.string.ui_autofill_unsupported
+                    else if (autofillEnabled) R.string.ui_autofill_enabled else R.string.ui_autofill_disabled),
+                    modifier = Modifier.testTag("autofill-status"), style = MaterialTheme.typography.titleSmall)
                 Text(strings(R.string.ui_password_autofill_description),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("autofill-settings"), onClick = {

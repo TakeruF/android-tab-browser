@@ -275,7 +275,7 @@
     <string name="ui_play_updates">更新通过 Google Play 分发。</string>
     <string name="ui_open_google_play">打开 Google Play</string>
     <string name="ui_password_autofill">密码自动填充</string>
-    <string name="ui_password_autofill_description">使用在 Android 设置中选择的 Google 密码管理工具或其他自动填充服务。点按网站的登录输入框即可查看可用建议。可用性取决于设备、网站和服务提供方。</string>
+    <string name="ui_password_autofill_description">使用 Android 设置中选择的自动填充服务。点按登录输入框后若未显示建议，可尝试页面菜单 → 填入已保存的密码。建议及其显示方式取决于网站、设备和服务提供方；Nagi 无法使用 Chrome 的密码选择面板。</string>
     <string name="ui_open_autofill_settings">选择自动填充服务</string>
     <string name="ui_autofill_settings_unavailable">请在 Android 设置中选择自动填充服务。</string>
     <string name="ui_upload_file">上传文件</string>
@@ -298,17 +298,14 @@
     <string name="ui_dismiss_external_app_notice">关闭外部应用提示</string>
     <string name="ui_video">视频</string>
     <string name="ui_video_auto_pip">返回主屏幕时自动进入画中画</string>
-    <string name="ui_video_auto_pip_description">返回主屏幕后，继续在小窗口中播放全屏或弹出的视频。</string>
-    <string name="ui_video_popups">视频小窗播放</string>
-    <string name="ui_video_popups_description">在播放中的视频上显示小窗按钮，便于浏览其他标签页时观看视频。</string>
-    <string name="ui_video_popout">小窗播放</string>
+    <string name="ui_video_auto_pip_description">返回主屏幕时，正在播放的视频会自动进入画中画，包括网页内播放的视频。</string>
+    <string name="ui_video_popups">切换标签页时自动小窗播放</string>
+    <string name="ui_video_popups_description">播放视频时切换到其他标签页，自动进入小窗播放。返回原标签页后恢复网页内播放。</string>
     <string name="ui_video_play">播放</string>
     <string name="ui_video_pause">暂停</string>
-    <string name="ui_video_resize">大小</string>
     <string name="ui_video_close">关闭视频</string>
     <string name="ui_video_fullscreen">全屏</string>
     <string name="ui_video_return">返回标签页</string>
-    <string name="ui_video_popup_failed">无法在小窗口中打开此视频。请先尝试视频的全屏按钮。</string>
     <string name="ui_ad_blocking">"广告与跟踪器拦截"</string>
     <string name="ui_ad_blocking_description">"使用 EasyList 和 EasyPrivacy。更改后请重新加载页面。"</string>
     <string name="ui_enable_site_blocking">"在此网站启用拦截（已拦截 %1$d 项）"</string>
@@ -374,4 +371,15 @@
     <string name="ui_human_verification_hint">如果人机验证无法继续，可尝试使用设备默认视图重新加载。</string>
     <string name="ui_human_verification_retry">用设备视图重新加载</string>
     <string name="ui_human_verification_dismiss">关闭验证提示</string>
+    <string name="ui_fill_saved_password">填入已保存的密码</string>
+    <string name="ui_autofill_enabled">自动填充已启用</string>
+    <string name="ui_autofill_disabled">Nagi 的自动填充已关闭</string>
+    <string name="ui_autofill_unsupported">此设备无法使用自动填充</string>
+    <string name="ui_autofill_enable_first">请先在设置 → 密码自动填充中选择自动填充服务。</string>
+    <string name="ui_autofill_focus_field">请先点按登录输入框，再选择填入已保存的密码。</string>
+    <string name="ui_video_show_controls">显示视频控件</string>
+    <string name="ui_video_hide_controls">隐藏视频控件</string>
+    <string name="ui_autofill_no_suggestions">自动填充服务未显示任何候选项。</string>
+    <string name="ui_autofill_requested">已向自动填充服务请求候选项。</string>
+    <string name="ui_autofill_pending">暂不支持（等待批准）</string>
 </resources>

@@ -250,6 +250,10 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     override fun updateVideo(tabId: String, playback: VideoPlayback) = video.update(tabId, playback)
     override fun minimizeVideo(tabId: String) = video.minimize(tabId)
     override fun hideVideo(tabId: String) = video.close(tabId)
+    override fun updateInlineVideo(view: View, tabId: String, playback: VideoPlayback,
+        prepare: () -> Unit, restore: () -> Unit, control: (String) -> Unit) =
+        video.updateInline(view, tabId, playback, prepare, restore, control)
+    override fun removeInlineVideo(tabId: String) = video.removeInline(tabId)
     fun dispose() {
         disposed = true
         blockedExternalApp.value = null

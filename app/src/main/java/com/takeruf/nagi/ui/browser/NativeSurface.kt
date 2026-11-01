@@ -23,8 +23,17 @@ fun BrowserSurface(engine: BrowserEngine, modifier: Modifier = Modifier, onFocus
 fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> Unit = {}, historyEngine: BrowserEngine? = null) {
     val currentOnFocus = rememberUpdatedState(onFocus)
     AndroidView(factory = { context -> SurfaceContainer(context) { currentOnFocus.value() } }, modifier = modifier,
-        onRelease = { container -> container.setHistoryEngine(null); container.removeAllViews() }, update = { container ->
+        onRelease = { container ->
+            if (surface.getTag(com.takeruf.nagi.R.id.video_source_container) === container)
+                surface.setTag(com.takeruf.nagi.R.id.video_source_container, null)
+            container.setHistoryEngine(null); container.removeAllViews()
+        }, update = { container ->
             container.setHistoryEngine(historyEngine)
+            // An automatic video overlay temporarily owns this same WebView.
+            if (historyEngine != null && surface.getTag(com.takeruf.nagi.R.id.video_presented_surface) == true) {
+                surface.setTag(com.takeruf.nagi.R.id.video_source_container, container)
+                return@AndroidView
+            }
             if (surface.parent !== container) {
                 (surface.parent as? ViewGroup)?.removeView(surface)
                 container.removeAllViews()

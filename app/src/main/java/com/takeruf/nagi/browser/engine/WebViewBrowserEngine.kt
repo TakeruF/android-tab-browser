@@ -42,12 +42,22 @@ class WebViewBrowserEngine(
     },
     private val alwaysTranslateRules: () -> Map<String, String> = { emptyMap() },
     private val rememberAlwaysTranslate: (String, String) -> Unit = { _, _ -> },
+    private val passwordAutofillApproved: Boolean = PasswordAutofillAvailability.approved,
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
-    private val webView = WebView(context)
+    private val webTheme = android.view.ContextThemeWrapper(context, R.style.Theme_Nagi_Web_Light)
+    private val webView = object : WebView(webTheme) {
+        override fun onProvideAutofillVirtualStructure(structure: android.view.ViewStructure, flags: Int) {
+            if (!supportsPasswordAutofill) return
+            super.onProvideAutofillVirtualStructure(FocusedAutofillStructure(structure) { id ->
+                autofillVirtualId = id
+            }, flags)
+        }
+    }
+    private var darkTheme = false
     private val cookies = if (privateProfileName == null) CookieManager.getInstance()
         else PrivateProfiles.attach(webView, privateProfileName)
-    private val pageVideo = PageVideo(webView, host, fullscreenHost, tabId)
+    private val pageVideo = PageVideo(webView, fullscreenHost, tabId)
     private val pageDownloads = com.takeruf.nagi.browser.downloads.PageDownloads(webView, host)
     private var mediaPermissionGranted = false
     private var fullscreenActive = false
@@ -88,6 +98,13 @@ class WebViewBrowserEngine(
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val popupViews = mutableSetOf<WebView>()
     private var destroyed = false
+    private var autofillRequestJob: Job? = null
+    private val autofillManager = context.getSystemService(android.view.autofill.AutofillManager::class.java)
+    // Keep WebView's opaque native field ID, including when the provider
+    // declines the automatic request. It is invalidated on navigation.
+    private var autofillVirtualId: Int? = null
+    private var manualAutofillPending = false
+    private var autofillTouchAnchor: android.graphics.PointF? = null
     private val humanVerification = PageHumanVerification(webView, scope) { status ->
         update { it.copy(humanVerification = status) }
     }
@@ -109,8 +126,21 @@ class WebViewBrowserEngine(
         // Let WebView expose its virtual HTML fields and website origin to the
         // device's AutofillService. Hints belong to those fields, not this container.
         webView.id = R.id.browser_web_view
-        webView.importantForAutofill = if (privateProfileName == null) android.view.View.IMPORTANT_FOR_AUTOFILL_YES
+        webView.importantForAutofill = if (supportsPasswordAutofill) android.view.View.IMPORTANT_FOR_AUTOFILL_YES
             else android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        if (supportsPasswordAutofill) autofillManager?.let { manager ->
+            WebViewAutofillCallbacks.register(manager, webView) { id, event ->
+                autofillVirtualId = id
+                if (manualAutofillPending && event == android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE)
+                    host.showMessage(strings(R.string.ui_autofill_no_suggestions))
+                manualAutofillPending = false
+            }
+            webView.setOnTouchListener { _, event ->
+                if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN)
+                    autofillTouchAnchor = android.graphics.PointF(event.x, event.y)
+                false
+            }
+        }
         if (privateProfileName != null) webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         webView.settings.apply {
             javaScriptEnabled = true
@@ -202,6 +232,9 @@ class WebViewBrowserEngine(
                 // resources. Keep that document's counts instead of resetting them here.
                 if (blockingDocument.url != url) blockingDocument = BlockingDocument(url)
                 navigationGeneration++
+                autofillVirtualId = null
+                manualAutofillPending = false
+                autofillTouchAnchor = null
                 humanVerification.reset()
                 translationNavigation.documentStarted()
                 pageTranslation.reset(restore = true)
@@ -284,7 +317,8 @@ class WebViewBrowserEngine(
             }
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
                 if (!isUserGesture || popupViews.size >= 2) return false
-                val popup = WebView(context)
+                val popup = WebView(webTheme)
+                popup.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
                 if (privateProfileName != null) PrivateProfiles.attach(popup, privateProfileName)
                 // This temporary window captures the target URL before a real tab is
                 // created. Keep its browser identity and cookie policy with the opener;
@@ -315,7 +349,7 @@ class WebViewBrowserEngine(
             override fun onShowCustomView(view: android.view.View, callback: CustomViewCallback) {
                 fullscreenActive = true
                 pageVideo.active = true
-                fullscreenHost.showVideo(view, tabId, pageVideo.playback, pageVideo.popupRequested, pageVideo::control) {
+                fullscreenHost.showVideo(view, tabId, pageVideo.playback, false, pageVideo::control) {
                     fullscreenActive = false
                     pageVideo.release()
                     callback.onCustomViewHidden()
@@ -554,6 +588,52 @@ class WebViewBrowserEngine(
     override fun canGoBack() = !destroyed && (state.value.readerArticle != null || webView.canGoBack())
     override fun canGoForward() = !destroyed && webView.canGoForward()
     override fun evaluateJavascript(script: String) { if (!destroyed) webView.evaluateJavascript(script, null) }
+    override val supportsPasswordAutofill get() = passwordAutofillApproved && privateProfileName == null
+    override fun requestPasswordAutofill() {
+        if (destroyed || privateProfileName != null) return
+        if (!supportsPasswordAutofill) {
+            host.showMessage(strings(R.string.ui_autofill_pending))
+            return
+        }
+        if (state.value.isLoading || state.value.error != null || state.value.readerArticle != null) return
+        val manager = autofillManager
+        if (manager?.isEnabled != true) {
+            host.showMessage(strings(R.string.ui_autofill_enable_first))
+            return
+        }
+        // Wait until the page menu's window is dismissed. WebView supplies the
+        // real origin and virtual form fields; never synthesize HTML field IDs.
+        val generation = navigationGeneration
+        autofillRequestJob?.cancel()
+        autofillRequestJob = scope.launch {
+            val focused = withTimeoutOrNull(2_000) {
+                while (!webView.hasWindowFocus()) delay(16)
+                true
+            } == true
+            if (!focused || destroyed || generation != navigationGeneration || !webView.isAttachedToWindow) return@launch
+            if (!webView.onCheckIsTextEditor()) {
+                host.showMessage(strings(R.string.ui_autofill_focus_field))
+                return@launch
+            }
+            webView.requestFocus()
+            val virtualId = autofillVirtualId
+            if (virtualId == null) {
+                host.showMessage(strings(R.string.ui_autofill_focus_field))
+                return@launch
+            }
+            // WebView keeps the HTML field rectangle internal. Anchor the manual
+            // suggestion at the user's native touch, in screen coordinates (also in Split).
+            val location = IntArray(2)
+            webView.getLocationOnScreen(location)
+            val anchor = autofillTouchAnchor ?: android.graphics.PointF(webView.width / 2f, webView.height / 2f)
+            val x = location[0] + anchor.x.toInt()
+            val y = location[1] + anchor.y.toInt()
+            val bounds = android.graphics.Rect(x, y, x + 1, y + 1)
+            host.showMessage(strings(R.string.ui_autofill_requested))
+            manualAutofillPending = true
+            manager.requestAutofill(webView, virtualId, bounds)
+        }
+    }
     private fun visitExceptionFor(url: String): String? =
         com.takeruf.nagi.browser.blocking.blockingSite(url)?.takeIf { it in visitExceptionSites }
 
@@ -571,6 +651,25 @@ class WebViewBrowserEngine(
         visitExceptionSites = sites.toSet()
         update { it.copy(visitBlockingExceptionSite = visitExceptionFor(it.url)) }
         installCosmeticFiltering()
+    }
+
+    override fun setDarkTheme(dark: Boolean) {
+        if (darkTheme == dark) return
+        darkTheme = dark
+        // WebView reads isLightTheme on configuration changes and updates native
+        // prefers-color-scheme, including CSS, matchMedia listeners and child frames.
+        webTheme.theme.setTo(webTheme.resources.newTheme().apply {
+            applyStyle(if (dark) R.style.Theme_Nagi_Web_Dark else R.style.Theme_Nagi_Web_Light, true)
+        })
+        val configuration = android.content.res.Configuration(webTheme.resources.configuration).apply {
+            uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                if (dark) android.content.res.Configuration.UI_MODE_NIGHT_YES else android.content.res.Configuration.UI_MODE_NIGHT_NO
+        }
+        (listOf(webView) + popupViews).forEach { view ->
+            // Keep the default canvas white for pages that leave their background
+            // transparent. Authors control their own dark backgrounds through CSS.
+            view.dispatchConfigurationChanged(configuration)
+        }
     }
 
     override fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {
@@ -788,11 +887,11 @@ class WebViewBrowserEngine(
             !state.value.isLoading && fileCallback == null && pendingPermissions.isEmpty() && !mediaPermissionGranted &&
             !fullscreenActive && !pageDownloads.isBusy && !pageTranslation.active) }
     }
-    override fun setVideoPopupEnabled(enabled: Boolean) { pageVideo.setEnabled(enabled) }
     override fun destroy() {
         if (destroyed) return
         pageTranslation.reset(restore = false)
         destroyed = true
+        if (privateProfileName == null) autofillManager?.let { WebViewAutofillCallbacks.unregister(it, webView) }
         humanVerification.destroy()
         if (fullscreenActive) fullscreenHost.hideVideo(tabId)
         pageVideo.destroy()

@@ -20,12 +20,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class VideoPlayback(val playing: Boolean = false, val width: Int = 16, val height: Int = 9,
-    val hasVideo: Boolean = false) {
+    val hasVideo: Boolean = false, val currentTime: Double = 0.0, val duration: Double = 0.0) {
     val aspectRatio: Float get() = (width.toFloat() / height.coerceAtLeast(1)).coerceIn(1f / 2.39f, 2.39f)
 }
 
 data class VideoPresentation(val view: View, val tabId: String?, val playback: VideoPlayback,
-    val popup: Boolean, val control: (String) -> Unit, val exit: () -> Unit)
+    val popup: Boolean, val control: (String) -> Unit, val exit: () -> Unit,
+    val returnAfterSystemPip: Boolean = false)
 
 /** Keeps the original WebView custom view alive across fullscreen, popup and system PiP. */
 class VideoPresentationController(private val activity: Activity) {
@@ -33,13 +34,67 @@ class VideoPresentationController(private val activity: Activity) {
     val presentation = mutablePresentation.asStateFlow()
     private val mutableSystemPip = MutableStateFlow(false)
     val systemPip = mutableSystemPip.asStateFlow()
+    private var openTabIds = emptySet<String>()
+    private var visibleTabIds = emptySet<String>()
+    private var popupSourceWasHidden = false
+    private data class InlineVideo(val view: View, val tabId: String, val playback: VideoPlayback,
+        val prepare: () -> Unit, val restore: () -> Unit, val control: (String) -> Unit)
+    private val inlineVideos = linkedMapOf<String, InlineVideo>()
+    fun updateInline(view: View, tabId: String, playback: VideoPlayback, prepare: () -> Unit,
+        restore: () -> Unit, control: (String) -> Unit) {
+        inlineVideos[tabId] = InlineVideo(view, tabId, playback, prepare, restore, control)
+        update(tabId, playback)
+        refreshPip()
+    }
+    fun removeInline(tabId: String) {
+        inlineVideos.remove(tabId)
+        close(tabId)
+        refreshPip()
+    }
+    private fun visibleInline() = visibleTabIds.mapNotNull { inlineVideos[it] }
+        .firstOrNull { it.playback.playing && it.playback.hasVideo }
+    private fun presentInline(video: InlineVideo, forHome: Boolean) {
+        if (presentation.value != null || !video.playback.playing || !video.playback.hasVideo) return
+        video.prepare()
+        popupSourceWasHidden = video.tabId !in visibleTabIds
+        mutablePresentation.value = VideoPresentation(video.view, video.tabId, video.playback,
+            popup = !forHome, video.control, video.restore, returnAfterSystemPip = forHome)
+        refreshPip()
+    }
+    val popupAvailable get() = popupEnabled && openTabIds.size > 1
+    fun setTabContext(openIds: Set<String>, visibleIds: Set<String>) {
+        val leaving = visibleTabIds - visibleIds
+        openTabIds = openIds
+        visibleTabIds = visibleIds
+        val current = presentation.value
+        if (current == null) {
+            // A tab switch needs a destination; opening Settings is not a tab switch.
+            if (popupEnabled && visibleIds.isNotEmpty() && !systemPip.value) {
+                leaving.mapNotNull { inlineVideos[it] }.firstOrNull {
+                    it.tabId in openIds && it.playback.playing && it.playback.hasVideo
+                }?.let { presentInline(it, forHome = false) }
+            }
+            refreshPip()
+            return
+        }
+        if (!current.popup && popupEnabled && leaving.contains(current.tabId) && visibleIds.isNotEmpty()) {
+            minimize(current.tabId)
+        }
+        val presented = presentation.value ?: return
+        if (!presented.popup || systemPip.value) return
+        if (presented.tabId !in visibleIds) popupSourceWasHidden = true
+        if (!popupAvailable || (popupSourceWasHidden && presented.tabId in visibleIds)) {
+            // Return the same video to its page without interrupting playback.
+            close()
+        }
+    }
     var autoPipEnabled = true
         set(value) { if (field != value) { field = value; refreshPip() } }
     var popupEnabled = true
         set(value) {
             if (field == value) return
             field = value
-            if (!value && presentation.value?.popup == true) close(pause = true)
+            if (!value && presentation.value?.popup == true) close()
         }
     private val actionName = "${activity.packageName}.VIDEO_PLAYBACK"
     private val receiver = object : BroadcastReceiver() {
@@ -54,7 +109,9 @@ class VideoPresentationController(private val activity: Activity) {
     fun show(view: View, tabId: String?, playback: VideoPlayback = VideoPlayback(), popup: Boolean = false,
         control: (String) -> Unit = {}, exit: () -> Unit) {
         close(pause = true)
-        mutablePresentation.value = VideoPresentation(view, tabId, playback, popup && popupEnabled, control, exit)
+        if (popup && !popupAvailable) { exit(); return }
+        popupSourceWasHidden = tabId !in visibleTabIds
+        mutablePresentation.value = VideoPresentation(view, tabId, playback, popup, control, exit)
         refreshPip()
     }
     fun update(tabId: String, playback: VideoPlayback) {
@@ -66,7 +123,8 @@ class VideoPresentationController(private val activity: Activity) {
     }
     fun minimize(tabId: String? = presentation.value?.tabId) {
         val current = presentation.value ?: return
-        if (popupEnabled && current.tabId != null && current.tabId == tabId && current.playback.hasVideo) {
+        if (popupAvailable && current.tabId != null && current.tabId == tabId && current.playback.hasVideo) {
+            popupSourceWasHidden = tabId !in visibleTabIds
             mutablePresentation.value = current.copy(popup = true)
         }
     }
@@ -80,18 +138,27 @@ class VideoPresentationController(private val activity: Activity) {
         current.exit()
         refreshPip()
     }
-    val canAutoEnter get() = autoPipEnabled && presentation.value?.let {
+    val canAutoEnter get() = autoPipEnabled && (presentation.value?.let {
         it.tabId != null && it.playback.hasVideo && it.playback.playing
-    } == true
+    } ?: (visibleInline() != null))
+    private fun prepareForHome() {
+        if (autoPipEnabled && presentation.value == null) visibleInline()?.let { presentInline(it, forHome = true) }
+    }
     fun onUserLeave() {
+        if (!supported() || !canAutoEnter) return
+        prepareForHome()
         if (Build.VERSION.SDK_INT < 31 && canAutoEnter && supported()) {
             runCatching { activity.enterPictureInPictureMode(params()) }
         }
     }
-    fun onPipTransition() { mutableSystemPip.value = true }
-    fun onPipChanged(inPip: Boolean) { mutableSystemPip.value = inPip }
+    fun onPipTransition() { prepareForHome(); mutableSystemPip.value = true }
+    fun onPipChanged(inPip: Boolean) {
+        if (inPip) prepareForHome()
+        mutableSystemPip.value = inPip
+        if (!inPip && presentation.value?.returnAfterSystemPip == true) close()
+    }
     fun onStopped() {
-        presentation.value?.control?.invoke("pause")
+        (presentation.value?.control ?: visibleInline()?.control)?.invoke("pause")
         if (activity.isInPictureInPictureMode) close(pause = true)
     }
     fun refreshPip() {
@@ -128,5 +195,5 @@ class VideoPresentationController(private val activity: Activity) {
         } else builder.setActions(emptyList())
         return builder.build()
     }
-    fun dispose() { close(pause = true); activity.unregisterReceiver(receiver) }
+    fun dispose() { close(pause = true); inlineVideos.clear(); activity.unregisterReceiver(receiver) }
 }

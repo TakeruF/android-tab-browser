@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item name="browser_web_view" type="id" />
+    <item name="video_presented_surface" type="id" />
+    <item name="video_source_container" type="id" />
 </resources>

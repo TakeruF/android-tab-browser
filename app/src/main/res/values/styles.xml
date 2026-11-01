@@ -5,4 +5,8 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:colorAccent">#426B5A</item>
     </style>
+    <style name="Theme.Nagi.Web.Light" parent="Theme.Nagi">
+    </style>
+    <style name="Theme.Nagi.Web.Dark" parent="android:style/Theme.Material.NoActionBar">
+    </style>
 </resources>

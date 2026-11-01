@@ -57,14 +57,18 @@ class ReleaseFeaturesUiTest {
         screenshot("commands-without-bookmarks")
     }
 
-    @Test fun passwordAutofillSettingsOpenAndroidServicePicker() {
+    @Test fun passwordAutofillSettingsAreHiddenUntilApproval() {
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("autofill-settings"))
-        compose.onNodeWithText("Password autofill").assertIsDisplayed()
-        screenshot("password-autofill-settings")
-        compose.onNodeWithTag("autofill-settings").performClick()
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        compose.waitUntil(10_000) { automation.rootInActiveWindow?.packageName == "com.android.settings" }
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Privacy"))
+        compose.onNodeWithText("Password autofill").assertDoesNotExist()
+        compose.onNodeWithTag("autofill-status").assertDoesNotExist()
+        compose.onNodeWithTag("autofill-settings").assertDoesNotExist()
+        screenshot("password-autofill-hidden")
+    }
+
+    @Test fun passwordAutofillActionIsHiddenUntilApproval() {
+        compose.onNodeWithContentDescription("Page menu").performClick()
+        compose.onNodeWithTag("request-password-autofill").assertDoesNotExist()
     }
 
     @Test fun backgroundTabsCanSleepAndWakeWithoutClosingThem() {

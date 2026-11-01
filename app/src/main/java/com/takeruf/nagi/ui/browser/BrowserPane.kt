@@ -129,6 +129,13 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                     onClick = { siteHost?.let { onAdBlockingChange(it, !siteBlocking) }; pageMenu = false })
                             }
                             if (compact) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) }, text = { Text(strings(R.string.ui_reload)) }, onClick = { engine.reload(); pageMenu = false })
+                            if (engine.supportsPasswordAutofill)
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.KeyRound, null) },
+                                    text = { Text(strings(R.string.ui_fill_saved_password)) },
+                                    modifier = Modifier.testTag("request-password-autofill"),
+                                    enabled = !page.isLoading && !page.readerLoading && page.readerArticle == null && page.error == null &&
+                                        (page.url.startsWith("https://") || page.url.startsWith("http://")),
+                                    onClick = { pageMenu = false; engine.requestPasswordAutofill() })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Languages, null) }, text = { Text(strings(R.string.ui_translate_page)) },
                                 modifier = Modifier.testTag("translate-page"), enabled = !page.isLoading && !page.readerLoading && page.error == null &&
                                     (page.url.startsWith("https://") || page.url.startsWith("http://")),
