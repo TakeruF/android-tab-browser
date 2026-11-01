@@ -39,6 +39,20 @@ object NagiIcons {
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_check)
     val X: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_x)
+    val Video: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_video)
+    val Play: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_play)
+    val Pause: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_pause)
+    val Maximize: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_maximize)
+    val Minimize: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_minimize)
+    val MoveDiagonal: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_move_diagonal)
+    val CornerUpLeft: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_corner_up_left)
     val Globe: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_globe)
     val PanelsTopLeft: ImageVector

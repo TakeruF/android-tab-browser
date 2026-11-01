@@ -276,7 +276,7 @@
     <string name="ui_play_updates">Updates are delivered through Google Play.</string>
     <string name="ui_open_google_play">Open Google Play</string>
     <string name="ui_password_autofill">Password autofill</string>
-    <string name="ui_password_autofill_description">Use Google Password Manager or another autofill service selected in Android settings. Tap a login field on a website to see available suggestions. Availability depends on your device, website and provider.</string>
+    <string name="ui_password_autofill_description">Use the autofill service selected in Android settings. Tap a login field for suggestions. If none appear, use the page menu → Fill saved password. Suggestions and their appearance depend on the website, device and provider; the Chrome password sheet is not available in Nagi.</string>
     <string name="ui_open_autofill_settings">Choose autofill service</string>
     <string name="ui_autofill_settings_unavailable">Open Android settings to choose an autofill service.</string>
     <string name="ui_upload_file">Upload file</string>
@@ -299,17 +299,14 @@
     <string name="ui_dismiss_external_app_notice">Dismiss external app notice</string>
     <string name="ui_video">Video</string>
     <string name="ui_video_auto_pip">Automatically enter picture-in-picture</string>
-    <string name="ui_video_auto_pip_description">Keep fullscreen or pop-out videos playing in a small window when you go Home.</string>
-    <string name="ui_video_popups">Pop-out videos</string>
-    <string name="ui_video_popups_description">Show a pop-out button on playing videos so you can watch while browsing other tabs.</string>
-    <string name="ui_video_popout">Pop out video</string>
+    <string name="ui_video_auto_pip_description">Automatically keep playing videos in picture-in-picture when you go Home, including videos playing inside a page.</string>
+    <string name="ui_video_popups">Automatically pop out videos</string>
+    <string name="ui_video_popups_description">Automatically show a playing video in a small window when you switch tabs. Return to its tab to restore playback inside the page.</string>
     <string name="ui_video_play">Play</string>
     <string name="ui_video_pause">Pause</string>
-    <string name="ui_video_resize">Resize</string>
     <string name="ui_video_close">Close video</string>
     <string name="ui_video_fullscreen">Fullscreen</string>
     <string name="ui_video_return">Return to tab</string>
-    <string name="ui_video_popup_failed">Could not open this video in a small window. Try the full-screen button on the video first.</string>
     <string name="ui_ad_blocking">"Ad and tracker blocking"</string>
     <string name="ui_ad_blocking_description">"Uses EasyList and EasyPrivacy. Reload the page after changing this setting."</string>
     <string name="ui_enable_site_blocking">"Enable blocking on this site (%1$d blocked)"</string>
@@ -376,4 +373,15 @@
     <string name="ui_human_verification_hint">If human verification is stuck, try reloading in device default view.</string>
     <string name="ui_human_verification_retry">Reload in device view</string>
     <string name="ui_human_verification_dismiss">Dismiss verification hint</string>
+    <string name="ui_fill_saved_password">Fill saved password</string>
+    <string name="ui_autofill_enabled">Autofill is enabled</string>
+    <string name="ui_autofill_disabled">Autofill is turned off for Nagi</string>
+    <string name="ui_autofill_unsupported">Autofill is unavailable on this device</string>
+    <string name="ui_autofill_enable_first">Choose an autofill service in Settings → Password autofill first.</string>
+    <string name="ui_autofill_focus_field">Tap a login field first, then choose Fill saved password again.</string>
+    <string name="ui_video_show_controls">Show video controls</string>
+    <string name="ui_video_hide_controls">Hide video controls</string>
+    <string name="ui_autofill_no_suggestions">The autofill service did not show any suggestions.</string>
+    <string name="ui_autofill_requested">Requested suggestions from your autofill service.</string>
+    <string name="ui_autofill_pending">Unavailable — awaiting approval</string>
 </resources>

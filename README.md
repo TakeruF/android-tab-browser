@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-The 1.1.1 candidate adds per-site device-default view, desktop human-verification recovery hints and an optional bottom search bar. Store submission and availability are recorded separately in [release preparation](docs/PLAY_CONSOLE.md). See [1.1.1 notes](docs/releases/1.1.1.md) and [emulator verification](docs/RELEASE_1.1.1_VERIFICATION.md).
+The 1.1.2 release candidate adds automatic video pop-out when switching tabs and automatic Home/PiP for videos playing inside pages, with independent settings. It also fixes YouTube channel-video previews and removes the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). This version has not been submitted to Google Play; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain separate records.
 
 Version 1.1.0 adds on-device page translation, remembered target languages, same-tab link continuation, new-tab backgrounds, a mobile-view retry for rejected desktop Google sign-in, and Favorite/sidebar fixes. See [release notes](docs/releases/1.1.0.md) and [release verification](docs/RELEASE_1.1.0_VERIFICATION.md).
 
@@ -33,7 +33,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Customizable new-tab backgrounds: solid colors, gradients, or a photo resized and stored on your device. Open the palette on a new tab or use Settings → Appearance.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
 - Bookmark management, link/image context menus, site-data clearing, and Google Play-managed updates.
-- Website password autofill through the selected Android system provider; see [password autofill](docs/PASSWORD_AUTOFILL.md).
+- Password autofill is currently unavailable while approval is pending; see [current status](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).
 - On-device web page translation powered by [Google Translate](https://cloud.google.com/translate) through ML Kit. Open **… → Translate this page** to choose languages; download language models once, then translate offline. Includes automatic language detection, same-tab link continuation, optional always-translate rules, newly added text, and original-text restoration; see [page translation](docs/PAGE_TRANSLATION.md).
 - Supported external app links with an optional launch-blocking setting, disabled by default.

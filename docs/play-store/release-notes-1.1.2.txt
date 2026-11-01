@@ -1,0 +1,32 @@
+<en-US>
+• Videos automatically switch to a pop-out or PiP when you leave a playing tab or go Home; each behavior can be disabled in Settings.
+• Fix page zoom when returning to the video tab and cropping when resizing.
+• Show pop-out controls on tap and resize by dragging any corner with a mouse.
+• Pass the app theme to compatible websites while keeping light pages readable.
+• Improve YouTube previews and dark/themed app icons.
+• Temporarily hide password autofill controls.
+</en-US>
+<ja-JP>
+• 動画再生中のタブ切り替え・ホーム移動で、自動的に小窓／PiPへ切り替わるようにしました。設定でオン・オフできます。
+• 元のタブへ戻った際の表示倍率と、小窓を縮めた際の動画の見切れを修正しました。
+• 小窓の操作ボタンをタップ時のみ表示し、マウスでの四隅リサイズに対応しました。
+• アプリのダークモードを対応サイトへ伝え、明るいサイトの背景が黒くなる問題を修正しました。
+• YouTubeの動画プレビューと、アイコンのダーク・テーマ色表示を改善しました。
+• パスワード自動入力の項目を一時的に非表示にしました。
+</ja-JP>
+<zh-CN>
+• 视频播放时切换标签页或返回主屏幕，会自动进入小窗或画中画；可在设置中分别关闭。
+• 修复返回视频标签页后的网页缩放异常，以及调整小窗大小时画面被裁切的问题。
+• 点按小窗显示控制按钮，支持用鼠标拖动四角调整大小。
+• 将应用深色模式传递给支持的网站，并修复浅色网页背景变黑的问题。
+• 改善 YouTube 视频预览，以及应用图标的深色和主题配色显示。
+• 暂时隐藏密码自动填充入口。
+</zh-CN>
+<ko-KR>
+• 동영상 재생 중 다른 탭이나 홈으로 이동하면 자동으로 팝업 또는 PIP로 전환됩니다. 설정에서 각각 끌 수 있습니다.
+• 원래 탭으로 돌아갈 때 웹페이지 배율이 바뀌거나 창 크기를 줄일 때 영상이 잘리는 문제를 수정했습니다.
+• 팝업을 탭하면 조작 버튼을 표시하고 마우스로 네 모서리를 드래그해 크기를 조절할 수 있습니다.
+• 앱의 다크 모드를 지원 웹사이트에 전달하고 밝은 웹페이지의 배경이 검게 바뀌는 문제를 수정했습니다.
+• YouTube 미리보기와 다크·테마 앱 아이콘을 개선했습니다.
+• 비밀번호 자동 완성 항목을 일시적으로 숨겼습니다.
+</ko-KR>

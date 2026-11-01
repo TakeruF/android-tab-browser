@@ -12,4 +12,7 @@ interface FullscreenHost {
     fun updateVideo(tabId: String, playback: VideoPlayback) {}
     fun minimizeVideo(tabId: String) {}
     fun hideVideo(tabId: String) = hideFullscreen()
+    fun updateInlineVideo(view: View, tabId: String, playback: VideoPlayback,
+        prepare: () -> Unit, restore: () -> Unit, control: (String) -> Unit) {}
+    fun removeInlineVideo(tabId: String) {}
 }

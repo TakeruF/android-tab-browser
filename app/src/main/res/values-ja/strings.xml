@@ -275,7 +275,7 @@
     <string name="ui_play_updates">更新はGoogle Playから配信されます。</string>
     <string name="ui_open_google_play">Google Playを開く</string>
     <string name="ui_password_autofill">パスワードの自動入力</string>
-    <string name="ui_password_autofill_description">Android の設定で選んだ Google パスワード マネージャーなどを使用します。サイトのログイン入力欄をタップすると、利用可能な候補が表示されます。対応状況は端末・サイト・サービスによって異なります。</string>
+    <string name="ui_password_autofill_description">Android の設定で選んだ自動入力サービスを使います。ログイン欄をタップしても候補が出ない場合は、ページメニュー → 保存済みパスワードを入力をお試しください。候補と表示形式はサイト・端末・サービスに依存し、Chrome のパスワード選択シートは Nagi では利用できません。</string>
     <string name="ui_open_autofill_settings">自動入力サービスを選ぶ</string>
     <string name="ui_autofill_settings_unavailable">Android の設定から自動入力サービスを選んでください。</string>
     <string name="ui_upload_file">ファイルをアップロード</string>
@@ -298,17 +298,14 @@
     <string name="ui_dismiss_external_app_notice">外部アプリの通知を閉じる</string>
     <string name="ui_video">動画</string>
     <string name="ui_video_auto_pip">ホームに戻ったときにPiPで再生</string>
-    <string name="ui_video_auto_pip_description">全画面や小窓の動画を、ホームに戻ったあとも小さなウィンドウで再生します。</string>
-    <string name="ui_video_popups">動画の小窓再生</string>
-    <string name="ui_video_popups_description">再生中の動画に小窓ボタンを表示し、別のタブを見ながら動画を再生できます。</string>
-    <string name="ui_video_popout">小窓で再生</string>
+    <string name="ui_video_auto_pip_description">ページ内で再生している動画も、ホームに戻ると自動でPiPに切り替わります。</string>
+    <string name="ui_video_popups">別タブに移動したときに小窓で再生</string>
+    <string name="ui_video_popups_description">動画の再生中に別のタブへ移動すると、自動で小窓に切り替わります。元のタブに戻るとページ内の再生に戻ります。</string>
     <string name="ui_video_play">再生</string>
     <string name="ui_video_pause">一時停止</string>
-    <string name="ui_video_resize">サイズ</string>
     <string name="ui_video_close">動画を閉じる</string>
     <string name="ui_video_fullscreen">全画面</string>
     <string name="ui_video_return">タブに戻る</string>
-    <string name="ui_video_popup_failed">この動画を小窓で開けませんでした。動画の全画面ボタンからお試しください。</string>
     <string name="ui_ad_blocking">"広告・トラッカーブロック"</string>
     <string name="ui_ad_blocking_description">"EasyListとEasyPrivacyを使用します。変更後はページを再読み込みしてください。"</string>
     <string name="ui_enable_site_blocking">"このサイトでブロックを有効にする（%1$d件）"</string>
@@ -374,4 +371,15 @@
     <string name="ui_human_verification_hint">人間確認が進まない場合は、端末標準表示で再試行できます。</string>
     <string name="ui_human_verification_retry">端末標準で再読込</string>
     <string name="ui_human_verification_dismiss">人間確認の案内を閉じる</string>
+    <string name="ui_fill_saved_password">保存済みパスワードを入力</string>
+    <string name="ui_autofill_enabled">自動入力は有効です</string>
+    <string name="ui_autofill_disabled">Nagi の自動入力は無効です</string>
+    <string name="ui_autofill_unsupported">この端末では自動入力を利用できません</string>
+    <string name="ui_autofill_enable_first">設定 → パスワードの自動入力から、自動入力サービスを選んでください。</string>
+    <string name="ui_autofill_focus_field">先にログイン入力欄をタップしてから、保存済みパスワードを入力を選んでください。</string>
+    <string name="ui_video_show_controls">動画の操作を表示</string>
+    <string name="ui_video_hide_controls">動画の操作を隠す</string>
+    <string name="ui_autofill_no_suggestions">自動入力サービスが候補を表示しませんでした。</string>
+    <string name="ui_autofill_requested">自動入力サービスに候補を要求しました。</string>
+    <string name="ui_autofill_pending">非対応（承認待ち）</string>
 </resources>

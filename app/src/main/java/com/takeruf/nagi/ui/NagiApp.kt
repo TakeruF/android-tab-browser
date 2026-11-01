@@ -97,6 +97,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
             savedSidebarAdaptation = sidebarAdaptation.copy(compactCollapsed = collapsed)
         } else vm.updateSettings { it.copy(sidebarCollapsed = collapsed) }
     }
+    val siteDarkTheme = state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.DARK ||
+        state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.SYSTEM && androidx.compose.foundation.isSystemInDarkTheme()
     val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
     val desktopDefault = !sidebarAdaptation.compact && state.settings.desktopDefault
@@ -119,7 +121,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     SideEffect {
         host.video.autoPipEnabled = state.settings.autoVideoPip
         host.video.popupEnabled = state.settings.videoPopups
-        sessions.pool.setVideoPopupsEnabled(state.settings.videoPopups)
+        sessions.pool.setDarkTheme(siteDarkTheme)
         sessions.pool.configureContentBlocking(state.settings.adBlockingEnabled, state.settings.adBlockExcludedHosts)
     }
     DisposableEffect(sessions) {
@@ -159,6 +161,10 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val right = splitRight.takeIf { splitVisible }
     val focusedTab = if (rightFocused && right != null) right else left
     val focusedEngine = focusedTab?.let { sessions.pool.peek(it.id) }
+    val openVideoTabIds = state.workspace.tabs.filter { it.closedAt == null && it.archivedAt == null }.map { it.id }.toSet()
+    SideEffect {
+        host.video.setTabContext(openVideoTabIds, if (route == "browser") setOfNotNull(left?.id, right?.id) else emptySet())
+    }
     LaunchedEffect(translationRequest, route, left?.id, right?.id, pages[translationRequest?.tabId]?.url, blockedExternalApp) {
         translationRequest?.let { request ->
             if (route != "browser" || request.tabId !in setOfNotNull(left?.id, right?.id) ||
@@ -167,7 +173,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         }
     }
     SideEffect {
-        val protectedIds = setOfNotNull(left?.id, right?.id, video?.tabId)
+        val protectedIds = setOfNotNull(left?.id, right?.id, host.video.presentation.value?.tabId)
         container.tabs.protectFromArchive(protectedIds)
         sessions.pool.protect(protectedIds)
     }
@@ -291,7 +297,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val visibleIds by rememberUpdatedState(
         (if (route == "browser") setOfNotNull(left?.id, right?.id) else emptySet()) + setOfNotNull(video?.tabId))
     SideEffect {
-        sessions.pool.setVisible(if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) || systemPip) visibleIds else emptySet())
+        sessions.pool.setVisible(if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) || systemPip)
+            visibleIds + setOfNotNull(host.video.presentation.value?.tabId) else emptySet())
     }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event -> when (event) {
