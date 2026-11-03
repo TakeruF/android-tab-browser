@@ -1,0 +1,12 @@
+<en-US>
+Added a setting to avoid overlap with the in-display camera (off by default).
+</en-US>
+<ja-JP>
+画面内カメラとの重なりを避ける設定項目を追加しました（初期状態はOFF）。
+</ja-JP>
+<zh-CN>
+新增避免屏内摄像头遮挡的设置选项（默认关闭）。
+</zh-CN>
+<ko-KR>
+화면 내 카메라와의 겹침을 방지하는 설정을 추가했습니다(기본값은 꺼짐).
+</ko-KR>

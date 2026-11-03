@@ -384,4 +384,13 @@
     <string name="ui_autofill_no_suggestions">The autofill service did not show any suggestions.</string>
     <string name="ui_autofill_requested">Requested suggestions from your autofill service.</string>
     <string name="ui_autofill_pending">Unavailable — awaiting approval</string>
+    <string name="ui_avoid_camera_overlap">Avoid camera overlap</string>
+    <string name="ui_avoid_camera_overlap_description">Adds space on both sides in landscape, even when the camera position cannot be detected. Adjust the margin if needed.</string>
+    <string name="ui_camera_side_margin">Landscape side margins</string>
+    <string name="ui_camera_margin_reset">Reset</string>
+    <string name="ui_camera_margin_hint">The same margin is applied on both sides. Rotate to landscape to see changes as you adjust.</string>
+    <string name="ui_camera_margin_narrow">Narrow</string>
+    <string name="ui_camera_margin_wide">Wide</string>
+    <string name="ui_camera_margin_decrease">Decrease margin by 1</string>
+    <string name="ui_camera_margin_increase">Increase margin by 1</string>
 </resources>
