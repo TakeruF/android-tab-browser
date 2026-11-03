@@ -385,12 +385,18 @@
     <string name="ui_autofill_requested">Requested suggestions from your autofill service.</string>
     <string name="ui_autofill_pending">Unavailable — awaiting approval</string>
     <string name="ui_avoid_camera_overlap">Avoid camera overlap</string>
-    <string name="ui_avoid_camera_overlap_description">Adds space on both sides in landscape, even when the camera position cannot be detected. Adjust the margin if needed.</string>
-    <string name="ui_camera_side_margin">Landscape side margins</string>
+    <string name="ui_avoid_camera_overlap_description">Set the camera position and add space only when the camera is on the left in landscape.</string>
+    <string name="ui_camera_side_margin">Left margin</string>
     <string name="ui_camera_margin_reset">Reset</string>
-    <string name="ui_camera_margin_hint">The same margin is applied on both sides. Rotate to landscape to see changes as you adjust.</string>
+    <string name="ui_camera_margin_hint">Adjust the left margin in landscape. No extra margin is added when the camera is on the right or the screen is in portrait.</string>
     <string name="ui_camera_margin_narrow">Narrow</string>
     <string name="ui_camera_margin_wide">Wide</string>
     <string name="ui_camera_margin_decrease">Decrease margin by 1</string>
     <string name="ui_camera_margin_increase">Increase margin by 1</string>
+    <string name="ui_camera_position">Camera position right now</string>
+    <string name="ui_camera_position_hint">Hold the device in landscape and choose the side where you see the camera.</string>
+    <string name="ui_camera_position_rotate">Rotate the device to landscape to set the camera position.</string>
+    <string name="ui_camera_position_left">Left</string>
+    <string name="ui_camera_position_right">Right</string>
+    <string name="ui_camera_position_behavior">The margin appears only when the camera is on the left. It follows automatically when you rotate the device.</string>
 </resources>

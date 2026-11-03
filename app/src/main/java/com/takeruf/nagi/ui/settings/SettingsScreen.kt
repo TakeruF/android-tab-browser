@@ -49,7 +49,7 @@ import com.takeruf.nagi.ui.theme.NagiSystemBars
 import java.util.UUID
 
 @Composable
-fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onSuspendTabs: () -> Unit = {}, onBack: () -> Unit) {
+fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onSuspendTabs: () -> Unit = {}, displayRotation: Int = 0, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
@@ -148,6 +148,13 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 vm.updateSettings { it.copy(avoidCameraOverlap = value) }
             }
             if (prefs.avoidCameraOverlap) {
+                val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                CameraPositionSelector(prefs.cameraLeftRotation, displayRotation, landscape) { leftRotation ->
+                    vm.updateSettings { it.copy(cameraLeftRotation = leftRotation) }
+                }
+            }
+            if (prefs.avoidCameraOverlap && prefs.cameraLeftRotation != null) {
                 val margin = prefs.cameraSideMargin.toFloat()
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings-camera-margin")) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
