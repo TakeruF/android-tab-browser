@@ -36,6 +36,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.lerp
@@ -58,6 +60,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.domain.model.*
@@ -74,7 +77,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     suspendedIds: Set<String> = emptySet(),
     pageUrl: String = state.activeTab?.url.orEmpty(), pageTitle: String = state.activeTab?.title.orEmpty(),
     onToggleSidebar: () -> Unit = { vm.updateSettings { it.copy(sidebarCollapsed = !it.sidebarCollapsed) } },
-    overlay: Boolean = false) {
+    overlay: Boolean = false, backgroundExtension: Dp = 0.dp) {
     val strings = rememberNagiStrings()
     val collapsed = state.settings.sidebarCollapsed
     var spacesMenu by remember { mutableStateOf(false) }
@@ -179,7 +182,14 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         }
     }
     LaunchedEffect(state.currentSpace?.id, collapsed) { drag.cancel() }
-    Box(Modifier.fillMaxSize().clip(NagiShapes.Sidebar).background(Brush.verticalGradient(listOf(sidebarTop, sidebarBottom)))
+    val sidebarBackground = Brush.verticalGradient(listOf(sidebarTop, sidebarBottom))
+    Box(Modifier.fillMaxSize().drawBehind {
+        // Continue the same gradient into the camera gutter without moving controls
+        // or making the reserved camera area interactive.
+        val extension = backgroundExtension.toPx()
+        if (extension > 0f) drawRect(sidebarBackground,
+            topLeft = Offset(-extension, 0f), size = Size(extension, size.height))
+    }.clip(NagiShapes.Sidebar).background(sidebarBackground)
         .sidebarSpaceSwipe(drag,
             onStart = { settling?.cancel(); gesturePage = selectedPage },
             onDrag = { delta ->

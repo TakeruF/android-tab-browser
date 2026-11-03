@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.1.3 prevents ordinary page videos, including autoplay, from entering Android PiP when returning Home. Fullscreen videos and existing in-app pop-outs can continue in PiP. See [1.1.3 notes](docs/releases/1.1.3.md).
+Version 1.1.4 adds a setting to avoid overlap with the in-display camera (off by default). See [1.1.4 notes](docs/releases/1.1.4.md).
 
 Version 1.1.2 added automatic video pop-out when switching tabs, independent video settings, YouTube channel-video preview fixes, and removal of the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). Play Console showed 1.1.2 active at 100% on 2026-11-03; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain dated records.
 

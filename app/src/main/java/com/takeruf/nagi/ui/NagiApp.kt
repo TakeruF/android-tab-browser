@@ -312,6 +312,9 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
     BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
     NagiTheme(state.settings.theme, state.currentSpace?.color ?: state.settings.themeColor) {
+        val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val contentInsets = WindowInsets.safeDrawing.union(cameraAvoidanceInsets(state.settings, landscape))
         val compactNavigation = sidebarAdaptation.compact && route == "browser"
         val navigationInsets = WindowInsets.navigationBars
         val navigationDensity = LocalDensity.current
@@ -349,7 +352,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     val height = navigationInsets.getBottom(navigationDensity).toFloat().coerceIn(0f, size.height)
                     drawRect(navigationColor, topLeft = Offset(0f, size.height - height), size = Size(size.width, height))
                 }
-            }.windowInsetsPadding(WindowInsets.safeDrawing)) {
+            }.windowInsetsPadding(contentInsets)) {
                 val density = LocalDensity.current
                 var resizingWidth by remember { mutableStateOf<Float?>(null) }
                 var resizingCollapsed by remember { mutableStateOf<Boolean?>(null) }
@@ -393,7 +396,10 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                 vm.selectTab(draggedId)
                                 navigate("browser")
                             }
-                        }, onToggleSidebar = { setSidebarCollapsed(!sidebarCollapsed) }, overlay = sidebarAdaptation.compact)
+                        }, onToggleSidebar = { setSidebarCollapsed(!sidebarCollapsed) }, overlay = sidebarAdaptation.compact,
+                        backgroundExtension = if (state.settings.avoidCameraOverlap && landscape && !sidebarAdaptation.compact)
+                            with(density) { contentInsets.getLeft(this, androidx.compose.ui.platform.LocalLayoutDirection.current).toDp() }
+                        else 0.dp)
                 }
                 Column(Modifier.fillMaxSize()) {
                     Row(Modifier.weight(1f).fillMaxWidth()) {

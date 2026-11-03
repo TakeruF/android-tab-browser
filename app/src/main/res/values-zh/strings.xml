@@ -382,4 +382,13 @@
     <string name="ui_autofill_no_suggestions">自动填充服务未显示任何候选项。</string>
     <string name="ui_autofill_requested">已向自动填充服务请求候选项。</string>
     <string name="ui_autofill_pending">暂不支持（等待批准）</string>
+    <string name="ui_avoid_camera_overlap">避免摄像头遮挡</string>
+    <string name="ui_avoid_camera_overlap_description">横屏时在左右两侧预留空间，即使无法检测摄像头位置也可使用。如仍有遮挡，请调整边距。</string>
+    <string name="ui_camera_side_margin">横屏左右边距</string>
+    <string name="ui_camera_margin_reset">恢复默认</string>
+    <string name="ui_camera_margin_hint">左右两侧使用相同边距。横屏时可边调整边查看效果。</string>
+    <string name="ui_camera_margin_narrow">窄</string>
+    <string name="ui_camera_margin_wide">宽</string>
+    <string name="ui_camera_margin_decrease">边距减小1</string>
+    <string name="ui_camera_margin_increase">边距增加1</string>
 </resources>

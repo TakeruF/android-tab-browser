@@ -382,4 +382,13 @@
     <string name="ui_autofill_no_suggestions">自動入力サービスが候補を表示しませんでした。</string>
     <string name="ui_autofill_requested">自動入力サービスに候補を要求しました。</string>
     <string name="ui_autofill_pending">非対応（承認待ち）</string>
+    <string name="ui_avoid_camera_overlap">カメラとの重なりを避ける</string>
+    <string name="ui_avoid_camera_overlap_description">横画面で左右に余白を確保します。カメラ位置を検出できない端末でも使えます。重なる場合は余白を調整してください。</string>
+    <string name="ui_camera_side_margin">横画面の左右の余白</string>
+    <string name="ui_camera_margin_reset">初期値に戻す</string>
+    <string name="ui_camera_margin_hint">左右に同じ余白が入ります。横画面にすると、調整しながら表示を確認できます。</string>
+    <string name="ui_camera_margin_narrow">狭い</string>
+    <string name="ui_camera_margin_wide">広い</string>
+    <string name="ui_camera_margin_decrease">余白を1減らす</string>
+    <string name="ui_camera_margin_increase">余白を1増やす</string>
 </resources>
