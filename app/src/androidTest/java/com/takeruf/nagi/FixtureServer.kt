@@ -111,7 +111,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                 """
                 else if (path.startsWith("/video")) """
                     <html><head><title>Video Fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-                    <body style="margin:8px;font:18px sans-serif"><video id="player" src="/video.mp4" controls loop playsinline style="width:100%;max-width:640px"></video>
+                    <body style="margin:8px;font:18px sans-serif"><video id="player" src="/video.mp4" controls loop playsinline ${if (path == "/video-autoplay") "autoplay muted" else ""} style="width:100%;max-width:640px"></video>
                     <p><button id="start-video" onclick="document.getElementById('player').play()">Play video</button>
                     <button id="fullscreen-video" onclick="document.getElementById('player').requestFullscreen()">Fullscreen video</button></p>
                     <script>window.videoTicks=0;document.getElementById('player').addEventListener('timeupdate',()=>{
