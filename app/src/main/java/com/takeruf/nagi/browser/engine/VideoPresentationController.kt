@@ -25,8 +25,7 @@ data class VideoPlayback(val playing: Boolean = false, val width: Int = 16, val 
 }
 
 data class VideoPresentation(val view: View, val tabId: String?, val playback: VideoPlayback,
-    val popup: Boolean, val control: (String) -> Unit, val exit: () -> Unit,
-    val returnAfterSystemPip: Boolean = false)
+    val popup: Boolean, val control: (String) -> Unit, val exit: () -> Unit)
 
 /** Keeps the original WebView custom view alive across fullscreen, popup and system PiP. */
 class VideoPresentationController(private val activity: Activity) {
@@ -53,12 +52,12 @@ class VideoPresentationController(private val activity: Activity) {
     }
     private fun visibleInline() = visibleTabIds.mapNotNull { inlineVideos[it] }
         .firstOrNull { it.playback.playing && it.playback.hasVideo }
-    private fun presentInline(video: InlineVideo, forHome: Boolean) {
+    private fun presentInline(video: InlineVideo) {
         if (presentation.value != null || !video.playback.playing || !video.playback.hasVideo) return
         video.prepare()
         popupSourceWasHidden = video.tabId !in visibleTabIds
         mutablePresentation.value = VideoPresentation(video.view, video.tabId, video.playback,
-            popup = !forHome, video.control, video.restore, returnAfterSystemPip = forHome)
+            popup = true, video.control, video.restore)
         refreshPip()
     }
     val popupAvailable get() = popupEnabled && openTabIds.size > 1
@@ -72,7 +71,7 @@ class VideoPresentationController(private val activity: Activity) {
             if (popupEnabled && visibleIds.isNotEmpty() && !systemPip.value) {
                 leaving.mapNotNull { inlineVideos[it] }.firstOrNull {
                     it.tabId in openIds && it.playback.playing && it.playback.hasVideo
-                }?.let { presentInline(it, forHome = false) }
+                }?.let { presentInline(it) }
             }
             refreshPip()
             return
@@ -138,24 +137,20 @@ class VideoPresentationController(private val activity: Activity) {
         current.exit()
         refreshPip()
     }
-    val canAutoEnter get() = autoPipEnabled && (presentation.value?.let {
+    // A playing inline video may just be an autoplaying page decoration. Only an
+    // existing fullscreen or pop-out presentation can continue into system PiP.
+    val canAutoEnter get() = autoPipEnabled && presentation.value?.let {
         it.tabId != null && it.playback.hasVideo && it.playback.playing
-    } ?: (visibleInline() != null))
-    private fun prepareForHome() {
-        if (autoPipEnabled && presentation.value == null) visibleInline()?.let { presentInline(it, forHome = true) }
-    }
+    } == true
     fun onUserLeave() {
         if (!supported() || !canAutoEnter) return
-        prepareForHome()
         if (Build.VERSION.SDK_INT < 31 && canAutoEnter && supported()) {
             runCatching { activity.enterPictureInPictureMode(params()) }
         }
     }
-    fun onPipTransition() { prepareForHome(); mutableSystemPip.value = true }
+    fun onPipTransition() { mutableSystemPip.value = true }
     fun onPipChanged(inPip: Boolean) {
-        if (inPip) prepareForHome()
         mutableSystemPip.value = inPip
-        if (!inPip && presentation.value?.returnAfterSystemPip == true) close()
     }
     fun onStopped() {
         (presentation.value?.control ?: visibleInline()?.control)?.invoke("pause")

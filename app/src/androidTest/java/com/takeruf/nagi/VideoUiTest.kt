@@ -171,6 +171,12 @@ class VideoUiTest {
         returnToApp(); compose.onNodeWithTag("video-fullscreen").assertExists(); assertAdvances()
         compose.onNodeWithContentDescription("Exit fullscreen").performClick()
         waitFor { js("!!document.fullscreenElement") == "false" }
+        // Leaving fullscreen must disarm Android's auto-enter flag while inline
+        // playback continues, including after returning from a real PiP session.
+        assertAdvances(); SystemClock.sleep(1000)
+        home(); SystemClock.sleep(1500)
+        assertFalse(compose.activity.isInPictureInPictureMode)
+        returnToApp(); assertPageSurfaceRestored()
     }
     @Test fun desktopVideoPipDoesNotSwitchTheBrowserToMobileOrReloadThePlayer() {
         fun shell(command: String) = android.os.ParcelFileDescriptor.AutoCloseInputStream(
@@ -320,7 +326,7 @@ class VideoUiTest {
         runBlocking { container.tabs.close(sourceId) }
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
     }
-    @Test fun oneTabInlineVideoAutomaticallyEntersHomePipAndRestoresPage() {
+    @Test fun oneTabInlineVideoDoesNotEnterHomePip() {
         open(); tap("#start-video"); assertAdvances()
         runBlocking {
             val space = container.settings.settings.first().selectedSpaceId
@@ -331,14 +337,29 @@ class VideoUiTest {
         assertEquals("false", js("!!document.querySelector('[data-nagi-video-assistant]')"))
         assertEquals("false", js("!!document.fullscreenElement"))
         SystemClock.sleep(1000)
-        home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
-        screenshot("video-inline-home-pip")
+        home(); SystemClock.sleep(1500)
+        assertFalse(compose.activity.isInPictureInPictureMode)
+        screenshot("video-inline-home-without-pip")
         returnToApp()
         compose.waitUntil { compose.onAllNodesWithTag("video-fullscreen").fetchSemanticsNodes().isEmpty() }
         waitFor { js("!!document.querySelector('[data-nagi-video-target]')") == "false" }
         assertPageSurfaceRestored()
-        assertAdvances()
         assertEquals(1, server.requests.count { it.path == "/video" })
+    }
+    @Test fun autoplayingPageVideoDoesNotEnterHomePip() {
+        open("/video-autoplay"); assertAdvances()
+        assertEquals("true", js("document.getElementById('player').muted"))
+        assertEquals("false", js("!!document.fullscreenElement"))
+        // No tap on the video: merely visiting a page with autoplay is not a
+        // request to keep watching it above other apps.
+        SystemClock.sleep(1000)
+        home(); SystemClock.sleep(1500)
+        assertFalse(compose.activity.isInPictureInPictureMode)
+        screenshot("video-autoplay-home-without-pip")
+        returnToApp(); assertPageSurfaceRestored()
+        compose.onNodeWithTag("video-fullscreen").assertDoesNotExist()
+        compose.onNodeWithTag("video-popup").assertDoesNotExist()
+        assertEquals(1, server.requests.count { it.path == "/video-autoplay" })
     }
     @Test fun selectingSourceTabClosesPopupAndKeepsSameVideoPlaying() {
         open(); tap("#start-video"); assertAdvances()

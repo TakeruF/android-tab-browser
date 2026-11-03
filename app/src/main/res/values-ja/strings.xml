@@ -298,7 +298,7 @@
     <string name="ui_dismiss_external_app_notice">外部アプリの通知を閉じる</string>
     <string name="ui_video">動画</string>
     <string name="ui_video_auto_pip">ホームに戻ったときにPiPで再生</string>
-    <string name="ui_video_auto_pip_description">ページ内で再生している動画も、ホームに戻ると自動でPiPに切り替わります。</string>
+    <string name="ui_video_auto_pip_description">全画面や小窓で再生している動画は、ホームに戻るとPiPで再生を続けます。ページ内の動画は自動でPiPに切り替わりません。</string>
     <string name="ui_video_popups">別タブに移動したときに小窓で再生</string>
     <string name="ui_video_popups_description">動画の再生中に別のタブへ移動すると、自動で小窓に切り替わります。元のタブに戻るとページ内の再生に戻ります。</string>
     <string name="ui_video_play">再生</string>

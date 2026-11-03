@@ -16,7 +16,9 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-The 1.1.2 release candidate adds automatic video pop-out when switching tabs and automatic Home/PiP for videos playing inside pages, with independent settings. It also fixes YouTube channel-video previews and removes the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). This version has not been submitted to Google Play; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain separate records.
+Version 1.1.3 prevents ordinary page videos, including autoplay, from entering Android PiP when returning Home. Fullscreen videos and existing in-app pop-outs can continue in PiP. See [1.1.3 notes](docs/releases/1.1.3.md).
+
+Version 1.1.2 added automatic video pop-out when switching tabs, independent video settings, YouTube channel-video preview fixes, and removal of the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). Play Console showed 1.1.2 active at 100% on 2026-11-03; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain dated records.
 
 Version 1.1.0 adds on-device page translation, remembered target languages, same-tab link continuation, new-tab backgrounds, a mobile-view retry for rejected desktop Google sign-in, and Favorite/sidebar fixes. See [release notes](docs/releases/1.1.0.md) and [release verification](docs/RELEASE_1.1.0_VERIFICATION.md).
 

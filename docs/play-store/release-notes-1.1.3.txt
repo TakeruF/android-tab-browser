@@ -1,0 +1,16 @@
+<en-US>
+Fixed an issue where videos embedded in web pages automatically opened in Picture-in-Picture when returning to the Home screen.
+Full-screen videos and existing video pop-outs can still continue in Picture-in-Picture.
+</en-US>
+<ja-JP>
+Webページ内の動画が、ホームに戻るだけで意図せずPiP（ピクチャー・イン・ピクチャー）再生される問題を修正しました。
+全画面動画や既に開いている動画の小窓からは、引き続きPiPで再生を続けられます。
+</ja-JP>
+<zh-CN>
+修复了返回主屏幕时，网页内的视频会意外自动进入画中画的问题。
+全屏视频和已打开的视频小窗仍可继续以画中画播放。
+</zh-CN>
+<ko-KR>
+홈 화면으로 돌아갈 때 웹페이지 안의 동영상이 의도치 않게 PIP(화면 속 화면)로 전환되는 문제를 수정했습니다.
+전체 화면 동영상과 이미 열린 동영상 팝업은 계속 PIP로 재생할 수 있습니다.
+</ko-KR>

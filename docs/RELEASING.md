@@ -27,14 +27,14 @@ Upload artifact: `app/build/outputs/bundle/playRelease/app-play-release.aab`. De
 
 The [1.1.1 preflight](RELEASE_1.1.1_VERIFICATION.md) records the tested working-tree candidate; clean release-source builds and Console preparation are recorded separately. [1.1.0 verification](RELEASE_1.1.0_VERIFICATION.md) remains a dated record of the former dual-channel publication.
 
-## Preparation and stop point
+## Preparation and publication
 
 1. Increment versionName/versionCode and prepare release notes in English, Japanese, Simplified Chinese and Korean.
 2. Verify relevant unit, instrumentation, lint and signed runtime checks. Review the complete candidate diff and preserve unrelated work.
 3. Commit the intended source; rebuild the Play AAB from the selected clean revision and record its hash/signature. Create an immutable source tag `v<versionName>` on that revision. Never move old release tags.
 4. Keep new GitHub release notes as a draft until their publication state is appropriate. Link to Play and clearly separate source version from store availability. Do not attach the AAB or publish a new APK/updater manifest.
 5. In Play Console, inspect the current app, signing, version codes, track and pending changes. Upload the AAB, add four-language notes, retain intended countries/device support and resolve validation errors.
-6. Save the production release as a draft. Check Publishing overview and record the exact remaining action. **For the current request, stop before sending changes for review, starting a rollout or publishing.** Do not click those actions.
+6. Save the production release as a draft. Check Publishing overview and record the exact remaining action. If the request is preparation only, stop before sending changes for review, starting a rollout or publishing. When the user explicitly authorizes a release, submit the verified change for review and complete the authorized rollout steps; report pending review separately from actual store availability.
 7. Separately report local source/tag, GitHub draft, website/profile deployment, accepted bundle, Console saved draft, review submission and actual store availability. Preparation proves only the stages reached.
 
 Privacy policy: `https://takeruf.com/nagi/privacy`, with English, Japanese, Simplified Chinese and Korean bodies. See [Play Console preparation](PLAY_CONSOLE.md) for declarations and store copy. Existing declarations must be checked against the exact candidate; no unrelated privacy/targeting changes are implied by distribution consolidation.

@@ -298,7 +298,7 @@
     <string name="ui_dismiss_external_app_notice">关闭外部应用提示</string>
     <string name="ui_video">视频</string>
     <string name="ui_video_auto_pip">返回主屏幕时自动进入画中画</string>
-    <string name="ui_video_auto_pip_description">返回主屏幕时，正在播放的视频会自动进入画中画，包括网页内播放的视频。</string>
+    <string name="ui_video_auto_pip_description">返回主屏幕时，全屏或小窗播放的视频会继续以画中画播放。网页内的视频不会自动进入画中画。</string>
     <string name="ui_video_popups">切换标签页时自动小窗播放</string>
     <string name="ui_video_popups_description">播放视频时切换到其他标签页，自动进入小窗播放。返回原标签页后恢复网页内播放。</string>
     <string name="ui_video_play">播放</string>
