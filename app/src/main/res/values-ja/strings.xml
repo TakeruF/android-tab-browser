@@ -300,7 +300,7 @@
     <string name="ui_video_auto_pip">ホームに戻ったときにPiPで再生</string>
     <string name="ui_video_auto_pip_description">全画面や小窓で再生している動画は、ホームに戻るとPiPで再生を続けます。ページ内の動画は自動でPiPに切り替わりません。</string>
     <string name="ui_video_popups">別タブに移動したときに小窓で再生</string>
-    <string name="ui_video_popups_description">動画の再生中に別のタブへ移動すると、自動で小窓に切り替わります。元のタブに戻るとページ内の再生に戻ります。</string>
+    <string name="ui_video_popups_description">手動で再生した動画は、別のタブへ移動すると小窓に切り替わります。自動再生の動画は対象になりません。元のタブに戻るとページ内の再生に戻ります。</string>
     <string name="ui_video_play">再生</string>
     <string name="ui_video_pause">一時停止</string>
     <string name="ui_video_close">動画を閉じる</string>

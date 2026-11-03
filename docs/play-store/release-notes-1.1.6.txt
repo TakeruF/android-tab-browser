@@ -1,0 +1,12 @@
+<en-US>
+Fixed videos starting in a floating window automatically when switching tabs. Videos you start manually can still continue in a floating window.
+</en-US>
+<ja-JP>
+タブ切り替え時に、自動再生の動画が勝手に小窓表示される問題を修正しました。手動で再生した動画は引き続き小窓で再生できます。
+</ja-JP>
+<zh-CN>
+修复了切换标签页时自动播放的视频意外进入小窗的问题。手动播放的视频仍可在小窗中继续播放。
+</zh-CN>
+<ko-KR>
+탭 전환 시 자동 재생 동영상이 의도치 않게 작은 창으로 표시되는 문제를 수정했습니다. 직접 재생한 동영상은 계속 작은 창에서 재생할 수 있습니다.
+</ko-KR>

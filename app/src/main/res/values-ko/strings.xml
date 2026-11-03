@@ -300,7 +300,7 @@
     <string name="ui_video_auto_pip">홈으로 돌아갈 때 자동으로 PIP 실행</string>
     <string name="ui_video_auto_pip_description">홈으로 돌아가면 전체 화면이나 팝업으로 재생 중인 동영상은 PIP로 계속 재생됩니다. 페이지 안의 동영상은 자동으로 PIP로 전환되지 않습니다.</string>
     <string name="ui_video_popups">탭 전환 시 자동 팝업 재생</string>
-    <string name="ui_video_popups_description">동영상 재생 중 다른 탭으로 이동하면 자동으로 작은 창에서 재생합니다. 원래 탭으로 돌아가면 페이지 안에서 계속 재생합니다.</string>
+    <string name="ui_video_popups_description">직접 재생한 동영상은 탭 전환 시 작은 창으로 전환합니다. 자동 재생되는 페이지 동영상은 전환하지 않습니다. 원래 탭으로 돌아가면 페이지 안에서 계속 재생합니다.</string>
     <string name="ui_video_play">재생</string>
     <string name="ui_video_pause">일시정지</string>
     <string name="ui_video_close">동영상 닫기</string>

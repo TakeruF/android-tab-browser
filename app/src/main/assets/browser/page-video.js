@@ -6,6 +6,19 @@
   const marked = [];
   const youtube = /(^|\.)youtube\.com$/.test(location.hostname);
   const suppliedPosters = new WeakMap();
+  // Playback alone is not viewing intent: landing pages often loop muted demos.
+  // Track intent per video so unrelated page interactions do not claim autoplay.
+  const requestedVideos = new WeakSet();
+  document.addEventListener('pointerdown', event => {
+    if (event.isTrusted && event.target?.tagName === 'VIDEO') requestedVideos.add(event.target);
+  }, true);
+  document.addEventListener('play', event => {
+    const v = event.target;
+    if (v?.tagName === 'VIDEO' && navigator.userActivation?.isActive && (!v.autoplay || v.controls)) {
+      requestedVideos.add(v);
+    }
+  }, true);
+  document.addEventListener('emptied', event => requestedVideos.delete(event.target), true);
   const restoreChannelPosters = () => {
     if (!youtube) return;
     // YouTube leaves the channel trailer unstarted while its playlist miniplayer plays.
@@ -49,6 +62,7 @@
       playing: !!v && !v.paused && !v.ended, width: v?.videoWidth || 16, height: v?.videoHeight || 9,
       currentTime: Number.isFinite(v?.currentTime) ? v.currentTime : 0,
       duration: Number.isFinite(v?.duration) ? v.duration : 0,
+      autoPopoutAllowed: !!v && !v.disablePictureInPicture && requestedVideos.has(v),
       fullscreen: !!document.fullscreenElement && !!v}));
   };
   const mark = (element, name) => {
@@ -161,7 +175,10 @@
     send('state');
   };
   document.addEventListener('fullscreenchange', () => {
-    if (document.fullscreenElement) selected = candidate();
+    if (document.fullscreenElement) {
+      selected = candidate();
+      if (selected) requestedVideos.add(selected);
+    }
     else if (!surface) selected = null;
     tick();
   });

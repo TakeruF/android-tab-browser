@@ -16,6 +16,8 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
+Version 1.1.6 prevents autoplaying page videos from opening a floating window when switching tabs. Videos started manually can still continue in a floating window. See [1.1.6 notes](docs/releases/1.1.6.md).
+
 Version 1.1.4 adds a setting to avoid overlap with the in-display camera (off by default). See [1.1.4 notes](docs/releases/1.1.4.md).
 
 Version 1.1.2 added automatic video pop-out when switching tabs, independent video settings, YouTube channel-video preview fixes, and removal of the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). Play Console showed 1.1.2 active at 100% on 2026-11-03; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain dated records.
