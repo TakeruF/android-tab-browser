@@ -111,12 +111,13 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                 """
                 else if (path.startsWith("/video")) """
                     <html><head><title>Video Fixture</title><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-                    <body style="margin:8px;font:18px sans-serif"><video id="player" src="/video.mp4" controls loop playsinline ${if (path == "/video-autoplay") "autoplay muted" else ""} style="width:100%;max-width:640px"></video>
+                    <body style="margin:8px;font:18px sans-serif"><video id="player" src="/video.mp4" ${if (path != "/video-demo") "controls" else ""} loop playsinline ${if (path in setOf("/video-autoplay", "/video-demo")) "autoplay muted" else ""} style="width:100%;max-width:640px"></video>
+                    <button id="unrelated" onclick="this.textContent='Clicked'">Unrelated page action</button>
                     <p><button id="start-video" onclick="document.getElementById('player').play()">Play video</button>
                     <button id="fullscreen-video" onclick="document.getElementById('player').requestFullscreen()">Fullscreen video</button></p>
                     <script>window.videoTicks=0;document.getElementById('player').addEventListener('timeupdate',()=>{
                     window.videoTicks++;parent.postMessage({type:'ticks',ticks:window.videoTicks},'*');});
-                    if(parent!==window)setInterval(()=>{let rects={};for(const [key,selector] of Object.entries({start:'#start-video',assistant:'[data-nagi-video-assistant]'})){
+                    if(parent!==window)setInterval(()=>{let rects={};for(const [key,selector] of Object.entries({start:'#start-video',assistant:'[data-nagi-video-assistant]',fullscreen:'#fullscreen-video'})){
                     let e=document.querySelector(selector);if(e&&e.getBoundingClientRect().width){let r=e.getBoundingClientRect();rects[key]={x:r.x+r.width/2,y:r.y+r.height/2};}}
                     const v=document.getElementById('player');window.frameRevision=(window.frameRevision||0)+1;
                     parent.postMessage({type:'rects',rects,revision:window.frameRevision,ready:v.readyState,paused:v.paused},'*');},250);</script></body></html>

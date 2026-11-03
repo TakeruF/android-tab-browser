@@ -20,7 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class VideoPlayback(val playing: Boolean = false, val width: Int = 16, val height: Int = 9,
-    val hasVideo: Boolean = false, val currentTime: Double = 0.0, val duration: Double = 0.0) {
+    val hasVideo: Boolean = false, val currentTime: Double = 0.0, val duration: Double = 0.0,
+    val autoPopoutAllowed: Boolean = false) {
     val aspectRatio: Float get() = (width.toFloat() / height.coerceAtLeast(1)).coerceIn(1f / 2.39f, 2.39f)
 }
 
@@ -70,13 +71,13 @@ class VideoPresentationController(private val activity: Activity) {
             // A tab switch needs a destination; opening Settings is not a tab switch.
             if (popupEnabled && visibleIds.isNotEmpty() && !systemPip.value) {
                 leaving.mapNotNull { inlineVideos[it] }.firstOrNull {
-                    it.tabId in openIds && it.playback.playing && it.playback.hasVideo
+                    it.tabId in openIds && it.playback.playing && it.playback.hasVideo && it.playback.autoPopoutAllowed
                 }?.let { presentInline(it) }
             }
             refreshPip()
             return
         }
-        if (!current.popup && popupEnabled && leaving.contains(current.tabId) && visibleIds.isNotEmpty()) {
+        if (!current.popup && current.playback.playing && popupEnabled && leaving.contains(current.tabId) && visibleIds.isNotEmpty()) {
             minimize(current.tabId)
         }
         val presented = presentation.value ?: return

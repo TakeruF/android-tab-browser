@@ -301,7 +301,7 @@
     <string name="ui_video_auto_pip">Automatically enter picture-in-picture</string>
     <string name="ui_video_auto_pip_description">Keep playing fullscreen or pop-out videos in picture-in-picture when you go Home. Videos playing inside a page stay in the page.</string>
     <string name="ui_video_popups">Automatically pop out videos</string>
-    <string name="ui_video_popups_description">Automatically show a playing video in a small window when you switch tabs. Return to its tab to restore playback inside the page.</string>
+    <string name="ui_video_popups_description">Automatically show a video you started in a small window when you switch tabs. Autoplaying page videos stay in the page. Return to its tab to restore playback inside the page.</string>
     <string name="ui_video_play">Play</string>
     <string name="ui_video_pause">Pause</string>
     <string name="ui_video_close">Close video</string>

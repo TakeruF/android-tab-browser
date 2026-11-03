@@ -67,7 +67,9 @@ class VideoUiTest {
             return JSON.stringify({x:r.x+70,y:r.y+385,w:innerWidth});})()
         """ else """
             (()=>{const r=document.querySelector(${JSONObject.quote(selector)}).getBoundingClientRect();
-            return JSON.stringify({x:r.x+r.width/2,y:r.y+r.height/2,w:innerWidth});})()
+            const v=visualViewport;
+            return JSON.stringify({x:r.x+r.width/2-(v?.offsetLeft||0),
+                y:r.y+r.height/2-(v?.offsetTop||0),w:v?.width||innerWidth});})()
         """
         val rect = JSONObject(JSONTokener(js(script)).nextValue() as String)
         tapAt(rect.getDouble("x"), rect.getDouble("y"), rect.getDouble("w"))
@@ -153,7 +155,10 @@ class VideoUiTest {
 
     @Test fun fullscreenHomeKeepsPlayingInPipAndRestoresSamePlayer() {
         open(); tap("#start-video"); assertAdvances(); tap("#fullscreen-video")
-        compose.onNodeWithTag("video-fullscreen").assertExists()
+        // WebView delivers its custom view after the input event returns.
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("video-fullscreen").fetchSemanticsNodes().size == 1
+        }
         waitFor { js("!!document.fullscreenElement") == "true" }; assertAdvances(); SystemClock.sleep(1000)
         screenshot("video-fullscreen")
         home(); waitFor { compose.activity.isInPictureInPictureMode }
@@ -316,7 +321,8 @@ class VideoUiTest {
             """)).nextValue() as String)
             tapAt(rect.getDouble("x"), rect.getDouble("y"), rect.getDouble("w"))
         }
-        tapFrame("start"); assertAdvances(); switchToNewTab()
+        tapFrame("start"); assertAdvances()
+        switchToNewTab()
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
         assertAdvances()
         runBlocking { container.spaces.create("Other Video Space ${System.nanoTime()}") }
@@ -360,6 +366,18 @@ class VideoUiTest {
         compose.onNodeWithTag("video-fullscreen").assertDoesNotExist()
         compose.onNodeWithTag("video-popup").assertDoesNotExist()
         assertEquals(1, server.requests.count { it.path == "/video-autoplay" })
+    }
+    @Test fun autoplayingDemoDoesNotPopOutWhenSwitchingTabs() {
+        open("/video-demo"); assertAdvances()
+        assertEquals("false", js("document.getElementById('player').controls"))
+        // An unrelated trusted click on the page must not claim this video.
+        tap("#unrelated")
+        switchToNewTab()
+        SystemClock.sleep(1500)
+        compose.onNodeWithTag("video-popup").assertDoesNotExist()
+        compose.onNodeWithTag("video-fullscreen").assertDoesNotExist()
+        assertEquals("false", js("!!document.querySelector('[data-nagi-video-target]')"))
+        screenshot("video-autoplay-tab-without-popup")
     }
     @Test fun selectingSourceTabClosesPopupAndKeepsSameVideoPlaying() {
         open(); tap("#start-video"); assertAdvances()
