@@ -1,0 +1,16 @@
+<en-US>
+Set the camera position to add a left margin only when the camera is on the left in landscape.
+Improved connectivity to some websites.
+</en-US>
+<ja-JP>
+カメラの位置を設定し、横画面でカメラが左側にあるときだけ余白を追加できるようになりました。
+一部のウェブサイトに接続できない問題を改善しました。
+</ja-JP>
+<zh-CN>
+可设置摄像头位置，仅在横屏且摄像头位于左侧时添加左侧边距。
+改善了部分网站无法连接的问题。
+</zh-CN>
+<ko-KR>
+카메라 위치를 설정하여 가로 화면에서 카메라가 왼쪽에 있을 때만 왼쪽 여백을 추가할 수 있습니다.
+일부 웹사이트에 연결할 수 없는 문제를 개선했습니다.
+</ko-KR>
