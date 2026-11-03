@@ -62,6 +62,8 @@ class CameraAvoidanceUiTest {
         compose.onNodeWithTag("settings-camera-margin").assertDoesNotExist()
         val before = list.fetchSemanticsNode().boundsInRoot.left
         compose.onNodeWithText("Avoid camera overlap").performClick()
+        list.performScrollToNode(hasTestTag("camera-position-left"))
+        compose.onNodeWithTag("camera-position-left").performClick()
         list.performScrollToNode(hasTestTag("settings-camera-margin-slider"))
         expectMargin(32)
         val after = list.fetchSemanticsNode().boundsInRoot.left
@@ -99,4 +101,55 @@ class CameraAvoidanceUiTest {
         rotate(Configuration.ORIENTATION_LANDSCAPE)
         assertEquals(before, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
     }
+
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(compose.activity.getExternalFilesDir(null), "$name.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+
+    @Test fun registeredRightCameraSwapsToLeftOnlyAfterHalfTurn() {
+        compose.onNodeWithContentDescription("Settings").performClick()
+        val list = compose.onNodeWithTag("settings-list")
+        list.performScrollToNode(hasText("Avoid camera overlap"))
+        val baseline = compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.left
+        compose.onNodeWithText("Avoid camera overlap").performClick()
+        list.performScrollToNode(hasTestTag("camera-position-right"))
+        compose.onNodeWithTag("camera-position-right").performClick()
+        compose.waitUntil(5_000) { runBlocking {
+            container.settings.settings.first().cameraLeftRotation == (landscapeRotation + 2) % 4
+        } }
+        compose.onNodeWithTag("camera-position-right").assertIsSelected()
+        assertEquals(baseline, compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.left, 1f)
+        capture("camera-side-right")
+        val pixels = 32f * compose.activity.resources.displayMetrics.density
+        val opposite = (landscapeRotation + 2) % 4
+        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(opposite))
+        // A half turn remains landscape; the DisplayListener must update the UI.
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("sidebar").fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.left == baseline + pixels
+        }
+        compose.onNodeWithTag("camera-position-left").assertIsSelected()
+        capture("camera-side-left")
+        compose.activityRule.scenario.recreate()
+        if (compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("camera-position-left"))
+        compose.onNodeWithTag("camera-position-left").assertIsSelected()
+        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(landscapeRotation))
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("sidebar").fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.left == baseline
+        }
+        compose.onNodeWithTag("camera-position-right").assertIsSelected()
+        rotate(Configuration.ORIENTATION_PORTRAIT)
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("camera-position-left"))
+        compose.onNodeWithTag("camera-position-left").assertIsNotEnabled()
+        compose.onNodeWithTag("camera-position-right").assertIsNotEnabled()
+        capture("camera-side-portrait")
+        assertEquals(baseline, compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.left, 1f)
+    }
+
 }

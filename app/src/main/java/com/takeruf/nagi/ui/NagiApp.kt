@@ -314,7 +314,9 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     NagiTheme(state.settings.theme, state.currentSpace?.color ?: state.settings.themeColor) {
         val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val contentInsets = WindowInsets.safeDrawing.union(cameraAvoidanceInsets(state.settings, landscape))
+        val displayRotation = rememberDisplayRotation()
+        val contentInsets = cameraContentInsets(state.settings, landscape, displayRotation,
+            WindowInsets.safeDrawing, WindowInsets.systemBars, WindowInsets.ime)
         val compactNavigation = sidebarAdaptation.compact && route == "browser"
         val navigationInsets = WindowInsets.navigationBars
         val navigationDensity = LocalDensity.current
@@ -397,7 +399,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                 navigate("browser")
                             }
                         }, onToggleSidebar = { setSidebarCollapsed(!sidebarCollapsed) }, overlay = sidebarAdaptation.compact,
-                        backgroundExtension = if (state.settings.avoidCameraOverlap && landscape && !sidebarAdaptation.compact)
+                        backgroundExtension = if (cameraIsOnLeft(state.settings, landscape, displayRotation) && !sidebarAdaptation.compact)
                             with(density) { contentInsets.getLeft(this, androidx.compose.ui.platform.LocalLayoutDirection.current).toDp() }
                         else 0.dp)
                 }
@@ -473,7 +475,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         onTranslationOptions = { tab, engine ->
                                             translationRequest = PageTranslationRequest(tab.id, engine, engine.state.value.url)
                                         }) }
-                                    composable("settings") { SettingsScreen(state, vm,
+                                    composable("settings") { SettingsScreen(state, vm, displayRotation = displayRotation,
                                         onSuspendTabs = sessions::suspendBackground,
                                         onClearSiteData = { scope.launch {
                                             sessions.reset()
