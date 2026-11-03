@@ -1,6 +1,6 @@
 package com.takeruf.nagi
 
-import android.content.pm.ActivityInfo
+import android.app.UiAutomation
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
@@ -18,11 +18,15 @@ class CameraAvoidanceUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var container: AppContainer
     private lateinit var original: BrowserSettings
-    private var originalOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    private var originalRotation = 0
+    private var landscapeRotation = 0
 
     @Before fun setup() {
-        originalOrientation = compose.activity.requestedOrientation
-        rotate(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, Configuration.ORIENTATION_LANDSCAPE)
+        originalRotation = compose.activity.display?.rotation ?: 0
+        val currentlyLandscape = compose.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val naturallyLandscape = if (originalRotation % 2 == 0) currentlyLandscape else !currentlyLandscape
+        landscapeRotation = if (naturallyLandscape) 0 else 1
+        rotate(Configuration.ORIENTATION_LANDSCAPE)
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
@@ -33,11 +37,15 @@ class CameraAvoidanceUiTest {
     }
     @After fun cleanup() {
         if (::original.isInitialized) runBlocking { container.settings.update { original } }
-        compose.activityRule.scenario.onActivity { it.requestedOrientation = originalOrientation }
+        InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(originalRotation)
+        InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(UiAutomation.ROTATION_UNFREEZE)
     }
 
-    private fun rotate(request: Int, orientation: Int) {
-        compose.activityRule.scenario.onActivity { it.requestedOrientation = request }
+    private fun rotate(orientation: Int) {
+        // Target SDK 36 ignores requestedOrientation on large displays. Rotate the
+        // actual display instead, as a user would rotate a tablet.
+        val rotation = if (orientation == Configuration.ORIENTATION_LANDSCAPE) landscapeRotation else (landscapeRotation + 1) % 2
+        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(rotation))
         compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == orientation }
         compose.waitForIdle()
     }
@@ -81,14 +89,14 @@ class CameraAvoidanceUiTest {
         compose.onNodeWithText("Reset").performClick()
         expectMargin(32)
         // Portrait must remove the extra margin even while the preference stays ON.
-        rotate(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, Configuration.ORIENTATION_PORTRAIT)
+        rotate(Configuration.ORIENTATION_PORTRAIT)
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid camera overlap"))
         assertTrue(runBlocking { container.settings.settings.first().avoidCameraOverlap })
         val portraitOn = compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left
         compose.onNodeWithText("Avoid camera overlap").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("settings-camera-margin").fetchSemanticsNodes().isEmpty() }
         assertEquals(portraitOn, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
-        rotate(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, Configuration.ORIENTATION_LANDSCAPE)
+        rotate(Configuration.ORIENTATION_LANDSCAPE)
         assertEquals(before, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
     }
 }
