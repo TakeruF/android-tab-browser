@@ -292,6 +292,7 @@ class WebViewBrowserEngine(
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel() // Never bypass certificate validation.
+                wwwRetryUrl(error)?.let { retry -> loadUrl(retry); return }
                 failedNavigation = true
                 update { it.copy(isLoading = false, error = strings(R.string.ui_the_site_s_certificate_could_not_be_verified)) }
             }
@@ -805,6 +806,24 @@ class WebViewBrowserEngine(
         siteDisplayModes.remember(currentUrl, false)
         // loadUrl applies the remembered mode before requesting the sign-in entry point.
         loadUrl(retryUrl)
+    }
+    /** Only a pure host mismatch on the main document qualifies; any other certificate fault still fails. */
+    private fun wwwRetryUrl(error: SslError): String? {
+        if (!error.hasError(SslError.SSL_IDMISMATCH)) return null
+        val otherFaults = listOf(SslError.SSL_NOTYETVALID, SslError.SSL_EXPIRED, SslError.SSL_UNTRUSTED,
+            SslError.SSL_DATE_INVALID, SslError.SSL_INVALID)
+        if (otherFaults.any(error::hasError)) return null
+        val errorHost = runCatching { java.net.URI(error.url).host }.getOrNull() ?: return null
+        val pageHost = runCatching { java.net.URI(state.value.url).host }.getOrNull() ?: return null
+        if (!errorHost.equals(pageHost, ignoreCase = true)) return null
+        val certificate = error.certificate ?: return null
+        val names = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            runCatching {
+                certificate.x509Certificate?.subjectAlternativeNames.orEmpty()
+                    .filter { it.getOrNull(0) == 2 }.mapNotNull { it.getOrNull(1) as? String }
+            }.getOrDefault(emptyList())
+        } else emptyList()
+        return CertificateHostRecovery.wwwRetryUrl(state.value.url, names.ifEmpty { listOfNotNull(certificate.issuedTo?.cName) })
     }
     override fun findInPage(query: String) { (readerSurface ?: webView).findAllAsync(query) }
     override fun findNext(forward: Boolean) { (readerSurface ?: webView).findNext(forward) }
