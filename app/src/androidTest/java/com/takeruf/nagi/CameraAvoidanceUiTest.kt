@@ -1,5 +1,7 @@
 package com.takeruf.nagi
 
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -16,8 +18,11 @@ class CameraAvoidanceUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var container: AppContainer
     private lateinit var original: BrowserSettings
+    private var originalOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
     @Before fun setup() {
+        originalOrientation = compose.activity.requestedOrientation
+        rotate(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, Configuration.ORIENTATION_LANDSCAPE)
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
@@ -26,7 +31,16 @@ class CameraAvoidanceUiTest {
         }
         compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Settings").fetchSemanticsNodes().isNotEmpty() }
     }
-    @After fun cleanup() = runBlocking { container.settings.update { original } }
+    @After fun cleanup() {
+        if (::original.isInitialized) runBlocking { container.settings.update { original } }
+        compose.activityRule.scenario.onActivity { it.requestedOrientation = originalOrientation }
+    }
+
+    private fun rotate(request: Int, orientation: Int) {
+        compose.activityRule.scenario.onActivity { it.requestedOrientation = request }
+        compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == orientation }
+        compose.waitForIdle()
+    }
 
     private fun expectMargin(value: Int) {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("$value dp").fetchSemanticsNodes().isNotEmpty() }
@@ -66,9 +80,15 @@ class CameraAvoidanceUiTest {
         expectMargin(17)
         compose.onNodeWithText("Reset").performClick()
         expectMargin(32)
+        // Portrait must remove the extra margin even while the preference stays ON.
+        rotate(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, Configuration.ORIENTATION_PORTRAIT)
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid camera overlap"))
+        assertTrue(runBlocking { container.settings.settings.first().avoidCameraOverlap })
+        val portraitOn = compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left
         compose.onNodeWithText("Avoid camera overlap").performClick()
-        compose.onNodeWithTag("settings-camera-margin").assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("settings-camera-margin").fetchSemanticsNodes().isEmpty() }
+        assertEquals(portraitOn, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
+        rotate(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, Configuration.ORIENTATION_LANDSCAPE)
         assertEquals(before, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
     }
 }
