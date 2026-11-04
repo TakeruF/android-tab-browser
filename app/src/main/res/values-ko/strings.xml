@@ -312,7 +312,7 @@
     <string name="ui_disable_site_blocking">"이 사이트에서 차단 끄기 (%1$d개 차단)"</string>
     <string name="ui_private_mode">"비공개 탐색"</string>
     <string name="ui_close_private_mode">"비공개 탐색 종료"</string>
-    <string name="ui_private_description">"별도 사이트 데이터로 탐색하며 종료 시 탭과 사이트 데이터를 삭제합니다. 저장한 다운로드 파일은 기기에 남습니다."</string>
+    <string name="ui_private_description">"별도의 사이트 데이터를 사용합니다. 비공개 탐색을 종료하거나 최근 앱에서 Nagi를 제거할 때까지 탭을 유지합니다. 키보드에 학습 제한을 요청합니다. 저장한 다운로드는 기기에 남습니다."</string>
     <string name="ui_private_unavailable">"비공개 탐색을 사용하려면 Android System WebView를 업데이트하세요."</string>
     <string name="ui_reader_mode">"읽기 모드"</string>
     <string name="ui_exit_reader">"원래 페이지"</string>

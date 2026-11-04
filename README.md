@@ -16,6 +16,8 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
+Version 1.1.7 improves private-tab retention and requests keyboard learning suppression during private input. See [1.1.7 notes](docs/releases/1.1.7.md) for session limits and release status.
+
 Version 1.1.6 prevents autoplaying page videos from opening a floating window when switching tabs. Videos started manually can still continue in a floating window. See [1.1.6 notes](docs/releases/1.1.6.md).
 
 Version 1.1.4 adds a setting to avoid overlap with the in-display camera (off by default). See [1.1.4 notes](docs/releases/1.1.4.md).

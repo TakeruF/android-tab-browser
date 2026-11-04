@@ -14,6 +14,7 @@ import com.takeruf.nagi.browser.search.RegionalSearchDefaults
 class NagiApplication : Application() {
     lateinit var container: AppContainer
         private set
+    val privateWorkspaces by lazy { com.takeruf.nagi.browser.privacy.PrivateWorkspaces(this) }
     override fun onCreate() {
         super.onCreate()
         com.takeruf.nagi.browser.privacy.PrivateProfiles.removeStaleProfiles()

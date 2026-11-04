@@ -313,7 +313,7 @@
     <string name="ui_disable_site_blocking">"Disable blocking on this site (%1$d blocked)"</string>
     <string name="ui_private_mode">"Private browsing"</string>
     <string name="ui_close_private_mode">"Close private browsing"</string>
-    <string name="ui_private_description">"Private tabs use separate site data. Closing private browsing clears its tabs and site data. Downloads you save remain on the device."</string>
+    <string name="ui_private_description">"Uses separate site data. Tabs stay until you end private browsing or remove Nagi from Recents. Keyboard learning is discouraged. Saved downloads remain on your device."</string>
     <string name="ui_private_unavailable">"Update Android System WebView to use private browsing."</string>
     <string name="ui_reader_mode">"Reader mode"</string>
     <string name="ui_exit_reader">"Original page"</string>

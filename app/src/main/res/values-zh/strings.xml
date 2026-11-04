@@ -312,7 +312,7 @@
     <string name="ui_disable_site_blocking">"在此网站关闭拦截（已拦截 %1$d 项）"</string>
     <string name="ui_private_mode">"无痕浏览"</string>
     <string name="ui_close_private_mode">"结束无痕浏览"</string>
-    <string name="ui_private_description">"使用独立的网站数据，结束无痕浏览后会清除标签页和网站数据。已保存的下载文件仍会保留。"</string>
+    <string name="ui_private_description">"使用独立的网站数据。标签页会保留，直到结束无痕浏览或从最近使用的应用中移除 Nagi。会请求键盘限制学习。已保存的下载文件仍会保留。"</string>
     <string name="ui_private_unavailable">"请更新 Android System WebView 后使用无痕浏览。"</string>
     <string name="ui_reader_mode">"阅读模式"</string>
     <string name="ui_exit_reader">"返回原网页"</string>
