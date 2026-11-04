@@ -37,4 +37,38 @@ The [1.1.1 preflight](RELEASE_1.1.1_VERIFICATION.md) records the tested working-
 6. Save the production release as a draft. Check Publishing overview and record the exact remaining action. If the request is preparation only, stop before sending changes for review, starting a rollout or publishing. When the user explicitly authorizes a release, submit the verified change for review and complete the authorized rollout steps; report pending review separately from actual store availability.
 7. Separately report local source/tag, GitHub draft, website/profile deployment, accepted bundle, Console saved draft, review submission and actual store availability. Preparation proves only the stages reached.
 
+## Manual release workflow (GitHub Actions)
+
+[`.github/workflows/play-release.yml`](../.github/workflows/play-release.yml) automates steps 3–5 above. It has **only** a `workflow_dispatch` trigger; merging or pushing to `main` never builds or uploads. It runs only from `main` or `release/*`, one run at a time, in the `play-release` environment (add required reviewers there for a second approval gate).
+
+Inputs:
+
+| Input | Meaning |
+| --- | --- |
+| `release_notes` (required) | Play Console tags (`<en-US>…</en-US><ja-JP>…</ja-JP>…`), plain text (treated as en-US), or `@docs/play-store/release-notes-X.Y.Z.txt`. The web form is single-line: use `\n` for line breaks. Each language must be ≤500 characters. |
+| `track` | `internal` (default), `alpha` (closed), `beta` (open) or `production`. |
+| `status` | `draft` (default; saved in Console only) or `completed` (roll out, after review when required). |
+| `send_for_review` | Default `false`: committed changes wait for **Send for review** in Play Console. |
+| `run_unit_tests` | Default `true`: run `testPlayDebugUnitTest` before building. |
+
+```sh
+gh workflow run play-release.yml --ref main \
+  -f release_notes=@docs/play-store/release-notes-1.1.7.txt -f track=production -f status=draft
+```
+
+Pipeline: refuse other branches → read `versionName`/`versionCode` from `app/build.gradle.kts` → parse notes → refuse a versionCode already in the changelog or an existing `v<versionName>` tag on another commit → unit tests → build `bundlePlayRelease` with secrets-provided signing → verify the AAB signature and the upload-certificate SHA-256 above → upload bundle + notes to the track through the Play Developer API (the API's reported versionCode must match) → append to [`docs/releases/changelog.json`](releases/changelog.json) on `main` → optionally POST the same entry to an external store → create the `v<versionName>` tag if missing. The AAB and changelog entry are also kept as workflow artifacts. A successful run proves only that Play accepted the bundle; check Console for review and availability.
+
+Required secrets, stored as environment secrets of `play-release` (Settings → Environments → play-release; repository secrets also work):
+
+| Secret | Content |
+| --- | --- |
+| `NAGI_UPLOAD_KEYSTORE_BASE64` | `base64 -i upload.jks` of the upload keystore |
+| `NAGI_UPLOAD_STORE_PASSWORD` | keystore password (`storePassword`) |
+| `NAGI_UPLOAD_KEY_ALIAS` | `keyAlias` |
+| `NAGI_UPLOAD_KEY_PASSWORD` | `keyPassword` |
+| `PLAY_SERVICE_ACCOUNT_JSON` | JSON key of a Google Cloud service account invited in Play Console → Users and permissions with release permissions for Nagi |
+| `CHANGELOG_WEBHOOK_URL` / `CHANGELOG_WEBHOOK_TOKEN` | optional; endpoint receiving each changelog entry as JSON POST (Bearer token) |
+
+Optional repository variable `NAGI_UPLOAD_CERT_SHA256` overrides the expected upload-certificate fingerprint after an approved upload-key reset. Changelog entries contain `versionName`, `versionCode`, `releasedAt` (UTC), `track`, `status`, `commit`, `runUrl`, `aabSha256` and per-language `releaseNotes`. Helper logic lives in `scripts/play_release.py` (tests: `python3 -m unittest scripts/tests/test_play_release.py`).
+
 Privacy policy: `https://takeruf.com/nagi/privacy`, with English, Japanese, Simplified Chinese and Korean bodies. See [Play Console preparation](PLAY_CONSOLE.md) for declarations and store copy. Existing declarations must be checked against the exact candidate; no unrelated privacy/targeting changes are implied by distribution consolidation.
