@@ -351,6 +351,20 @@ class PrivacyReaderEngineTest {
         assertEquals("\"retain this draft\"", js(browser, "document.getElementById('draft').value"))
         assertEquals(previous.canGoBack, browser.state.value.canGoBack)
     }
+    @Test fun privatePageKeyboardRequestsNoLearningAndNormalPageDoesNot() {
+        lateinit var profile: String
+        main { profile = PrivateProfiles.create(); profiles.add(profile) }
+        for (privateMode in listOf(false, true)) {
+            val browser = engine(if (privateMode) profile else null)
+            load(browser, "/privacy")
+            js(browser, "document.body.innerHTML='<input id=privateEditor>';document.getElementById('privateEditor').focus();true")
+            main {
+                val info = android.view.inputmethod.EditorInfo()
+                (browser.surface as WebView).onCreateInputConnection(info)
+                assertEquals(privateMode, info.imeOptions and android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0)
+            }
+        }
+    }
     @Test fun privateProfileIsolatesCookiesAndStorageAndClearsWithoutTouchingNormal() {
         main { assertTrue("Test WebView must support profile isolation and deletion", PrivateProfiles.supported()) }
         lateinit var profile: String

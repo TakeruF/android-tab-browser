@@ -65,7 +65,7 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(strings(R.string.ui_private_mode), Modifier.weight(1f))
-                    TextButton(onClick = { activity.finish() }, modifier = Modifier.testTag("close-private-mode")) {
+                    TextButton(onClick = { (activity as PrivateActivity).closePrivateBrowsing() }, modifier = Modifier.testTag("close-private-mode")) {
                         Text(strings(R.string.ui_close_private_mode))
                     }
                 }

@@ -312,7 +312,7 @@
     <string name="ui_disable_site_blocking">"このサイトでブロックを無効にする（%1$d件）"</string>
     <string name="ui_private_mode">"プライベートモード"</string>
     <string name="ui_close_private_mode">"プライベートモードを終了"</string>
-    <string name="ui_private_description">"専用のサイトデータで閲覧し、終了時にタブとサイトデータを削除します。保存したダウンロードは端末に残ります。"</string>
+    <string name="ui_private_description">"独立したサイトデータを使用します。タブはプライベートモードを終了するか、最近使ったアプリから Nagi を削除するまで保持します。キーボードに学習を抑えるよう要求します。保存したダウンロードは残ります。"</string>
     <string name="ui_private_unavailable">"プライベートモードを使うにはAndroid System WebViewを更新してください。"</string>
     <string name="ui_reader_mode">"リーダーモード"</string>
     <string name="ui_exit_reader">"元のページ"</string>

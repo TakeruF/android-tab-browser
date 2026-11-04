@@ -47,6 +47,12 @@ class WebViewBrowserEngine(
     private val strings = NagiStrings(context)
     private val webTheme = android.view.ContextThemeWrapper(context, R.style.Theme_Nagi_Web_Light)
     private val webView = object : WebView(webTheme) {
+        override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
+            val connection = super.onCreateInputConnection(outAttrs)
+            com.takeruf.nagi.browser.privacy.PrivateKeyboard.apply(outAttrs, privateProfileName != null)
+            return connection
+        }
+
         override fun onProvideAutofillVirtualStructure(structure: android.view.ViewStructure, flags: Int) {
             if (!supportsPasswordAutofill) return
             super.onProvideAutofillVirtualStructure(FocusedAutofillStructure(structure) { id ->
@@ -318,7 +324,13 @@ class WebViewBrowserEngine(
             }
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
                 if (!isUserGesture || popupViews.size >= 2) return false
-                val popup = WebView(webTheme)
+                val popup = object : WebView(webTheme) {
+                    override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
+                        val connection = super.onCreateInputConnection(outAttrs)
+                        com.takeruf.nagi.browser.privacy.PrivateKeyboard.apply(outAttrs, privateProfileName != null)
+                        return connection
+                    }
+                }
                 popup.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
                 if (privateProfileName != null) PrivateProfiles.attach(popup, privateProfileName)
                 // This temporary window captures the target URL before a real tab is

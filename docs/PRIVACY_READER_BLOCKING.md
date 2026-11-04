@@ -34,7 +34,20 @@ tabs and Spaces. The banner closes the whole private workspace. Normal tabs
 stay alive behind it. Private tabs do not enter normal history, favorites,
 closed-tab restoration, favicon files, site display preferences, or saved
 Activity state. Private settings and bookmarks exist only for this workspace.
+The private workspace is owned by the app task, not the private Activity:
+Home, switching apps, Activity recreation, and leaving/reopening the private
+screen retain its tabs and isolated profile. Explicitly ending private mode or
+removing the app task from Recents destroys the workspace and clears site data.
+A non-sticky service observes task removal, and finishing the normal task root
+also ends the workspace. Reentry checks the owning task so a missed callback
+cannot reuse an old task's session. No foreground service
+or notification keeps the process alive. Tabs remain memory-only: Android
+process termination, force-stop, or reboot can end them before task removal.
 Autofill is disabled and Android screenshots/recents previews are blocked.
+All Compose editors and page/popup WebView input connections request
+`IME_FLAG_NO_PERSONALIZED_LEARNING`, preserving the provider's other IME options
+and CJK composition. Whether a private icon appears and the request is honored
+depends on the installed keyboard.
 Downloaded files and explicitly shared/copied information remain outside the
 private workspace; this mode is not a VPN or network anonymity service.
 
@@ -67,6 +80,16 @@ localStorage isolation/cleanup without clearing normal data, and private
 workspace/history/favicon separation. `PrivacyReaderUiTest` covers Reader
 controls, secure private Activity entry/exit, and site exception controls.
 Unit tests independently verify sanitization and memory-only settings.
+
+On 2026-11-04, 175 Play Debug unit tests and Debug/Release lint passed.
+Private/Reader engine and UI regressions passed 17 cases; a wide-window run
+passed task-lifetime plus four CJK input cases. The task-lifetime test also
+passed at 540dp width with system dark mode, including Home/launcher return,
+Activity recreation/reentry, delivered Compose IME metadata, task removal with
+the background observer service already stopped, and explicit session cleanup.
+WebView input metadata is checked separately for normal/private profiles.
+This is API-36 emulator evidence. Physical keyboards/IME privacy indicators and
+process-death restoration are not established by these checks.
 
 Final release results are in [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md). Physical devices and older WebView providers remain untested. Service-worker and WebSocket traffic are outside this WebViewClient interception integration. Request interception can precede onPageStarted, so counters are initialized at navigation and kept per document.
 

@@ -1,0 +1,12 @@
+<en-US>
+Improved private browsing. Private tabs stay when you switch apps or reopen the private screen, and close when you end private browsing or remove Nagi from Recents. Compatible keyboards are asked not to learn from private input.
+</en-US>
+<ja-JP>
+プライベートブラウジングを改善しました。アプリの切り替えやプライベート画面の開き直しでタブを保持し、モード終了時や最近使ったアプリからNagiを削除したときに閉じます。対応キーボードに、プライベート入力を学習しないよう要求します。
+</ja-JP>
+<zh-CN>
+改进了无痕浏览。切换应用或重新打开无痕界面时会保留标签页，结束无痕浏览或从最近使用的应用中移除Nagi时会关闭。会请求兼容的键盘不要学习无痕输入内容。
+</zh-CN>
+<ko-KR>
+비공개 탐색을 개선했습니다. 앱을 전환하거나 비공개 화면을 다시 열어도 탭을 유지하며, 비공개 탐색을 종료하거나 최근 앱에서 Nagi를 제거하면 닫힙니다. 지원되는 키보드에 비공개 입력을 학습하지 않도록 요청합니다.
+</ko-KR>
