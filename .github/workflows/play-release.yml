@@ -1,0 +1,252 @@
+# Manual Google Play release. This workflow has no push/PR/schedule triggers on purpose:
+# it only runs when someone starts it from the Actions tab or with `gh workflow run`.
+name: Play release (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: >-
+          Release notes. Play Console tags (<en-US>…</en-US><ja-JP>…</ja-JP>), plain text (= en-US),
+          or @docs/play-store/release-notes-X.Y.Z.txt. In the web form use \n for line breaks.
+        required: true
+        type: string
+      track:
+        description: Play track
+        required: true
+        type: choice
+        default: internal
+        options: [internal, alpha, beta, production]
+      status:
+        description: "draft = save in Console only; completed = roll out (after review if required)"
+        required: true
+        type: choice
+        default: draft
+        options: [draft, completed]
+      send_for_review:
+        description: Send the committed changes for review automatically (otherwise send them from Play Console)
+        required: false
+        type: boolean
+        default: false
+      run_unit_tests:
+        description: Run play debug unit tests before building
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: play-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CHANGELOG_PATH: docs/releases/changelog.json
+  AAB_PATH: app/build/outputs/bundle/playRelease/app-play-release.aab
+  # Upload certificate documented in docs/RELEASING.md. Override with the repository variable if the upload key is rotated.
+  EXPECTED_UPLOAD_CERT_SHA256: ${{ vars.NAGI_UPLOAD_CERT_SHA256 || 'a36f6aa66c975c3fc2d2b2d4c424dbb911cbef08b4e16532eba82acd6d7468cc' }}
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # Add required reviewers to this environment for an extra approval gate.
+    environment: play-release
+    permissions:
+      contents: write # push the changelog commit and the v<versionName> tag
+    steps:
+      - name: Allow only main or release/* branches
+        if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          echo "::error::Run this workflow from main or a release/* branch (got ${GITHUB_REF})"
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version
+        id: version
+        run: python3 scripts/play_release.py version
+
+      - name: Parse release notes
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: python3 scripts/play_release.py notes --out "$RUNNER_TEMP/release-notes.json"
+
+      - name: Refuse already released versionCode
+        run: |
+          git show "origin/${{ github.event.repository.default_branch }}:${CHANGELOG_PATH}" > "$RUNNER_TEMP/changelog-main.json" 2>/dev/null || echo '[]' > "$RUNNER_TEMP/changelog-main.json"
+          python3 scripts/play_release.py check-new --changelog "$RUNNER_TEMP/changelog-main.json" \
+            --version-code "${{ steps.version.outputs.version_code }}"
+
+      - name: Refuse an existing tag on another commit
+        env:
+          TAG: v${{ steps.version.outputs.version_name }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            tagged="$(git rev-list -n1 "${TAG}")"
+            if [ "${tagged}" != "${GITHUB_SHA}" ]; then
+              echo "::error::${TAG} points to ${tagged}, not ${GITHUB_SHA}. Bump the version or run from the tagged commit."
+              exit 1
+            fi
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        if: inputs.run_unit_tests
+        run: ./gradlew :app:testPlayDebugUnitTest --no-parallel
+
+      - name: Prepare signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NAGI_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.NAGI_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NAGI_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NAGI_UPLOAD_KEY_PASSWORD }}
+        run: |
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then echo "::error::Missing signing secret for ${name}"; exit 1; fi
+          done
+          umask 077
+          dir="$RUNNER_TEMP/signing"
+          mkdir -p "$dir"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$dir/upload.jks"
+          {
+            echo "storeFile=$dir/upload.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > "$dir/release-signing.properties"
+          echo "NAGI_SIGNING_PROPERTIES=$dir/release-signing.properties" >> "$GITHUB_ENV"
+
+      - name: Build signed AAB
+        run: ./gradlew :app:bundlePlayRelease --no-parallel
+
+      - name: Verify AAB signature and upload certificate
+        id: aab
+        run: |
+          jarsigner -verify "$AAB_PATH" > /dev/null
+          actual="$(keytool -printcert -jarfile "$AAB_PATH" | awk '/SHA256:/ {print $2; exit}' | tr -d ':' | tr 'A-F' 'a-f')"
+          if [ "$actual" != "$EXPECTED_UPLOAD_CERT_SHA256" ]; then
+            echo "::error::Upload certificate SHA-256 ${actual} does not match ${EXPECTED_UPLOAD_CERT_SHA256}"
+            exit 1
+          fi
+          echo "sha256=$(sha256sum "$AAB_PATH" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Remove signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/signing"
+
+      - name: Keep AAB as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nagi-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}-aab
+          path: ${{ env.AAB_PATH }}
+          retention-days: 30
+
+      - name: Install Play API client
+        run: python3 -m pip install --disable-pip-version-check -r scripts/requirements-play.txt
+
+      - name: Upload to Google Play
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then echo "::error::Missing PLAY_SERVICE_ACCOUNT_JSON secret"; exit 1; fi
+          python3 scripts/play_release.py upload \
+            --aab "$AAB_PATH" \
+            --track "${{ inputs.track }}" \
+            --status "${{ inputs.status }}" \
+            --notes "$RUNNER_TEMP/release-notes.json" \
+            --version-name "${{ steps.version.outputs.version_name }}" \
+            --version-code "${{ steps.version.outputs.version_code }}" \
+            --send-for-review "${{ inputs.send_for_review }}"
+
+      # ---- Changelog persistence (runs only after a successful Play upload) ----
+
+      - name: Check out default branch for the changelog
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: changelog-repo
+
+      - name: Record changelog entry
+        working-directory: changelog-repo
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          released_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for attempt in 1 2 3; do
+            git fetch origin "${{ github.event.repository.default_branch }}"
+            git reset --hard FETCH_HEAD
+            python3 "$GITHUB_WORKSPACE/scripts/play_release.py" changelog \
+              --changelog "$CHANGELOG_PATH" \
+              --entry-out "$RUNNER_TEMP/changelog-entry.json" \
+              --notes "$RUNNER_TEMP/release-notes.json" \
+              --version-name "$VERSION_NAME" --version-code "$VERSION_CODE" \
+              --track "${{ inputs.track }}" --status "${{ inputs.status }}" \
+              --released-at "$released_at" --commit "$GITHUB_SHA" \
+              --run-url "$RUN_URL" --aab-sha256 "${{ steps.aab.outputs.sha256 }}"
+            git add "$CHANGELOG_PATH"
+            git commit -m "Record Nagi ${VERSION_NAME} (${VERSION_CODE}) ${{ inputs.track }} release in changelog"
+            if git push origin "HEAD:${{ github.event.repository.default_branch }}"; then exit 0; fi
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push the changelog; recover it from the changelog-entry artifact"
+          exit 1
+
+      - name: Keep changelog entry as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-entry-${{ steps.version.outputs.version_code }}
+          path: ${{ runner.temp }}/changelog-entry.json
+          if-no-files-found: ignore
+
+      - name: Post changelog entry to external store (optional)
+        env:
+          CHANGELOG_WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
+          CHANGELOG_WEBHOOK_TOKEN: ${{ secrets.CHANGELOG_WEBHOOK_TOKEN }}
+        run: |
+          if [ -z "$CHANGELOG_WEBHOOK_URL" ]; then echo "CHANGELOG_WEBHOOK_URL not set; skipping"; exit 0; fi
+          auth=()
+          if [ -n "$CHANGELOG_WEBHOOK_TOKEN" ]; then auth=(-H "Authorization: Bearer ${CHANGELOG_WEBHOOK_TOKEN}"); fi
+          curl --fail-with-body -sS -X POST "${auth[@]}" -H "Content-Type: application/json" \
+            --data-binary "@$RUNNER_TEMP/changelog-entry.json" "$CHANGELOG_WEBHOOK_URL"
+
+      - name: Tag the released source
+        env:
+          TAG: v${{ steps.version.outputs.version_name }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then echo "${TAG} already exists"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Nagi ${{ steps.version.outputs.version_name }} (${{ steps.version.outputs.version_code }})" "$GITHUB_SHA"
+          git push origin "refs/tags/${TAG}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Nagi ${{ steps.version.outputs.version_name }} (${{ steps.version.outputs.version_code }})"
+            echo "- Track: \`${{ inputs.track }}\`, status: \`${{ inputs.status }}\`, sent for review: \`${{ inputs.send_for_review }}\`"
+            echo "- AAB SHA-256: \`${{ steps.aab.outputs.sha256 }}\`"
+            echo "- Changelog: \`${CHANGELOG_PATH}\` on \`${{ github.event.repository.default_branch }}\`"
+            echo ""
+            echo "Uploading proves only that Play accepted the bundle. Check Play Console for review state and store availability."
+          } >> "$GITHUB_STEP_SUMMARY"
