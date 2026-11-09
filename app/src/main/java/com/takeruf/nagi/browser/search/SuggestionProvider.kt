@@ -63,14 +63,15 @@ object SuggestionProvider {
             }
         }
         if (!commandOnly) {
-            workspace.tabs.filter { it.closedAt == null && it.archivedAt == null &&
+            val currentSpaceId = workspace.spaces.firstOrNull { it.id == settings.selectedSpaceId }?.id ?: workspace.spaces.firstOrNull()?.id
+            workspace.tabs.filter { (settings.spacesEnabled || it.spaceId == currentSpaceId) && it.closedAt == null && it.archivedAt == null &&
                 (query.isEmpty() || it.title.contains(query, true) || it.url.contains(query, true)) }.take(5).forEach {
                 result += Suggestion("tab:${it.id}", SuggestionCategory.TABS, (if (it.url == "about:blank") localize("New tab") else it.title), it.url, SuggestionAction.SelectTab(it.id))
             }
             if (query.isNotEmpty()) workspace.history.distinctBy { it.url }.filter { it.title.contains(query, true) || it.url.contains(query, true) }.take(4).forEach {
                 result += Suggestion("history:${it.id}", SuggestionCategory.HISTORY, it.title, it.url, SuggestionAction.Navigate(it.url))
             }
-            workspace.spaces.filter { query.isEmpty() || it.name.contains(query, true) }.forEach {
+            workspace.spaces.filter { settings.spacesEnabled && (query.isEmpty() || it.name.contains(query, true)) }.forEach {
                 result += Suggestion("space:${it.id}", SuggestionCategory.SPACES, localize("Switch to %1\$s").format(if (it.id in listOf("personal", "work") && it.name in listOf("Personal", "Work")) localize(it.name) else it.name), localize("Space"), SuggestionAction.SelectSpace(it.id))
             }
         }

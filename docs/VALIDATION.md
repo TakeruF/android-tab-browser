@@ -31,7 +31,9 @@ Video instrumentation uses local HTML5 fixtures for playback, fullscreen, system
 ffmpeg -f lavfi -i testsrc2=size=320x180:rate=15 -t 6 -an -c:v libx264 -profile:v baseline -pix_fmt yuv420p -crf 32 -movflags +faststart app/src/androidTest/assets/video.mp4
 ```
 
-Playing videos automatically pop out when their source tab is hidden by a switch to another tab or Space. Showing the source again (including in either Split pane) returns the same video to its page without pausing or reloading. Going Home automatically enters Android system PiP only for an existing fullscreen or pop-out video, including when only one tab is open. Ordinary inline playback, including muted autoplay, never enables Home/PiP; leaving fullscreen disables it again. Paused or ended videos do not start an automatic presentation. Settings independently persist automatic tab pop-out and Home/PiP, both enabled by default; no manual pop-out button is injected into websites.
+User-started playing videos automatically pop out when their source tab is hidden by a switch to another tab or Space. Showing the source again (including in either Split pane) returns the same video to its page without pausing or reloading. Going Home automatically enters Android system PiP only for an existing fullscreen or pop-out video, including when only one tab is open. Ordinary inline playback, including muted autoplay, never enables Home/PiP; leaving fullscreen disables it again. Autoplaying page demos do not pop out on tab switches; playback intent is tracked per video and cleared when its media source is reset. Paused or ended videos do not start an automatic presentation. Settings independently persist automatic tab pop-out and Home/PiP, both enabled by default; no manual pop-out button is injected into websites.
+
+Local verification on 2026-11-04 passed 16 `VideoPresentationTest` cases (API 26/35), all 12 `VideoUiTest` cases on the API 36 `Nagi_113_PiP_Release_QA` emulator, GitHub Debug build, and lint. The final policy permits tab pop-out for user-started videos and existing fullscreen playback, while autoplaying page demos remain inline. The real WebView regression visits a muted autoplay demo without controls, performs an unrelated page action, switches tabs, and checks that no presentation is created. Existing tests cover manual playback pop-out, cross-origin frames, repeated zoomed tab switches, and fullscreen/system PiP. Logs and screenshots are saved in `artifacts/pip-manual-20261104/`. This does not establish verification on the recording's physical device or a distributed release.
 
 The Home/PiP policy was checked against public browser sources on 2026-11-03. Chromium's [fullscreen video controller](https://github.com/chromium/chromium/blob/main/chrome/android/java/src/org/chromium/chrome/browser/media/FullscreenVideoPictureInPictureController.java) requires an active effectively fullscreen video with PiP allowed. Firefox's [Android PiP feature](https://github.com/mozilla/firefox/blob/main/mobile/android/android-components/components/feature/session/src/main/java/mozilla/components/feature/session/PictureInPictureFeature.kt) requires fullscreen plus playing media. Chromium also has a separate [site-registered automatic PiP feature](https://github.com/chromium/chromium/blob/main/media/base/media_switches.cc), disabled by default in the inspected source; it is not equivalent to promoting every playing HTML video. These are source observations, not tests of installed Chrome/Firefox versions. Nagi additionally preserves PiP continuation from an existing in-app video pop-out.
 
@@ -52,6 +54,49 @@ WebView keeps its ordinary white canvas when the app theme changes. A pixel regr
 Website color preference follows the effective app theme (System, Light, or Dark). Each engine uses an isolated native theme context; changes dispatch WebView configuration updates without navigation, JavaScript media-query shims, or forced color inversion. `WebViewEngineTest#websiteColorSchemeChangesWithoutReloadingOrLosingPageState` checks initial dark preference, live light/dark matchMedia events, actual CSS media-query colors, preserved JavaScript state, and a single document request.
 
 Password autofill is disabled in the production configuration pending approval. Regression checks assert that native WebView autofill is excluded, direct manual requests return awaiting-approval status, the entire Settings section and page-menu action are absent, and no awaiting-approval notice is shown in the normal UI. Retained synthetic-provider tests explicitly opt in to the implementation and are not evidence that the production feature is available.
+
+## Commit validation (2026-11-09)
+
+Play Debug unit tests passed all 180 cases. Play Debug/Release lint reported
+zero errors and 72 warnings each; Debug and instrumentation APK builds passed.
+On the API 36 `Nagi_114_Camera_QA` emulator (`emulator-5580`, WebView 133),
+all 12 `VideoUiTest` cases passed. The initial combined run then crashed while
+closing an unused private profile. `PrivateProfiles.clear` now checks that the
+profile exists before accessing provider storage; the added unused-profile
+regression and all 15 selected private-lifetime, privacy/Reader-engine, and
+camera-settings cases passed on rerun.
+
+Camera settings also passed standalone at 1280×800 dp in light mode and
+540×360 dp in dark mode, with screenshots visually inspected. The narrow run
+initially timed out because the test assumed a visible sidebar Settings button;
+the test now opens the compact tab sheet when needed and passed on rerun.
+Evidence is retained under ignored `artifacts/commit-review-20261109/`.
+Split-pane camera layout and physical-device behavior were not checked in this
+run. These results do not establish a full instrumentation suite or store release.
+
+## Landscape camera avoidance
+
+The camera behavior matches the shipped 1.1.7 source: Settings → Appearance
+registers the camera's physical side in landscape. Extra spacing of 0–64 dp
+(default 32 dp) is applied only when the camera is on the left, following
+180-degree display rotation. Portrait and right-side camera positions add no
+camera margin. Registration and margin survive preference updates and restarts.
+The expanded sidebar continues its background into the left margin.
+
+The 2026-11-09 commit initially reintroduced the earlier symmetric-margin
+implementation from the old 1.1.2 branch. The follow-up restores camera-specific
+production code, translations, and calibration regression tests from `v1.1.7`,
+while preserving the Spaces setting and private-profile crash fix. Earlier
+symmetric-margin test results above describe that superseded implementation.
+
+Follow-up validation on 2026-11-09 passed all 180 Play Debug unit tests,
+Debug/Release lint (zero errors, 72 warnings each), and Debug/test APK builds.
+Both restored `CameraAvoidanceUiTest` cases passed on `emulator-5580`:
+position registration, half-turn left/right switching, portrait exclusion,
+fine adjustment/reset, and Activity recreation. The position selector screenshot
+was inspected in the wide light layout. Evidence is under ignored
+`artifacts/camera-preserve-20261109/`. Narrow/dark and Split were not rerun for
+this follow-up; physical camera placement remains unverified.
 
 ## Local artifact retention
 

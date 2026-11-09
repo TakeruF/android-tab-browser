@@ -397,4 +397,14 @@
     <string name="ui_camera_position_left">왼쪽</string>
     <string name="ui_camera_position_right">오른쪽</string>
     <string name="ui_camera_position_behavior">카메라가 왼쪽에 있을 때만 여백이 생깁니다. 기기를 돌리면 자동으로 전환됩니다.</string>
+    <string name="ui_spaces_enabled">스페이스 사용</string>
+    <string name="ui_spaces_enabled_description">탭을 스페이스별로 나누어 정리합니다.</string>
+    <string name="ui_pinned_tabs">고정된 탭</string>
+    <string name="ui_keep_open_tabs_between_sessions">다음 실행 시 열려 있던 탭을 복원합니다</string>
+    <string name="ui_enable_spaces_title">스페이스를 켤까요?</string>
+    <string name="ui_disable_spaces_title">스페이스를 끌까요?</string>
+    <string name="ui_enable_spaces">스페이스 켜기</string>
+    <string name="ui_disable_spaces">스페이스 끄기</string>
+    <string name="ui_enable_spaces_message">스페이스를 전환하며 탭을 따로 정리할 수 있습니다.\n\n스페이스 만들기·편집·삭제, 스페이스 간 탭 이동, 가로 스와이프 전환을 사용할 수 있습니다. 탭 검색과 닫은 탭 복원은 모든 스페이스를 대상으로 하며 각 스페이스의 색상이 화면에 반영됩니다.\n\n저장된 스페이스와 탭을 다시 사용할 수 있습니다. 즐겨찾기, 고정 탭, 분할 보기도 계속 사용할 수 있습니다.</string>
+    <string name="ui_disable_spaces_message">현재 스페이스만 일반 탭 목록으로 사용합니다.\n\n스페이스 전환·만들기·편집·삭제, 스페이스 간 탭 이동, 가로 스와이프 전환이 숨겨집니다. 탭 검색과 닫은 탭 복원은 현재 스페이스로 제한되며 화면에는 설정한 테마 색상을 사용합니다.\n\n다른 스페이스와 탭은 보관되며 다시 켜면 사용할 수 있습니다. 즐겨찾기, 고정 탭, 분할 보기도 계속 사용할 수 있습니다. 스페이스나 탭은 삭제되지 않습니다.</string>
 </resources>

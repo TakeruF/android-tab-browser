@@ -32,6 +32,23 @@ class WorkspaceRepositoryTest {
         spaces = SpaceRepository(workspace, settings, tabs); workspace.initialize()
     }
     @After fun close() { db.close() }
+    @Test fun disabledSpacesRestoreOnlyCurrentTabsAndKeepOtherSpacesIntact() = runBlocking {
+        val local = tabs.create("personal", "https://example.com/local")
+        val hidden = tabs.create("work", "https://example.com/hidden")
+        tabs.close(local)
+        tabs.close(hidden)
+        val savedSpaces = db.browserDao().spaces()
+        settings.update { it.copy(selectedSpaceId = "personal", spacesEnabled = false) }
+        assertEquals(local, tabs.restoreClosed())
+        assertEquals("personal", settings.settings.first().selectedSpaceId)
+        assertNotNull(db.browserDao().tab(hidden)!!.closedAt)
+        assertNull(tabs.restoreClosed())
+        settings.update { it.copy(spacesEnabled = true) }
+        assertEquals(savedSpaces.map { it.id }, db.browserDao().spaces().map { it.id })
+        assertEquals(hidden, tabs.restoreClosed())
+        assertEquals("work", settings.settings.first().selectedSpaceId)
+    }
+
     @Test fun versionOneDatabaseMigratesWithoutLosingTabs() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val name = "back-migration-${System.nanoTime()}.db"

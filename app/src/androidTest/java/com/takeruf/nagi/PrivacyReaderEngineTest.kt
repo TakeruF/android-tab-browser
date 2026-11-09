@@ -351,6 +351,18 @@ class PrivacyReaderEngineTest {
         assertEquals("\"retain this draft\"", js(browser, "document.getElementById('draft').value"))
         assertEquals(previous.canGoBack, browser.state.value.canGoBack)
     }
+    @Test fun closingUnusedPrivateProfileCompletesWithoutCreatingSiteData() {
+        val done = CompletableFuture<Unit>()
+        main {
+            assertTrue(PrivateProfiles.supported())
+            val name = PrivateProfiles.create()
+            val store = androidx.webkit.ProfileStore.getInstance()
+            assertFalse(name in store.allProfileNames)
+            PrivateProfiles.clear(name) { done.complete(Unit) }
+            assertFalse(name in store.allProfileNames)
+        }
+        done.get(15, TimeUnit.SECONDS)
+    }
     @Test fun privatePageKeyboardRequestsNoLearningAndNormalPageDoesNot() {
         lateinit var profile: String
         main { profile = PrivateProfiles.create(); profiles.add(profile) }

@@ -311,7 +311,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
     BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
-    NagiTheme(state.settings.theme, state.currentSpace?.color ?: state.settings.themeColor) {
+    NagiTheme(state.settings.theme, if (state.settings.spacesEnabled) state.currentSpace?.color ?: state.settings.themeColor else state.settings.themeColor) {
         val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val displayRotation = rememberDisplayRotation()
