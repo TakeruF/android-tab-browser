@@ -8,6 +8,8 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
@@ -71,6 +73,25 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
     var clearHistory by remember { mutableStateOf(false) }
     var clearSiteData by remember { mutableStateOf(false) }
     val prefs = state.settings
+    var pendingSpacesEnabled by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    pendingSpacesEnabled?.let { enabled ->
+        AlertDialog(
+            onDismissRequest = { pendingSpacesEnabled = null },
+            modifier = Modifier.testTag("spaces-confirmation"),
+            title = { NagiSystemBars(); Text(strings(if (enabled) R.string.ui_enable_spaces_title else R.string.ui_disable_spaces_title)) },
+            text = { Text(strings(if (enabled) R.string.ui_enable_spaces_message else R.string.ui_disable_spaces_message),
+                Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = {
+                TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("confirm-spaces-change"), onClick = {
+                    vm.updateSettings { it.copy(spacesEnabled = enabled) }
+                    pendingSpacesEnabled = null
+                }) { Text(strings(if (enabled) R.string.ui_enable_spaces else R.string.ui_disable_spaces)) }
+            },
+            dismissButton = {
+                TextButton(shape = NagiShapes.Rounded, onClick = { pendingSpacesEnabled = null }) { Text(strings(R.string.ui_cancel)) }
+            },
+        )
+    }
     Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_browser), onClick = onBack)
@@ -80,6 +101,9 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             }
         LazyColumn(Modifier.weight(1f).testTag("settings-list"), state = settingsListState, contentPadding = PaddingValues(32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { SettingsSection(strings(R.string.ui_general), NagiIcons.Globe) {
+            SettingToggle(strings(R.string.ui_spaces_enabled), strings(R.string.ui_spaces_enabled_description), prefs.spacesEnabled) { value ->
+                pendingSpacesEnabled = value
+            }
             var defaultsMenu by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings(R.string.ui_default_search_engine), Modifier.weight(1f))
@@ -121,7 +145,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             SettingToggle(strings(R.string.ui_open_links_in_new_tab), strings(R.string.ui_page_links_you_tap_open_as_a_new_tab), prefs.openLinksInNewTab) { value -> vm.updateSettings { it.copy(openLinksInNewTab = value) } }
             SettingToggle(strings(R.string.ui_block_external_apps), strings(R.string.ui_block_external_apps_description), prefs.blockExternalApps) { value -> vm.updateSettings { it.copy(blockExternalApps = value) } }
             SettingToggle(strings(R.string.ui_page_drag), strings(R.string.ui_page_drag_description), prefs.nativePageDrag) { value -> vm.updateSettings { it.copy(nativePageDrag = value) } }
-            SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(R.string.ui_keep_your_spaces_and_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
+            SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(if (prefs.spacesEnabled) R.string.ui_keep_your_spaces_and_open_tabs_between_sessions else R.string.ui_keep_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
             SettingToggle(strings(R.string.ui_desktop_site_by_default), strings(R.string.ui_use_a_desktop_user_agent_for_newly_created_sessions), prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
         } }
         item { SettingsSection(strings(R.string.ui_video), NagiIcons.Monitor) {

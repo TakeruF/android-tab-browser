@@ -75,6 +75,7 @@ data class BrowserSettings(
     val translationTargetLanguage: String? = null,
     val alwaysTranslateLanguages: Map<String, String> = emptyMap(),
     val bottomSearchBar: Boolean = false,
+    val spacesEnabled: Boolean = true,
 )
 
 data class WorkspaceSnapshot(

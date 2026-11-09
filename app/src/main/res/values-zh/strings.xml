@@ -382,4 +382,14 @@
     <string name="ui_autofill_no_suggestions">自动填充服务未显示任何候选项。</string>
     <string name="ui_autofill_requested">已向自动填充服务请求候选项。</string>
     <string name="ui_autofill_pending">暂不支持（等待批准）</string>
+    <string name="ui_spaces_enabled">使用空间</string>
+    <string name="ui_spaces_enabled_description">按空间分别整理标签页。</string>
+    <string name="ui_pinned_tabs">固定的标签页</string>
+    <string name="ui_keep_open_tabs_between_sessions">下次启动时恢复已打开的标签页</string>
+    <string name="ui_enable_spaces_title">开启空间功能？</string>
+    <string name="ui_disable_spaces_title">关闭空间功能？</string>
+    <string name="ui_enable_spaces">开启空间</string>
+    <string name="ui_disable_spaces">关闭空间</string>
+    <string name="ui_enable_spaces_message">可切换空间，分别整理标签页。\n\n可创建、编辑、删除空间，在空间之间移动标签页，并通过横向滑动切换空间。标签页搜索和已关闭标签页的恢复将涵盖所有空间，界面会使用各空间的颜色。\n\n已保存的空间和标签页将重新可用。收藏、固定标签页和分屏仍可使用。</string>
+    <string name="ui_disable_spaces_message">仅将当前空间作为普通标签页列表使用。\n\n隐藏空间切换、创建、编辑、删除、跨空间移动标签页及横向滑动切换功能。标签页搜索和已关闭标签页的恢复仅限当前空间，界面使用设置的主题颜色。\n\n其他空间和标签页会保留，重新开启后即可使用。收藏、固定标签页和分屏仍可使用。不会删除任何空间或标签页。</string>
 </resources>

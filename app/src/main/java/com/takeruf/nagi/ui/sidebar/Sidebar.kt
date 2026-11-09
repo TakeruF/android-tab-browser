@@ -83,7 +83,8 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     var deleteSpace by remember { mutableStateOf<Space?>(null) }
     var mouseInput by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
-    val spaces = state.workspace.spaces
+    val spacesEnabled = state.settings.spacesEnabled
+    val spaces = if (spacesEnabled) state.workspace.spaces else listOfNotNull(state.currentSpace)
     val splitLeft = state.visibleTabs.firstOrNull { it.id == splitLeftTabId }
     val splitRight = state.visibleTabs.firstOrNull { it.id == splitRightTabId && it.id != splitLeft?.id }
     fun selectTab(tab: BrowserTab) {
@@ -124,7 +125,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         .coerceIn(0f, spaces.lastIndex.coerceAtLeast(0).toFloat())
     val startPage = position.toInt()
     val endPage = (startPage + 1).coerceAtMost(spaces.lastIndex.coerceAtLeast(0))
-    val swipeSeed = lerp(Color(spaces.getOrNull(startPage)?.color ?: 0xFF426B5A),
+    val swipeSeed = if (!spacesEnabled) Color(state.settings.themeColor) else lerp(Color(spaces.getOrNull(startPage)?.color ?: 0xFF426B5A),
         Color(spaces.getOrNull(endPage)?.color ?: 0xFF426B5A), position - startPage)
     val sidebarPalette = themeColorScheme(palette.background.luminance() < 0.5f, swipeSeed.toArgb().toLong())
     val tint = sidebarPalette.background
@@ -179,8 +180,14 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         }
     }
     LaunchedEffect(state.currentSpace?.id, collapsed) { drag.cancel() }
+    LaunchedEffect(spacesEnabled) {
+        drag.cancel()
+        if (!spacesEnabled) {
+            spacesMenu = false; createSpace = false; editingSpace = null; deleteSpace = null
+        }
+    }
     Box(Modifier.fillMaxSize().clip(NagiShapes.Sidebar).background(Brush.verticalGradient(listOf(sidebarTop, sidebarBottom)))
-        .sidebarSpaceSwipe(drag,
+        .sidebarSpaceSwipe(drag, enabled = spacesEnabled,
             onStart = { settling?.cancel(); gesturePage = selectedPage },
             onDrag = { delta ->
                 // Keep each gesture within the two neighboring Spaces, including at the ends.
@@ -327,9 +334,9 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                     Icon(if (pinnedCollapsed && drag.item == null) NagiIcons.ChevronRight else NagiIcons.ChevronDown,
                                         strings(R.string.ui_toggle_pinned_tabs), Modifier.size(18.dp))
                                 }
-                                SpaceIcon(state.currentSpace?.icon ?: "◉", spaceForeground)
-                                Text(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_space), Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleSmall)
-                                Box {
+                                if (spacesEnabled) SpaceIcon(state.currentSpace?.icon ?: "◉", spaceForeground)
+                                Text(if (spacesEnabled) state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_space) else strings(R.string.ui_pinned_tabs), Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleSmall)
+                                if (spacesEnabled) Box {
                                     ToolButton(NagiIcons.Ellipsis, strings(R.string.ui_space_actions)) { spacesMenu = true }
                                     NagiOverflowMenu(spacesMenu, { spacesMenu = false }) {
                                         NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Plus, null) }, text = { Text(strings(R.string.ui_new_space)) }, onClick = { createSpace = true; spacesMenu = false })
@@ -384,7 +391,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 }
             }
             Spacer(Modifier.height(if (collapsed) 0.dp else 8.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            if (spacesEnabled) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 state.workspace.spaces.forEach { space ->
                     val highlighted = drag.destination?.section == SidebarSection.SPACE && drag.destination?.id == space.id
@@ -607,7 +614,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                 }
                 NagiOverflowMenu(menu, { menu = false }, modifier = Modifier.width((state.settings.sidebarWidth - 24f).dp)) {
                     NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_open_in_right_pane)) }, onClick = { onSplit(); menu = false })
-                    state.workspace.spaces.filter { it.id != tab.spaceId }.forEach { space ->
+                    state.workspace.spaces.filter { state.settings.spacesEnabled && it.id != tab.spaceId }.forEach { space ->
                         NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_move_to_1_s, strings.spaceName(space))) }, onClick = { vm.moveTab(tab.id, space.id); menu = false })
                     }
                     NagiOverflowMenuDivider()

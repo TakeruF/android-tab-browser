@@ -12,6 +12,7 @@ private val Context.browserDataStore by preferencesDataStore("browser_settings")
 
 class SettingsStore(context: Context, private val store: androidx.datastore.core.DataStore<Preferences> = context.applicationContext.browserDataStore) {
     private object Keys {
+        val spacesEnabled = booleanPreferencesKey("spaces_enabled")
         val bottomSearchBar = booleanPreferencesKey("bottom_search_bar")
         val theme = stringPreferencesKey("theme")
         // Keep the original storage key so existing color choices survive this rename.
@@ -48,6 +49,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
     val settings: Flow<BrowserSettings> = store.data.catch {
         if (it is IOException) emit(emptyPreferences()) else throw it
     }.map { p -> BrowserSettings(
+        spacesEnabled = p[Keys.spacesEnabled] ?: true,
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
         newTabBackground = enumOrDefault(p[Keys.newTabBackground], NewTabBackground.DEFAULT),
         newTabColor = p[Keys.newTabColor] ?: 0xFF426B5A,
@@ -92,6 +94,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 p[Keys.automaticRegion] ?: true,
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
                 p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
+                spacesEnabled = p[Keys.spacesEnabled] ?: true,
                 bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
                 nativePageDrag = p[Keys.pageDrag] ?: true,
                 blockExternalApps = p[Keys.blockExternal] ?: false,
@@ -105,6 +108,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 translationTargetLanguage = p[Keys.translationTargetLanguage],
                 alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
             val next = change(current)
+            p[Keys.spacesEnabled] = next.spacesEnabled
             p[Keys.bottomSearchBar] = next.bottomSearchBar
             next.translationTargetLanguage?.let { p[Keys.translationTargetLanguage] = it } ?: p.remove(Keys.translationTargetLanguage)
             p[Keys.alwaysTranslateLanguages] = next.alwaysTranslateLanguages.filter { (source, target) -> source != target }

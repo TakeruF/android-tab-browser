@@ -15,10 +15,12 @@ import kotlin.math.abs
 @Composable
 fun Modifier.sidebarSpaceSwipe(
     drag: SidebarDragState,
+    enabled: Boolean = true,
     onStart: () -> Unit,
     onDrag: (delta: Float) -> Unit,
     onFinish: (forward: Boolean?) -> Unit,
 ): Modifier {
+    if (!enabled) return this
     val start by rememberUpdatedState(onStart)
     val move by rememberUpdatedState(onDrag)
     val finish by rememberUpdatedState(onFinish)

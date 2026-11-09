@@ -57,8 +57,12 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
     }
     suspend fun restoreClosed(): String? {
         workspace.ready.await()
+        val prefs = settings.settings.first()
         val tab = db.withTransaction {
-            val closed = dao.lastClosed() ?: return@withTransaction null
+            val spaceId = dao.spaces().firstOrNull { it.id == prefs.selectedSpaceId }?.id ?: dao.spaces().firstOrNull()?.id
+            val closed = (if (prefs.spacesEnabled) dao.lastClosed() else spaceId?.let { id ->
+                dao.tabs(id).filter { it.closedAt != null }.maxByOrNull { it.closedAt!! }
+            }) ?: return@withTransaction null
             dao.putTab(closed.copy(closedAt = null, archivedAt = null, lastAccessedAt = System.currentTimeMillis()))
             closed.id
         }
