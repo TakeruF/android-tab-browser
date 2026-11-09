@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-The 1.1.2 release candidate adds automatic video pop-out when switching tabs and automatic Home/PiP for videos playing inside pages, with independent settings. It also fixes YouTube channel-video previews and removes the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). This version has not been submitted to Google Play; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain separate records.
+The 1.1.2 release candidate adds automatic pop-out for user-started videos when switching tabs, with independent settings for tab pop-out and Home/PiP. Home/PiP continues fullscreen or existing pop-out playback; ordinary page videos never trigger it. It also fixes YouTube channel-video previews and removes the manual pop-out button. See [1.1.2 notes](docs/releases/1.1.2.md). This version has not been submitted to Google Play; the earlier [1.1.1 preparation](docs/PLAY_CONSOLE.md) and [verification](docs/RELEASE_1.1.1_VERIFICATION.md) remain separate records.
 
 Version 1.1.0 adds on-device page translation, remembered target languages, same-tab link continuation, new-tab backgrounds, a mobile-view retry for rejected desktop Google sign-in, and Favorite/sidebar fixes. See [release notes](docs/releases/1.1.0.md) and [release verification](docs/RELEASE_1.1.0_VERIFICATION.md).
 
@@ -32,6 +32,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Find in page, remembered desktop/mobile display choices per website, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
 - Customizable new-tab backgrounds: solid colors, gradients, or a photo resized and stored on your device. Open the palette on a new tab or use Settings → Appearance.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
+- Optional landscape camera avoidance under Settings → Appearance, with equal side margins adjustable from 0–64 dp (32 dp by default). Existing safe drawing insets are preserved.
 - Bookmark management, link/image context menus, site-data clearing, and Google Play-managed updates.
 - Password autofill is currently unavailable while approval is pending; see [current status](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).

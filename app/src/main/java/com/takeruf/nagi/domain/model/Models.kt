@@ -75,6 +75,8 @@ data class BrowserSettings(
     val translationTargetLanguage: String? = null,
     val alwaysTranslateLanguages: Map<String, String> = emptyMap(),
     val bottomSearchBar: Boolean = false,
+    val avoidCameraOverlap: Boolean = false,
+    val cameraSideMargin: Int = 32,
     val spacesEnabled: Boolean = true,
 )
 

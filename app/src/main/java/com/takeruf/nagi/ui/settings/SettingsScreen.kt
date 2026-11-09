@@ -1,5 +1,6 @@
 package com.takeruf.nagi.ui.settings
 
+import kotlin.math.roundToInt
 import androidx.compose.ui.draw.clip
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
@@ -166,6 +167,42 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
         item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette) {
             SettingToggle(strings(R.string.ui_bottom_search_bar), strings(R.string.ui_bottom_search_bar_description), prefs.bottomSearchBar) { value ->
                 vm.updateSettings { it.copy(bottomSearchBar = value) }
+            }
+            SettingToggle(strings(R.string.ui_avoid_camera_overlap), strings(R.string.ui_avoid_camera_overlap_description), prefs.avoidCameraOverlap) { value ->
+                vm.updateSettings { it.copy(avoidCameraOverlap = value) }
+            }
+            if (prefs.avoidCameraOverlap) {
+                val margin = prefs.cameraSideMargin.toFloat()
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings-camera-margin")) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(strings(R.string.ui_camera_side_margin), Modifier.weight(1f))
+                        TextButton(shape = NagiShapes.Rounded,
+                            enabled = prefs.cameraSideMargin != 32,
+                            onClick = { vm.updateSettings { it.copy(cameraSideMargin = 32) } }) {
+                            Text(strings(R.string.ui_camera_margin_reset))
+                        }
+                    }
+                    Text(strings(R.string.ui_camera_margin_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(shape = NagiShapes.Rounded, enabled = margin > 0,
+                            modifier = Modifier.semantics { contentDescription = strings(R.string.ui_camera_margin_decrease) },
+                            onClick = { vm.updateSettings { it.copy(cameraSideMargin = (it.cameraSideMargin - 1).coerceAtLeast(0)) } }) { Text("−") }
+                        Text("${prefs.cameraSideMargin} dp", Modifier.padding(horizontal = 16.dp))
+                        TextButton(shape = NagiShapes.Rounded, enabled = margin < 64,
+                            modifier = Modifier.semantics { contentDescription = strings(R.string.ui_camera_margin_increase) },
+                            onClick = { vm.updateSettings { it.copy(cameraSideMargin = (it.cameraSideMargin + 1).coerceAtMost(64)) } }) { Text("+") }
+                    }
+                    Slider(value = margin, onValueChange = { value ->
+                        vm.updateSettings { it.copy(cameraSideMargin = value.roundToInt()) }
+                    }, valueRange = 0f..64f,
+                        modifier = Modifier.testTag("settings-camera-margin-slider"))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(strings(R.string.ui_camera_margin_narrow), style = MaterialTheme.typography.labelSmall)
+                        Text(strings(R.string.ui_camera_margin_wide), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
             Row(Modifier.fillMaxWidth().testTag("settings-new-tab-background").clip(NagiShapes.Rounded)
                 .clickable { customizingNewTab = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

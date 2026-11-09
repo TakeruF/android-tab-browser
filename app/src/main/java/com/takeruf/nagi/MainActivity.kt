@@ -19,12 +19,14 @@ open class MainActivity : ComponentActivity() {
     open val isPrivateBrowsing: Boolean = false
     var disposeSessions: (() -> Unit)? = null
     var shortcutHandler: ((Shortcut) -> Boolean)? = null
+    private var ownsTaskRoot = false
     private lateinit var host: NativeBrowserHost
     lateinit var updateInstaller: com.takeruf.nagi.updates.UpdateInstaller
         private set
     private val incomingUrls = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 4)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ownsTaskRoot = isTaskRoot
         enableEdgeToEdge()
         host = NativeBrowserHost(this)
         val originalCallback = window.callback
@@ -49,18 +51,22 @@ open class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) handleIntent(intent)
         val container = if (isPrivateBrowsing)
-            androidx.lifecycle.ViewModelProvider(this)[PrivateWorkspace::class.java].container
+            (application as NagiApplication).privateWorkspaces.acquire(taskId)
         else (application as NagiApplication).container
         if (isPrivateBrowsing) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         updateInstaller = com.takeruf.nagi.updates.UpdateInstaller(this, container.updates)
-        setContent { NagiApp(this, host, container, incomingUrls) }
+        setContent {
+            com.takeruf.nagi.browser.privacy.PrivateKeyboardInput(isPrivateBrowsing) {
+                NagiApp(this, host, container, incomingUrls)
+            }
+        }
     }
     fun openPrivateBrowsing() {
         if (isPrivateBrowsing) return
         if (!com.takeruf.nagi.browser.privacy.PrivateProfiles.supported()) {
             host.showMessage(getString(R.string.ui_private_unavailable)); return
         }
-        startActivity(Intent(this, PrivateActivity::class.java))
+        startActivity(Intent(this, PrivateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
     override fun onSaveInstanceState(outState: Bundle) {
@@ -86,21 +92,29 @@ open class MainActivity : ComponentActivity() {
         if (pipState.isTransitioningToPip) host.video.onPipTransition()
     }
     override fun onStop() { host.video.onStopped(); super.onStop() }
-    override fun onDestroy() { disposeSessions?.invoke(); host.dispose(); super.onDestroy() }
+    override fun onDestroy() {
+        disposeSessions?.invoke()
+        host.dispose()
+        super.onDestroy()
+        // A task's root can also report removal if Android has already stopped the observer service.
+        if (!isPrivateBrowsing && isFinishing && ownsTaskRoot) {
+            (application as NagiApplication).privateWorkspaces.close()
+        }
+    }
 }
 
 class PrivateActivity : MainActivity() {
     override val isPrivateBrowsing = true
-}
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        (application as NagiApplication).privateWorkspaces.attach(this)
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        (application as NagiApplication).privateWorkspaces.detach(this)
+    }
 
-class PrivateWorkspace(application: android.app.Application) : androidx.lifecycle.AndroidViewModel(application) {
-    private val normal = (application as NagiApplication).container
-    val container = AppContainer(application, com.takeruf.nagi.browser.privacy.PrivateProfiles.create(),
-        normal.settings, normal.adBlocker, normal.workspace)
-    override fun onCleared() {
-        container.closePrivateWorkspace()
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            com.takeruf.nagi.browser.privacy.PrivateProfiles.clear(container.privateProfileName!!)
-        }
+    fun closePrivateBrowsing() {
+        (application as NagiApplication).privateWorkspaces.close()
     }
 }

@@ -13,6 +13,8 @@ private val Context.browserDataStore by preferencesDataStore("browser_settings")
 class SettingsStore(context: Context, private val store: androidx.datastore.core.DataStore<Preferences> = context.applicationContext.browserDataStore) {
     private object Keys {
         val spacesEnabled = booleanPreferencesKey("spaces_enabled")
+        val avoidCameraOverlap = booleanPreferencesKey("avoid_camera_overlap")
+        val cameraSideMargin = intPreferencesKey("camera_side_margin")
         val bottomSearchBar = booleanPreferencesKey("bottom_search_bar")
         val theme = stringPreferencesKey("theme")
         // Keep the original storage key so existing color choices survive this rename.
@@ -51,6 +53,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
     }.map { p -> BrowserSettings(
         spacesEnabled = p[Keys.spacesEnabled] ?: true,
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
+        avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
+        cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
         newTabBackground = enumOrDefault(p[Keys.newTabBackground], NewTabBackground.DEFAULT),
         newTabColor = p[Keys.newTabColor] ?: 0xFF426B5A,
         newTabPhoto = p[Keys.newTabPhoto],
@@ -96,6 +100,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
                 spacesEnabled = p[Keys.spacesEnabled] ?: true,
                 bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
+                avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
+                cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
                 nativePageDrag = p[Keys.pageDrag] ?: true,
                 blockExternalApps = p[Keys.blockExternal] ?: false,
                 autoVideoPip = p[Keys.autoVideoPip] ?: true,
@@ -109,6 +115,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
             val next = change(current)
             p[Keys.spacesEnabled] = next.spacesEnabled
+            p[Keys.avoidCameraOverlap] = next.avoidCameraOverlap
+            p[Keys.cameraSideMargin] = next.cameraSideMargin.coerceIn(0, 64)
             p[Keys.bottomSearchBar] = next.bottomSearchBar
             next.translationTargetLanguage?.let { p[Keys.translationTargetLanguage] = it } ?: p.remove(Keys.translationTargetLanguage)
             p[Keys.alwaysTranslateLanguages] = next.alwaysTranslateLanguages.filter { (source, target) -> source != target }

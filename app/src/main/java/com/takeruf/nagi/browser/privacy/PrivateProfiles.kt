@@ -36,7 +36,11 @@ object PrivateProfiles {
     fun clear(name: String, done: () -> Unit = {}) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) ||
             !WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) return done()
-        val profile = ProfileStore.getInstance().getProfile(name) ?: return done()
+        val store = ProfileStore.getInstance()
+        // create() reserves only a name. Some providers return a non-null wrapper
+        // for an absent profile, then crash when its storage APIs are accessed.
+        if (name !in store.allProfileNames) return done()
+        val profile = store.getProfile(name) ?: return done()
         profile.geolocationPermissions.clearAll()
         // Loaded profiles cannot be deleted in this process. Clear all website data now;
         // delete the remaining empty profile directory at the next cold startup.

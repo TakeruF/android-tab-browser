@@ -31,7 +31,13 @@ Video instrumentation uses local HTML5 fixtures for playback, fullscreen, system
 ffmpeg -f lavfi -i testsrc2=size=320x180:rate=15 -t 6 -an -c:v libx264 -profile:v baseline -pix_fmt yuv420p -crf 32 -movflags +faststart app/src/androidTest/assets/video.mp4
 ```
 
-Playing videos automatically pop out when their source tab is hidden by a switch to another tab or Space. Showing the source again (including in either Split pane) returns the same video to its page without pausing or reloading. Going Home automatically enters Android system PiP for inline, fullscreen, or pop-out video, including when only one tab is open. Inline Home/PiP restores the page when the app returns. Paused or ended videos do not start an automatic presentation. Settings independently persist automatic tab pop-out and Home/PiP, both enabled by default; no manual pop-out button is injected into websites.
+User-started playing videos automatically pop out when their source tab is hidden by a switch to another tab or Space. Showing the source again (including in either Split pane) returns the same video to its page without pausing or reloading. Going Home automatically enters Android system PiP only for an existing fullscreen or pop-out video, including when only one tab is open. Ordinary inline playback, including muted autoplay, never enables Home/PiP; leaving fullscreen disables it again. Autoplaying page demos do not pop out on tab switches; playback intent is tracked per video and cleared when its media source is reset. Paused or ended videos do not start an automatic presentation. Settings independently persist automatic tab pop-out and Home/PiP, both enabled by default; no manual pop-out button is injected into websites.
+
+Local verification on 2026-11-04 passed 16 `VideoPresentationTest` cases (API 26/35), all 12 `VideoUiTest` cases on the API 36 `Nagi_113_PiP_Release_QA` emulator, GitHub Debug build, and lint. The final policy permits tab pop-out for user-started videos and existing fullscreen playback, while autoplaying page demos remain inline. The real WebView regression visits a muted autoplay demo without controls, performs an unrelated page action, switches tabs, and checks that no presentation is created. Existing tests cover manual playback pop-out, cross-origin frames, repeated zoomed tab switches, and fullscreen/system PiP. Logs and screenshots are saved in `artifacts/pip-manual-20261104/`. This does not establish verification on the recording's physical device or a distributed release.
+
+The Home/PiP policy was checked against public browser sources on 2026-11-03. Chromium's [fullscreen video controller](https://github.com/chromium/chromium/blob/main/chrome/android/java/src/org/chromium/chrome/browser/media/FullscreenVideoPictureInPictureController.java) requires an active effectively fullscreen video with PiP allowed. Firefox's [Android PiP feature](https://github.com/mozilla/firefox/blob/main/mobile/android/android-components/components/feature/session/src/main/java/mozilla/components/feature/session/PictureInPictureFeature.kt) requires fullscreen plus playing media. Chromium also has a separate [site-registered automatic PiP feature](https://github.com/chromium/chromium/blob/main/media/base/media_switches.cc), disabled by default in the inspected source; it is not equivalent to promoting every playing HTML video. These are source observations, not tests of installed Chrome/Firefox versions. Nagi additionally preserves PiP continuation from an existing in-app video pop-out.
+
+Local verification on 2026-11-03 passed 161 Play Debug unit tests, `assemblePlayDebug`, `assemblePlayDebugAndroidTest`, and `lintPlayDebug`. Four selected `VideoUiTest` cases passed on the API 36 `Nagi_111_PreRelease_QA` emulator: muted autoplay does not enter Home/PiP, manually started inline playback with one tab does not enter Home/PiP, fullscreen playback enters PiP and disables auto-entry again after leaving fullscreen, and an existing tab pop-out still supports playback/resize/PiP/return. Home screenshots were visually checked and retained under ignored `artifacts/pip-home-20261103/`. The initial instrumentation attempt stopped in setup because the emulator had a saved Chinese app locale while these tests expect English; rerunning with English passed. This is local fixture/emulator evidence, not verification on the recording's physical device or a Play release.
 
 In-app pop-outs initially show only the video. A tap overlays Lucide controls (return at top left, close at top right, play/pause at center, playback time at bottom left, fullscreen at bottom right) without changing the window dimensions or passing the tap to the site. Controls hide after three seconds of inactivity, respecting the system's recommended accessibility timeout. Drag anywhere to move the window and pinch to resize it. Mouse users can also drag any corner to resize with the opposite corner anchored and the video's aspect ratio preserved; corners show diagonal resize cursors and only intercept primary mouse input. Instrumentation advances the Compose clock to verify the timeout, separately from the live WebView playback clock.
 
@@ -48,6 +54,39 @@ WebView keeps its ordinary white canvas when the app theme changes. A pixel regr
 Website color preference follows the effective app theme (System, Light, or Dark). Each engine uses an isolated native theme context; changes dispatch WebView configuration updates without navigation, JavaScript media-query shims, or forced color inversion. `WebViewEngineTest#websiteColorSchemeChangesWithoutReloadingOrLosingPageState` checks initial dark preference, live light/dark matchMedia events, actual CSS media-query colors, preserved JavaScript state, and a single document request.
 
 Password autofill is disabled in the production configuration pending approval. Regression checks assert that native WebView autofill is excluded, direct manual requests return awaiting-approval status, the entire Settings section and page-menu action are absent, and no awaiting-approval notice is shown in the normal UI. Retained synthetic-provider tests explicitly opt in to the implementation and are not evidence that the production feature is available.
+
+## Commit validation (2026-11-09)
+
+Play Debug unit tests passed all 180 cases. Play Debug/Release lint reported
+zero errors and 72 warnings each; Debug and instrumentation APK builds passed.
+On the API 36 `Nagi_114_Camera_QA` emulator (`emulator-5580`, WebView 133),
+all 12 `VideoUiTest` cases passed. The initial combined run then crashed while
+closing an unused private profile. `PrivateProfiles.clear` now checks that the
+profile exists before accessing provider storage; the added unused-profile
+regression and all 15 selected private-lifetime, privacy/Reader-engine, and
+camera-settings cases passed on rerun.
+
+Camera settings also passed standalone at 1280×800 dp in light mode and
+540×360 dp in dark mode, with screenshots visually inspected. The narrow run
+initially timed out because the test assumed a visible sidebar Settings button;
+the test now opens the compact tab sheet when needed and passed on rerun.
+Evidence is retained under ignored `artifacts/commit-review-20261109/`.
+Split-pane camera layout and physical-device behavior were not checked in this
+run. These results do not establish a full instrumentation suite or store release.
+
+## Landscape camera avoidance
+
+Settings → Appearance offers an opt-in camera avoidance setting, off by default.
+In landscape, it reserves equal margins of 0–64 dp on both sides (default 32 dp),
+combined with safe drawing insets using the larger value rather than adding them.
+Portrait keeps the existing insets. The expanded sidebar extends its background
+into the margin without adding interactive controls there.
+
+`CameraAvoidanceSettingsTest` checks defaults and persistence;
+`CameraAvoidanceInsetsTest` checks portrait/off behavior, both layout directions,
+and safe-inset union. `CameraAvoidanceUiTest` covers the toggle, fine adjustment,
+reset, and Activity recreation in wide and compact navigation. Device camera
+placement and Split still need separate runtime inspection.
 
 ## Local artifact retention
 

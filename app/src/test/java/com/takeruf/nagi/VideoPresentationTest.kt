@@ -102,7 +102,46 @@ class VideoPresentationTest {
             assertEquals(2, exits)
         } finally { controller.dispose() }
     }
-    @Test fun playingInlineVideoAutomaticallyPopsOutOnTabSwitchAndReturnsWithoutPause() {
+    @Test fun userStartedInlineVideoPopsOutOnTabSwitchAndReturnsWithoutPause() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        val controller = VideoPresentationController(activity)
+        var restored = 0
+        val commands = mutableListOf<String>()
+        try {
+            controller.setTabContext(setOf("a", "b"), setOf("a"))
+            controller.updateInline(View(activity), "a", VideoPlayback(playing = true, hasVideo = true, autoPopoutAllowed = true),
+                {}, { restored++ }, { commands += it })
+            controller.setTabContext(setOf("a", "b"), setOf("b"))
+            assertTrue(controller.presentation.value!!.popup)
+            controller.setTabContext(setOf("a", "b"), setOf("a"))
+            assertNull(controller.presentation.value)
+            assertEquals(1, restored)
+            assertTrue(commands.isEmpty())
+            // A replacement inline video without a playback gesture must not inherit permission.
+            controller.updateInline(View(activity), "a", VideoPlayback(playing = true, hasVideo = true),
+                { fail("Inline video was promoted") }, {}, {})
+            controller.setTabContext(setOf("a", "b"), setOf("b"))
+            assertNull(controller.presentation.value)
+            assertFalse(controller.canAutoEnter)
+        } finally { controller.dispose() }
+    }
+    @Test fun autoplayingInlineVideoDoesNotPopOutOnTabOrSpaceSwitch() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        val controller = VideoPresentationController(activity)
+        var prepared = 0
+        try {
+            controller.setTabContext(setOf("a", "b"), setOf("a"))
+            controller.updateInline(View(activity), "a", VideoPlayback(playing = true, hasVideo = true),
+                { prepared++ }, {}, {})
+            controller.setTabContext(setOf("a", "b"), setOf("b"))
+            assertNull(controller.presentation.value)
+            assertEquals(0, prepared)
+            assertFalse(controller.canAutoEnter)
+        } finally { controller.dispose() }
+    }
+    @Test fun playingInlineVideoNeverEnablesHomePipOrPreparesAVideoSurface() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
         val controller = VideoPresentationController(activity)
@@ -110,43 +149,25 @@ class VideoPresentationTest {
         var restored = 0
         val commands = mutableListOf<String>()
         try {
-            controller.setTabContext(setOf("a", "b"), setOf("a"))
-            controller.updateInline(View(activity), "a", VideoPlayback(playing = true, hasVideo = true),
-                { prepared++ }, { restored++ }, { commands += it })
-            assertNull(controller.presentation.value)
-            controller.setTabContext(setOf("a", "b"), setOf("b"))
-            assertTrue(controller.presentation.value!!.popup)
-            assertEquals(1, prepared)
-            controller.setTabContext(setOf("a", "b"), setOf("b"))
-            assertEquals(1, prepared)
-            controller.setTabContext(setOf("a", "b"), setOf("a"))
-            assertNull(controller.presentation.value)
-            assertEquals(1, restored)
-            assertTrue(commands.isEmpty())
-            controller.popupEnabled = false
-            controller.setTabContext(setOf("a", "b"), setOf("b"))
-            assertNull(controller.presentation.value)
-        } finally { controller.dispose() }
-    }
-    @Test fun inlineHomePipIsIndependentOfTabPopoutAndRestoresOnSystemExit() {
-        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
-        val controller = VideoPresentationController(activity)
-        var restored = 0
-        val commands = mutableListOf<String>()
-        try {
             controller.setTabContext(setOf("a"), setOf("a"))
+            controller.updateInline(View(activity), "a", VideoPlayback(playing = true, hasVideo = true), { prepared++ }, { restored++ }, { commands += it })
+            assertFalse(controller.canAutoEnter)
+            controller.onUserLeave()
+            assertNull(controller.presentation.value)
             controller.popupEnabled = false
-            controller.updateInline(View(activity), "a", VideoPlayback(playing = true, hasVideo = true), {}, { restored++ }, { commands += it })
-            assertTrue(controller.canAutoEnter)
+            assertFalse(controller.canAutoEnter)
             controller.autoPipEnabled = false
             assertFalse(controller.canAutoEnter)
             controller.autoPipEnabled = true
+            assertFalse(controller.canAutoEnter)
+            // Even a late platform callback must not promote a page video.
             controller.onPipTransition()
-            assertTrue(controller.presentation.value!!.returnAfterSystemPip)
+            controller.onPipChanged(true)
+            assertNull(controller.presentation.value)
             controller.onPipChanged(false)
             assertNull(controller.presentation.value)
-            assertEquals(1, restored)
+            assertEquals(0, prepared)
+            assertEquals(0, restored)
             assertTrue(commands.isEmpty())
             controller.onStopped()
             assertEquals(listOf("pause"), commands)
@@ -154,6 +175,28 @@ class VideoPresentationTest {
             assertFalse(controller.canAutoEnter)
             controller.removeInline("a")
             assertFalse(controller.canAutoEnter)
+        } finally { controller.dispose() }
+    }
+    @Test fun exitingFullscreenDisablesHomePipEvenWhileInlineVideoKeepsPlaying() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        val controller = VideoPresentationController(activity)
+        val playing = VideoPlayback(playing = true, hasVideo = true)
+        try {
+            controller.setTabContext(setOf("a"), setOf("a"))
+            controller.updateInline(View(activity), "a", playing, {}, {}, {})
+            assertFalse(controller.canAutoEnter)
+            controller.show(View(activity), "a", playing) {}
+            assertTrue(controller.canAutoEnter)
+            controller.onPipChanged(true)
+            controller.onPipChanged(false)
+            assertTrue(controller.canAutoEnter)
+            controller.close()
+            assertFalse(controller.canAutoEnter)
+            controller.updateInline(View(activity), "a", playing, {}, {}, {})
+            controller.onUserLeave()
+            assertFalse(controller.canAutoEnter)
+            assertNull(controller.presentation.value)
         } finally { controller.dispose() }
     }
 }

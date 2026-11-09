@@ -299,9 +299,9 @@
     <string name="ui_dismiss_external_app_notice">Dismiss external app notice</string>
     <string name="ui_video">Video</string>
     <string name="ui_video_auto_pip">Automatically enter picture-in-picture</string>
-    <string name="ui_video_auto_pip_description">Automatically keep playing videos in picture-in-picture when you go Home, including videos playing inside a page.</string>
+    <string name="ui_video_auto_pip_description">Keep playing fullscreen or pop-out videos in picture-in-picture when you go Home. Videos playing inside a page stay in the page.</string>
     <string name="ui_video_popups">Automatically pop out videos</string>
-    <string name="ui_video_popups_description">Automatically show a playing video in a small window when you switch tabs. Return to its tab to restore playback inside the page.</string>
+    <string name="ui_video_popups_description">Automatically show a video you started in a small window when you switch tabs. Autoplaying page videos stay in the page. Return to its tab to restore playback inside the page.</string>
     <string name="ui_video_play">Play</string>
     <string name="ui_video_pause">Pause</string>
     <string name="ui_video_close">Close video</string>
@@ -313,7 +313,7 @@
     <string name="ui_disable_site_blocking">"Disable blocking on this site (%1$d blocked)"</string>
     <string name="ui_private_mode">"Private browsing"</string>
     <string name="ui_close_private_mode">"Close private browsing"</string>
-    <string name="ui_private_description">"Private tabs use separate site data. Closing private browsing clears its tabs and site data. Downloads you save remain on the device."</string>
+    <string name="ui_private_description">"Uses separate site data. Tabs stay until you end private browsing or remove Nagi from Recents. Keyboard learning is discouraged. Saved downloads remain on your device."</string>
     <string name="ui_private_unavailable">"Update Android System WebView to use private browsing."</string>
     <string name="ui_reader_mode">"Reader mode"</string>
     <string name="ui_exit_reader">"Original page"</string>
@@ -384,6 +384,15 @@
     <string name="ui_autofill_no_suggestions">The autofill service did not show any suggestions.</string>
     <string name="ui_autofill_requested">Requested suggestions from your autofill service.</string>
     <string name="ui_autofill_pending">Unavailable — awaiting approval</string>
+    <string name="ui_avoid_camera_overlap">Avoid camera overlap</string>
+    <string name="ui_avoid_camera_overlap_description">Adds space on both sides in landscape, even when the camera position cannot be detected. Adjust the margin if needed.</string>
+    <string name="ui_camera_side_margin">Landscape side margins</string>
+    <string name="ui_camera_margin_reset">Reset</string>
+    <string name="ui_camera_margin_hint">The same margin is applied on both sides. Rotate to landscape to see changes as you adjust.</string>
+    <string name="ui_camera_margin_narrow">Narrow</string>
+    <string name="ui_camera_margin_wide">Wide</string>
+    <string name="ui_camera_margin_decrease">Decrease margin by 1</string>
+    <string name="ui_camera_margin_increase">Increase margin by 1</string>
     <string name="ui_spaces_enabled">Use Spaces</string>
     <string name="ui_spaces_enabled_description">Organize tabs into separate Spaces.</string>
     <string name="ui_pinned_tabs">Pinned tabs</string>

@@ -54,7 +54,8 @@ internal class PageVideo(private val view: WebView,
         fun seconds(name: String) = data.optDouble(name, 0.0).takeIf { it.isFinite() }
             ?.coerceIn(0.0, 315_360_000.0) ?: 0.0
         playback = VideoPlayback(data.optBoolean("playing"), data.optInt("width", 16).coerceIn(1, 65536),
-            data.optInt("height", 9).coerceIn(1, 65536), data.optBoolean("hasVideo"), seconds("currentTime"), seconds("duration"))
+            data.optInt("height", 9).coerceIn(1, 65536), data.optBoolean("hasVideo"), seconds("currentTime"), seconds("duration"),
+            autoPopoutAllowed = data.optBoolean("autoPopoutAllowed"))
         controlProxy = proxy
         if (active) fullscreenHost.updateVideo(tabId, playback)
         fullscreenHost.updateInlineVideo(view, tabId, playback, ::prepareInline, ::restoreInline, ::control)
