@@ -1,5 +1,13 @@
 # Google Play release preparation
 
+## Latest production submission — 2026-11-09
+
+Nagi **1.2.0 / code 17** is submitted for a full production rollout. Console
+shows **Changes in review**, quick checks running, and **Managed publishing off**.
+The accepted bundle hash matches the verified signed artifact; the existing
+178 country/region availability is preserved. Public 1.2.0 availability is not
+yet confirmed; 1.1.7 remains published. See [1.2.0 verification](RELEASE_1.2.0_VERIFICATION.md).
+
 ## Current preparation — 2026-10-31
 
 The user selected Google Play as the sole official distribution channel starting with **1.1.1 / code 10**. New GitHub tags record source versions; APKs and updater manifests are no longer published. See [release workflow and migration](RELEASING.md) and [four-language 1.1.1 notes](play-store/release-notes-1.1.1.txt).
