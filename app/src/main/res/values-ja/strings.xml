@@ -397,4 +397,14 @@
     <string name="ui_camera_position_left">左側</string>
     <string name="ui_camera_position_right">右側</string>
     <string name="ui_camera_position_behavior">カメラが左側のときだけ余白が入ります。端末を回すと自動で切り替わります。</string>
+    <string name="ui_spaces_enabled">Spaceを使う</string>
+    <string name="ui_spaces_enabled_description">タブをSpaceごとに分けて整理します。</string>
+    <string name="ui_pinned_tabs">ピン留めしたタブ</string>
+    <string name="ui_keep_open_tabs_between_sessions">次回起動時に開いていたタブを復元します</string>
+    <string name="ui_enable_spaces_title">Spaceをオンにしますか？</string>
+    <string name="ui_disable_spaces_title">Spaceをオフにしますか？</string>
+    <string name="ui_enable_spaces">Spaceをオンにする</string>
+    <string name="ui_disable_spaces">Spaceをオフにする</string>
+    <string name="ui_enable_spaces_message">Spaceを切り替えて、タブを分けて整理できます。\n\nSpaceの作成・編集・削除、Space間のタブ移動、横スワイプでの切り替えが使えます。タブ検索と閉じたタブの復元は全Spaceが対象になり、各Spaceの色が画面に反映されます。\n\n保存されているSpaceとタブが再び使えます。お気に入り・ピン留め・Splitも引き続き使えます。</string>
+    <string name="ui_disable_spaces_message">現在のSpaceだけを通常のタブ一覧として使います。\n\nSpaceの切り替え・作成・編集・削除、Space間のタブ移動、横スワイプでの切り替えを非表示にします。タブ検索と閉じたタブの復元は現在のSpace内に限定され、画面には設定したテーマカラーを使います。\n\n他のSpaceとタブは保存され、再びオンにすると使えます。お気に入り・ピン留め・Splitも引き続き使えます。Spaceやタブは削除されません。</string>
 </resources>

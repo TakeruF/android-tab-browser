@@ -399,4 +399,14 @@
     <string name="ui_camera_position_left">Left</string>
     <string name="ui_camera_position_right">Right</string>
     <string name="ui_camera_position_behavior">The margin appears only when the camera is on the left. It follows automatically when you rotate the device.</string>
+    <string name="ui_spaces_enabled">Use Spaces</string>
+    <string name="ui_spaces_enabled_description">Organize tabs into separate Spaces.</string>
+    <string name="ui_pinned_tabs">Pinned tabs</string>
+    <string name="ui_keep_open_tabs_between_sessions">Keep your open tabs between sessions</string>
+    <string name="ui_enable_spaces_title">Turn on Spaces?</string>
+    <string name="ui_disable_spaces_title">Turn off Spaces?</string>
+    <string name="ui_enable_spaces">Turn on Spaces</string>
+    <string name="ui_disable_spaces">Turn off Spaces</string>
+    <string name="ui_enable_spaces_message">Switch between Spaces and organize tabs separately.\n\nCreate, edit and delete Spaces, move tabs between them, and swipe to switch. Search can find tabs in all Spaces, and closed-tab restoration works across Spaces. Each Space uses its own color.\n\nYour saved Spaces and tabs become available again. Favorites, pinned tabs and Split remain available.</string>
+    <string name="ui_disable_spaces_message">Use only the current Space as a single tab collection.\n\nSpace switching, creation, editing, deletion, tab moves between Spaces and swipe switching will be hidden. Tab search and closed-tab restoration stay within the current Space. The interface uses your theme color.\n\nOther Spaces and their tabs are kept and become available when you turn Spaces on again. Favorites, pinned tabs and Split remain available. No Spaces or tabs are deleted.</string>
 </resources>

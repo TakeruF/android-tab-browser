@@ -16,6 +16,8 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
+Version 1.2.0 adds a confirmed Spaces on/off setting, improves Android browser-picker recognition, and fixes a private-mode close crash. See [1.2.0 notes](docs/releases/1.2.0.md) for verification and release status.
+
 Version 1.1.7 improves private-tab retention and requests keyboard learning suppression during private input. See [1.1.7 notes](docs/releases/1.1.7.md) for session limits and release status.
 
 Version 1.1.6 prevents autoplaying page videos from opening a floating window when switching tabs. Videos started manually can still continue in a floating window. See [1.1.6 notes](docs/releases/1.1.6.md).
@@ -38,6 +40,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Find in page, remembered desktop/mobile display choices per website, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
 - Customizable new-tab backgrounds: solid colors, gradients, or a photo resized and stored on your device. Open the palette on a new tab or use Settings → Appearance.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
+- Optional camera avoidance under Settings → Appearance: register the camera position and reserve an adjustable 0–64 dp margin only when the camera is on the left in landscape.
 - Bookmark management, link/image context menus, site-data clearing, and Google Play-managed updates.
 - Password autofill is currently unavailable while approval is pending; see [current status](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).

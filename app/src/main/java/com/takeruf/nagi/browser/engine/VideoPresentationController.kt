@@ -68,7 +68,6 @@ class VideoPresentationController(private val activity: Activity) {
         visibleTabIds = visibleIds
         val current = presentation.value
         if (current == null) {
-            // A tab switch needs a destination; opening Settings is not a tab switch.
             if (popupEnabled && visibleIds.isNotEmpty() && !systemPip.value) {
                 leaving.mapNotNull { inlineVideos[it] }.firstOrNull {
                     it.tabId in openIds && it.playback.playing && it.playback.hasVideo && it.playback.autoPopoutAllowed

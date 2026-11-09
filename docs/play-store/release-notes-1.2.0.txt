@@ -1,0 +1,15 @@
+<en-US>
+Added a setting to turn Spaces on or off, with confirmation. Your other Spaces and tabs are kept when disabled. Improved recognition in Android browser pickers and fixed a crash when closing private browsing.
+</en-US>
+
+<ja-JP>
+確認画面付きでSpacesをオン／オフに切り替えられる設定を追加しました。オフにしても他のSpaceやタブは保持されます。Androidのブラウザ選択画面への対応を改善し、プライベートモード終了時にクラッシュする問題を修正しました。
+</ja-JP>
+
+<zh-CN>
+新增空间功能的开关设置，并在切换前显示确认。关闭后仍保留其他空间及标签页。改进了Android浏览器选择器中的识别，并修复关闭无痕浏览时可能发生的崩溃。
+</zh-CN>
+
+<ko-KR>
+확인 화면을 통해 Space를 켜거나 끄는 설정을 추가했습니다. 꺼도 다른 Space와 탭은 보관됩니다. Android 브라우저 선택 화면의 인식을 개선하고 비공개 탐색을 종료할 때 발생할 수 있는 충돌을 수정했습니다.
+</ko-KR>

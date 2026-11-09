@@ -12,6 +12,7 @@ private val Context.browserDataStore by preferencesDataStore("browser_settings")
 
 class SettingsStore(context: Context, private val store: androidx.datastore.core.DataStore<Preferences> = context.applicationContext.browserDataStore) {
     private object Keys {
+        val spacesEnabled = booleanPreferencesKey("spaces_enabled")
         val avoidCameraOverlap = booleanPreferencesKey("avoid_camera_overlap")
         val cameraLeftRotation = intPreferencesKey("camera_left_rotation")
         val cameraSideMargin = intPreferencesKey("camera_side_margin")
@@ -51,6 +52,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
     val settings: Flow<BrowserSettings> = store.data.catch {
         if (it is IOException) emit(emptyPreferences()) else throw it
     }.map { p -> BrowserSettings(
+        spacesEnabled = p[Keys.spacesEnabled] ?: true,
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
         avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
         cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
@@ -98,6 +100,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 p[Keys.automaticRegion] ?: true,
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
                 p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
+                spacesEnabled = p[Keys.spacesEnabled] ?: true,
                 bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
                 avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
                 cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
@@ -114,6 +117,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 translationTargetLanguage = p[Keys.translationTargetLanguage],
                 alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
             val next = change(current)
+            p[Keys.spacesEnabled] = next.spacesEnabled
             p[Keys.avoidCameraOverlap] = next.avoidCameraOverlap
             p[Keys.cameraSideMargin] = next.cameraSideMargin.coerceIn(0, 64)
             next.cameraLeftRotation?.takeIf { it in 0..3 }?.let { p[Keys.cameraLeftRotation] = it }
