@@ -27,7 +27,8 @@ class CameraAvoidanceSettingsTest {
             val settings = SettingsStore(RuntimeEnvironment.getApplication(), data)
             assertFalse(settings.settings.first().avoidCameraOverlap)
             assertEquals(32, settings.settings.first().cameraSideMargin)
-            settings.update { it.copy(avoidCameraOverlap = true, cameraSideMargin = 48) }
+            assertNull(settings.settings.first().cameraLeftRotation)
+            settings.update { it.copy(avoidCameraOverlap = true, cameraSideMargin = 48, cameraLeftRotation = 2) }
             settings.update { it.copy(sidebarCollapsed = true) }
             assertTrue(settings.settings.first().avoidCameraOverlap)
             scope.coroutineContext[Job]!!.cancelAndJoin()
@@ -36,12 +37,16 @@ class CameraAvoidanceSettingsTest {
             val reopened = SettingsStore(RuntimeEnvironment.getApplication(), data)
             assertTrue(reopened.settings.first().avoidCameraOverlap)
             assertEquals(48, reopened.settings.first().cameraSideMargin)
+            assertEquals(2, reopened.settings.first().cameraLeftRotation)
             assertTrue(reopened.settings.first().sidebarCollapsed)
             assertFalse(reopened.settings.first().restoreTabs)
             reopened.update { it.copy(avoidCameraOverlap = false) }
             assertFalse(reopened.settings.first().avoidCameraOverlap)
+            assertEquals(2, reopened.settings.first().cameraLeftRotation)
             reopened.update { it.copy(cameraSideMargin = 999) }
             assertEquals(64, reopened.settings.first().cameraSideMargin)
+            reopened.update { it.copy(cameraLeftRotation = 99) }
+            assertNull(reopened.settings.first().cameraLeftRotation)
         } finally {
             scope.coroutineContext[Job]!!.cancelAndJoin()
             file.delete()

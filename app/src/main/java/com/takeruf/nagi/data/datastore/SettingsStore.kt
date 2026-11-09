@@ -14,6 +14,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
     private object Keys {
         val spacesEnabled = booleanPreferencesKey("spaces_enabled")
         val avoidCameraOverlap = booleanPreferencesKey("avoid_camera_overlap")
+        val cameraLeftRotation = intPreferencesKey("camera_left_rotation")
         val cameraSideMargin = intPreferencesKey("camera_side_margin")
         val bottomSearchBar = booleanPreferencesKey("bottom_search_bar")
         val theme = stringPreferencesKey("theme")
@@ -55,6 +56,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
         avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
         cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
+        cameraLeftRotation = p[Keys.cameraLeftRotation]?.takeIf { it in 0..3 },
         newTabBackground = enumOrDefault(p[Keys.newTabBackground], NewTabBackground.DEFAULT),
         newTabColor = p[Keys.newTabColor] ?: 0xFF426B5A,
         newTabPhoto = p[Keys.newTabPhoto],
@@ -102,6 +104,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
                 avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
                 cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
+                cameraLeftRotation = p[Keys.cameraLeftRotation]?.takeIf { it in 0..3 },
                 nativePageDrag = p[Keys.pageDrag] ?: true,
                 blockExternalApps = p[Keys.blockExternal] ?: false,
                 autoVideoPip = p[Keys.autoVideoPip] ?: true,
@@ -117,6 +120,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
             p[Keys.spacesEnabled] = next.spacesEnabled
             p[Keys.avoidCameraOverlap] = next.avoidCameraOverlap
             p[Keys.cameraSideMargin] = next.cameraSideMargin.coerceIn(0, 64)
+            next.cameraLeftRotation?.takeIf { it in 0..3 }?.let { p[Keys.cameraLeftRotation] = it }
+                ?: p.remove(Keys.cameraLeftRotation)
             p[Keys.bottomSearchBar] = next.bottomSearchBar
             next.translationTargetLanguage?.let { p[Keys.translationTargetLanguage] = it } ?: p.remove(Keys.translationTargetLanguage)
             p[Keys.alwaysTranslateLanguages] = next.alwaysTranslateLanguages.filter { (source, target) -> source != target }

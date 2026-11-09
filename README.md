@@ -32,7 +32,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Find in page, remembered desktop/mobile display choices per website, HTTP downloads, page-generated Blob/data downloads (up to 32 MB), and the system document picker.
 - Customizable new-tab backgrounds: solid colors, gradients, or a photo resized and stored on your device. Open the palette on a new tab or use Settings → Appearance.
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
-- Optional landscape camera avoidance under Settings → Appearance, with equal side margins adjustable from 0–64 dp (32 dp by default). Existing safe drawing insets are preserved.
+- Optional camera avoidance under Settings → Appearance: register the camera position and reserve an adjustable 0–64 dp margin only when the camera is on the left in landscape.
 - Bookmark management, link/image context menus, site-data clearing, and Google Play-managed updates.
 - Password autofill is currently unavailable while approval is pending; see [current status](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).

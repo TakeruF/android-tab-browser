@@ -1,5 +1,7 @@
 package com.takeruf.nagi
 
+import android.app.UiAutomation
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -16,46 +18,64 @@ class CameraAvoidanceUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private lateinit var container: AppContainer
     private lateinit var original: BrowserSettings
+    private var originalRotation = 0
+    private var landscapeRotation = 0
 
     @Before fun setup() {
+        originalRotation = compose.activity.display?.rotation ?: 0
+        val currentlyLandscape = compose.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val naturallyLandscape = if (originalRotation % 2 == 0) currentlyLandscape else !currentlyLandscape
+        landscapeRotation = if (naturallyLandscape) 0 else 1
+        rotate(Configuration.ORIENTATION_LANDSCAPE)
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
             original = container.settings.settings.first()
             container.settings.update { BrowserSettings(automaticSearchRegion = false) }
         }
-        compose.waitUntil(15_000) {
-            compose.onAllNodesWithContentDescription("Settings").fetchSemanticsNodes().isNotEmpty() ||
-                compose.onAllNodesWithTag("compact-tabs-button").fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("Settings").fetchSemanticsNodes().isNotEmpty() }
     }
-    @After fun cleanup() = runBlocking { container.settings.update { original } }
+    @After fun cleanup() {
+        if (::original.isInitialized) runBlocking { container.settings.update { original } }
+        InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(originalRotation)
+        InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(UiAutomation.ROTATION_UNFREEZE)
+    }
 
-    private fun openSettings() {
-        if (compose.onAllNodesWithContentDescription("Settings").fetchSemanticsNodes().isEmpty())
-            compose.onNodeWithTag("compact-tabs-button").performClick()
-        compose.onNodeWithContentDescription("Settings").performClick()
+    private fun rotate(orientation: Int) {
+        // Target SDK 36 ignores requestedOrientation on large displays. Rotate the
+        // actual display instead, as a user would rotate a tablet.
+        val rotation = if (orientation == Configuration.ORIENTATION_LANDSCAPE) landscapeRotation else (landscapeRotation + 1) % 2
+        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(rotation))
+        compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == orientation }
+        compose.waitForIdle()
+    }
+
+    private fun expectMargin(value: Int) {
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("$value dp").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("$value dp").assertIsDisplayed()
     }
 
     @Test fun toggleFineAdjustmentResetAndRecreation() {
-        openSettings()
+        compose.onNodeWithContentDescription("Settings").performClick()
         val list = compose.onNodeWithTag("settings-list")
         list.performScrollToNode(hasText("Avoid camera overlap"))
         compose.onNodeWithTag("settings-camera-margin").assertDoesNotExist()
         val before = list.fetchSemanticsNode().boundsInRoot.left
         compose.onNodeWithText("Avoid camera overlap").performClick()
+        list.performScrollToNode(hasTestTag("camera-position-left"))
+        compose.onNodeWithTag("camera-position-left").performClick()
         list.performScrollToNode(hasTestTag("settings-camera-margin-slider"))
-        compose.onNodeWithText("32 dp").assertIsDisplayed()
+        expectMargin(32)
         val after = list.fetchSemanticsNode().boundsInRoot.left
         val density = compose.activity.resources.displayMetrics.density
         assertEquals(32f * density, after - before, 1f)
         compose.onNodeWithContentDescription("Decrease margin by 1").performClick()
-        compose.onNodeWithText("31 dp").assertIsDisplayed()
+        expectMargin(31)
         compose.onNodeWithContentDescription("Increase margin by 1").performClick()
-        compose.onNodeWithText("32 dp").assertIsDisplayed()
+        expectMargin(32)
         compose.onNodeWithTag("settings-camera-margin-slider").performSemanticsAction(SemanticsActions.SetProgress) { it(17f) }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("17 dp").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("17 dp").assertIsDisplayed()
+        expectMargin(17)
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(compose.activity.getExternalFilesDir(null), "camera-avoidance-settings.png").outputStream().use {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
@@ -65,14 +85,71 @@ class CameraAvoidanceUiTest {
         compose.waitUntil(15_000) { runBlocking { container.settings.settings.first().cameraSideMargin == 17 } }
         // Navigation is intentionally independent of saved settings.
         if (compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isEmpty())
-            openSettings()
+            compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("settings-camera-margin-slider"))
-        compose.onNodeWithText("17 dp").assertIsDisplayed()
+        expectMargin(17)
         compose.onNodeWithText("Reset").performClick()
-        compose.onNodeWithText("32 dp").assertIsDisplayed()
+        expectMargin(32)
+        // Portrait must remove the extra margin even while the preference stays ON.
+        rotate(Configuration.ORIENTATION_PORTRAIT)
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid camera overlap"))
+        assertTrue(runBlocking { container.settings.settings.first().avoidCameraOverlap })
+        val portraitOn = compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left
         compose.onNodeWithText("Avoid camera overlap").performClick()
-        compose.onNodeWithTag("settings-camera-margin").assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("settings-camera-margin").fetchSemanticsNodes().isEmpty() }
+        assertEquals(portraitOn, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
+        rotate(Configuration.ORIENTATION_LANDSCAPE)
         assertEquals(before, compose.onNodeWithTag("settings-list").fetchSemanticsNode().boundsInRoot.left, 1f)
     }
+
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(compose.activity.getExternalFilesDir(null), "$name.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+
+    @Test fun registeredRightCameraSwapsToLeftOnlyAfterHalfTurn() {
+        compose.onNodeWithContentDescription("Settings").performClick()
+        val list = compose.onNodeWithTag("settings-list")
+        list.performScrollToNode(hasText("Avoid camera overlap"))
+        val baseline = compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.left
+        compose.onNodeWithText("Avoid camera overlap").performClick()
+        list.performScrollToNode(hasTestTag("camera-position-right"))
+        compose.onNodeWithTag("camera-position-right").performClick()
+        compose.waitUntil(5_000) { runBlocking {
+            container.settings.settings.first().cameraLeftRotation == (landscapeRotation + 2) % 4
+        } }
+        compose.onNodeWithTag("camera-position-right").assertIsSelected()
+        assertEquals(baseline, compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.left, 1f)
+        capture("camera-side-right")
+        val pixels = 32f * compose.activity.resources.displayMetrics.density
+        val opposite = (landscapeRotation + 2) % 4
+        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(opposite))
+        // A half turn remains landscape; the DisplayListener must update the UI.
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("sidebar").fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.left == baseline + pixels
+        }
+        compose.onNodeWithTag("camera-position-left").assertIsSelected()
+        capture("camera-side-left")
+        compose.activityRule.scenario.recreate()
+        if (compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("camera-position-left"))
+        compose.onNodeWithTag("camera-position-left").assertIsSelected()
+        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.setRotation(landscapeRotation))
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("sidebar").fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.left == baseline
+        }
+        compose.onNodeWithTag("camera-position-right").assertIsSelected()
+        rotate(Configuration.ORIENTATION_PORTRAIT)
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("camera-position-left"))
+        compose.onNodeWithTag("camera-position-left").assertIsNotEnabled()
+        compose.onNodeWithTag("camera-position-right").assertIsNotEnabled()
+        capture("camera-side-portrait")
+        assertEquals(baseline, compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.left, 1f)
+    }
+
 }

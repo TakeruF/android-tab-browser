@@ -76,17 +76,27 @@ run. These results do not establish a full instrumentation suite or store releas
 
 ## Landscape camera avoidance
 
-Settings → Appearance offers an opt-in camera avoidance setting, off by default.
-In landscape, it reserves equal margins of 0–64 dp on both sides (default 32 dp),
-combined with safe drawing insets using the larger value rather than adding them.
-Portrait keeps the existing insets. The expanded sidebar extends its background
-into the margin without adding interactive controls there.
+The camera behavior matches the shipped 1.1.7 source: Settings → Appearance
+registers the camera's physical side in landscape. Extra spacing of 0–64 dp
+(default 32 dp) is applied only when the camera is on the left, following
+180-degree display rotation. Portrait and right-side camera positions add no
+camera margin. Registration and margin survive preference updates and restarts.
+The expanded sidebar continues its background into the left margin.
 
-`CameraAvoidanceSettingsTest` checks defaults and persistence;
-`CameraAvoidanceInsetsTest` checks portrait/off behavior, both layout directions,
-and safe-inset union. `CameraAvoidanceUiTest` covers the toggle, fine adjustment,
-reset, and Activity recreation in wide and compact navigation. Device camera
-placement and Split still need separate runtime inspection.
+The 2026-11-09 commit initially reintroduced the earlier symmetric-margin
+implementation from the old 1.1.2 branch. The follow-up restores camera-specific
+production code, translations, and calibration regression tests from `v1.1.7`,
+while preserving the Spaces setting and private-profile crash fix. Earlier
+symmetric-margin test results above describe that superseded implementation.
+
+Follow-up validation on 2026-11-09 passed all 180 Play Debug unit tests,
+Debug/Release lint (zero errors, 72 warnings each), and Debug/test APK builds.
+Both restored `CameraAvoidanceUiTest` cases passed on `emulator-5580`:
+position registration, half-turn left/right switching, portrait exclusion,
+fine adjustment/reset, and Activity recreation. The position selector screenshot
+was inspected in the wide light layout. Evidence is under ignored
+`artifacts/camera-preserve-20261109/`. Narrow/dark and Split were not rerun for
+this follow-up; physical camera placement remains unverified.
 
 ## Local artifact retention
 

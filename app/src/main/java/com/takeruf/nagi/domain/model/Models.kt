@@ -77,6 +77,8 @@ data class BrowserSettings(
     val bottomSearchBar: Boolean = false,
     val avoidCameraOverlap: Boolean = false,
     val cameraSideMargin: Int = 32,
+    // Display rotation at which the user registered the camera on the left.
+    val cameraLeftRotation: Int? = null,
     val spacesEnabled: Boolean = true,
 )
 
