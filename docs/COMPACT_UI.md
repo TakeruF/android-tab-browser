@@ -26,6 +26,33 @@ Typing, page scrolling, same-document anchor navigation, and SPA history changes
 
 Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Space switcher, creation/edit/delete controls, move-to-Space actions and horizontal Space swipes. The expanded list labels its pinned section “Pinned tabs” instead of showing a Space name/icon. The UI uses the configured theme color while Spaces are disabled. Command Bar suggestions and closed-tab restoration stay within the current Space. Shared Favorites and browsing history remain available. Changing this setting does not reload pages or destroy live WebViews, including either Split pane. The preference persists across restarts.
 
+## Page zoom
+
+Pinch zoom remains available. The page menu also exposes minus, the current
+percentage (tap to reset), and plus. These are native WebView page-scale changes,
+including images and layout, rather than changing only `textZoom`. They do not
+reload the document or inject CSS. Reader has its separate text-size controls.
+
+100% means the current document's initial rendered scale, independent of screen
+density. Native viewport minimum/maximum scales remain in force, so a site can
+limit zooming; the controls reflect WebView's available directions. Scale
+callbacks update the displayed percentage after pinching. Rapid operations are
+serialized against native scale changes, with reset replacing queued operations.
+Pending zoom operations prevent background suspension.
+
+Live tab/Space switches, Settings, theme changes and resizing keep the existing
+WebView. Its history snapshot also carries the density-independent reset
+baseline and relative zoom. Explicit snapshot restoration waits for the restored
+document's first frame, reapplies that zoom once if needed, and restores saved
+scroll coordinates after the scale settles. New touch, zoom or navigation cancels
+this delayed restoration. A new document or reload establishes a new initial-render baseline;
+there is no new persisted per-site zoom preference or process-death DOM guarantee.
+The implementation observes scale callbacks without automatically reapplying a
+zoom during video presentation or window resizing.
+
+API references: [WebView zoom operations](https://developer.android.com/reference/android/webkit/WebView#zoomBy(float)),
+[scale callbacks](https://developer.android.com/reference/android/webkit/WebViewClient#onScaleChanged(android.webkit.WebView,%20float,%20float)).
+
 ## Validation
 
 The 2026-11-09 confirmation update passed the same `SpacesUiTest` and Play Debug lint (0 errors). It also checks that the toggle precedes the default search engine in General, that neither direction changes the saved preference before confirmation, and that cancellation preserves the preference. Confirmation dialogs were inspected at 1000dp/light and 360dp/dark; the explanation scrolls in constrained windows. The updated Debug APK was installed and launched on the dedicated QA emulator.

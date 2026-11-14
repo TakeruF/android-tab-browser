@@ -25,7 +25,8 @@ import org.json.JSONObject
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
 private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String,
-    val desktopMode: Boolean, val deviceDefaultMode: Boolean = false) : EngineSnapshot
+    val desktopMode: Boolean, val deviceDefaultMode: Boolean = false, val zoomBaseScale: Float = 0f,
+    val zoomPercent: Int = 100) : EngineSnapshot
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebViewBrowserEngine(
@@ -46,7 +47,14 @@ class WebViewBrowserEngine(
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webTheme = android.view.ContextThemeWrapper(context, R.style.Theme_Nagi_Web_Light)
+    private var zoomInteractionVersion = 0L
     private val webView = object : WebView(webTheme) {
+        override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+            if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                zoomInteractionVersion++; cancelZoomWork(); cancelSnapshotPresentationRestore()
+            }
+            return super.dispatchTouchEvent(event)
+        }
         override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
             val connection = super.onCreateInputConnection(outAttrs)
             com.takeruf.nagi.browser.privacy.PrivateKeyboard.apply(outAttrs, privateProfileName != null)
@@ -117,6 +125,21 @@ class WebViewBrowserEngine(
     private var failedNavigation = false
     private var documentPage = mutableState.value
     private var downloadUrl: String? = null
+    private var hasCommittedDocument = false
+    private var pendingDownloads = 0
+    // Density-independent native page scales. Device DPI is not a user zoom.
+    private var zoomBaseScale = 0f
+    private var zoomBaselineGeneration = -1L
+    private var pageScale = 0f
+    private var restoredZoomBaseScale: Float? = null
+    private var restoredZoomPercent: Int? = null
+    private var restoredZoomUrl: String? = null
+    private var zoomRestoreJob: Job? = null
+    private var zoomRestoreEpoch = 0L
+    private enum class ZoomCommand { IN, OUT, RESET }
+    private val zoomCommands = ArrayDeque<ZoomCommand>()
+    private var zoomJob: Job? = null
+    private var zoomScaleVersion = 0L
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var loadingTimeout: Job? = null
     private var readerSurface: WebView? = null
@@ -232,6 +255,8 @@ class WebViewBrowserEngine(
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
+                cancelZoomWork()
+                if (url != "about:blank" && restoredZoomUrl?.substringBefore('#')?.let { it != url.substringBefore('#') } == true) cancelSnapshotPresentationRestore()
                 if (fullscreenActive) fullscreenHost.hideVideo(tabId)
                 pageVideo.invalidate()
                 // Interception can run before onPageStarted, especially for local/cached
@@ -263,6 +288,7 @@ class WebViewBrowserEngine(
                 metadata()
             }
             override fun onPageCommitVisible(view: WebView, url: String) {
+                if (url != "about:blank" && url != downloadUrl && url == view.url && url == state.value.url) hasCommittedDocument = true
                 if (url == view.url && url == state.value.url) installCosmeticFiltering()
             }
             override fun onPageFinished(view: WebView, url: String) {
@@ -270,20 +296,29 @@ class WebViewBrowserEngine(
                 if (url != view.url || url != state.value.url) return
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 if (url == downloadUrl) return
+                if (url != "about:blank") hasCommittedDocument = true
                 loadingTimeout?.cancel()
                 update { it.copy(url = url, title = if (url == "about:blank") "New tab" else view.title?.takeIf { t -> t.isNotBlank() } ?: url,
                     isLoading = false, progress = 100, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 documentPage = state.value
+                if (url != "about:blank" && restoredZoomPercent == null) captureZoomBaseline()
                 pageDownloads.installFallback()
                 pageVideo.installFallback()
                 humanVerification.documentFinished()
                 installCosmeticFiltering()
-                restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
+                if (restoredZoomPercent == null) restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
                 if (privateProfileName == null) cookies.flush()
                 metadata()
                 if (!failedNavigation) discoverFavicon(view, url)
                 if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
                 continuePageTranslation(url)
+            }
+            override fun onScaleChanged(view: WebView, oldScale: Float, newScale: Float) {
+                if (newScale.isFinite() && newScale > 0f) {
+                    pageScale = newScale / zoomDensity()
+                    zoomScaleVersion++
+                    updateZoomState()
+                }
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) {
@@ -404,10 +439,17 @@ class WebViewBrowserEngine(
                 deviceDefaultMode = it.deviceDefaultMode,
                 translation = it.translation, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
+            val offeredGeneration = navigationGeneration
+            if (url.startsWith("https://") || url.startsWith("http://")) pendingDownloads++
             if (url.startsWith("https://") || url.startsWith("http://")) host.download(
                 DownloadRequest(url, userAgent, disposition, mimeType,
                     cookies.getCookie(url), DownloadFilename.fromDisposition(disposition)
-                        ?: URLUtil.guessFileName(url, disposition, mimeType)))
+                        ?: URLUtil.guessFileName(url, disposition, mimeType))) { accepted ->
+                pendingDownloads--
+                if (accepted && !destroyed && !hasCommittedDocument && navigationGeneration == offeredGeneration) {
+                    eventChannel.trySend(EngineEvent.DownloadStartedWithoutDocument)
+                }
+            }
             else if (url.startsWith("blob:") || url.startsWith("data:")) pageDownloads.request(url,
                 DownloadFilename.fromDisposition(disposition) ?: URLUtil.guessFileName(url, disposition, mimeType))
             else host.showMessage(strings(R.string.ui_this_address_type_is_not_supported))
@@ -426,6 +468,147 @@ class WebViewBrowserEngine(
         popup.post { popup.stopLoading(); popup.destroy() }
     }
     private fun update(change: (PageState) -> PageState) { if (!destroyed) mutableState.update(change) }
+    override val supportsPageZoom: Boolean get() = true
+
+    @Suppress("DEPRECATION")
+    private fun captureZoomBaseline() {
+        if (zoomBaselineGeneration == navigationGeneration) { updateZoomState(); return }
+        zoomBaselineGeneration = navigationGeneration
+        pageScale = webView.scale.takeIf { it.isFinite() && it > 0f }?.div(zoomDensity()) ?: pageScale
+        zoomBaseScale = pageScale
+        updateZoomState()
+        val generation = navigationGeneration
+        val interaction = zoomInteractionVersion
+        // The initial overview scale can arrive after onPageFinished. Establish
+        // 100% from the drawn document, but never rebase after a user interaction.
+        webView.postVisualStateCallback(generation, object : WebView.VisualStateCallback() {
+            override fun onComplete(requestId: Long) {
+                if (destroyed || generation != navigationGeneration || interaction != zoomInteractionVersion || state.value.isLoading) return
+                val scale = webView.scale
+                if (scale.isFinite() && scale > 0f) { pageScale = scale / zoomDensity(); zoomBaseScale = pageScale; updateZoomState() }
+            }
+        })
+    }
+
+    private fun zoomDensity() = webView.resources.displayMetrics.density.coerceAtLeast(0.01f)
+
+    @Suppress("DEPRECATION")
+    private fun updateZoomState() {
+        if (destroyed || zoomBaseScale <= 0f || pageScale <= 0f) return
+        val percent = kotlin.math.round(pageScale / zoomBaseScale * 100f).toInt().coerceAtLeast(1)
+        update { it.copy(pageZoomPercent = percent, canZoomIn = restoredZoomPercent == null && webView.canZoomIn(),
+            canZoomOut = restoredZoomPercent == null && webView.canZoomOut()) }
+        if (documentPage.url == state.value.url) documentPage = documentPage.copy(
+            pageZoomPercent = state.value.pageZoomPercent, canZoomIn = state.value.canZoomIn, canZoomOut = state.value.canZoomOut)
+    }
+
+    override fun zoomIn() = changeZoom(ZoomCommand.IN)
+    override fun zoomOut() = changeZoom(ZoomCommand.OUT)
+    override fun resetZoom() = changeZoom(ZoomCommand.RESET)
+
+    private fun cancelZoomWork() { zoomCommands.clear(); zoomJob?.cancel(); zoomJob = null }
+
+    private fun cancelSnapshotPresentationRestore() {
+        if (restoredZoomPercent == null && zoomRestoreJob == null) return
+        zoomRestoreEpoch++
+        zoomRestoreJob?.cancel(); zoomRestoreJob = null
+        restoredZoomBaseScale = null; restoredZoomPercent = null; restoredZoomUrl = null; restoringScroll = null
+        updateZoomState()
+    }
+
+    private suspend fun awaitZoomScaleSettled(before: Long) {
+        withTimeoutOrNull(1_000) {
+            while (zoomScaleVersion == before) delay(16)
+            var observed = zoomScaleVersion
+            var stableAt = android.os.SystemClock.uptimeMillis()
+            while (android.os.SystemClock.uptimeMillis() - stableAt < 96) {
+                delay(16)
+                if (observed != zoomScaleVersion) { observed = zoomScaleVersion; stableAt = android.os.SystemClock.uptimeMillis() }
+            }
+        }
+    }
+
+    private suspend fun awaitZoomFrame() = suspendCancellableCoroutine<Unit> { continuation ->
+        webView.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+            override fun onComplete(requestId: Long) { if (continuation.isActive) continuation.resumeWith(Result.success(Unit)) }
+        })
+        webView.invalidate()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun restoreSnapshotPresentation(snapshot: WebViewSnapshot) {
+        val epoch = ++zoomRestoreEpoch
+        val requestGeneration = navigationRequestGeneration
+        val interaction = zoomInteractionVersion
+        zoomRestoreJob = scope.launch {
+            try {
+                withTimeoutOrNull(30_000) {
+                    // Some providers restore a document without onPageFinished.
+                    // Await its rendered frame rather than treating URL metadata as a loaded page.
+                    var generation: Long
+                    do {
+                        while (state.value.isLoading) delay(16)
+                        generation = navigationGeneration
+                        awaitZoomFrame()
+                    } while (state.value.isLoading || generation != navigationGeneration)
+                    fun stillCurrent() = !destroyed && epoch == zoomRestoreEpoch &&
+                        requestGeneration == navigationRequestGeneration && generation == navigationGeneration && interaction == zoomInteractionVersion
+                    if (!stillCurrent()) return@withTimeoutOrNull
+                    pageScale = webView.scale / zoomDensity()
+                    zoomBaseScale = restoredZoomBaseScale ?: pageScale
+                    zoomBaselineGeneration = generation
+                    val target = zoomBaseScale * snapshot.zoomPercent / 100f
+                    if (pageScale > 0f && target > 0f && kotlin.math.abs(target / pageScale - 1f) > 0.005f) {
+                        val before = zoomScaleVersion
+                        webView.zoomBy((target / pageScale).coerceIn(0.01f, 100f))
+                        awaitZoomScaleSettled(before)
+                        awaitZoomFrame()
+                    }
+                    if (stillCurrent()) {
+                        pageScale = webView.scale / zoomDensity()
+                        // Restore native pixel scroll only after zoom settles; a late
+                        // zoom anchor must not move a page away from its saved position.
+                        webView.scrollTo(snapshot.scrollX, snapshot.scrollY)
+                    }
+                }
+            } finally {
+                if (epoch == zoomRestoreEpoch) {
+                    zoomRestoreJob = null
+                    restoredZoomBaseScale = null; restoredZoomPercent = null; restoredZoomUrl = null; restoringScroll = null
+                    updateZoomState()
+                }
+            }
+        }
+    }
+
+    private fun changeZoom(command: ZoomCommand) {
+        cancelSnapshotPresentationRestore()
+        if (destroyed || state.value.isLoading || state.value.readerArticle != null || state.value.readerLoading ||
+            state.value.error != null || state.value.url == "about:blank") return
+        zoomInteractionVersion++
+        if (command == ZoomCommand.RESET) zoomCommands.clear()
+        if (zoomCommands.size < 32) zoomCommands.addLast(command)
+        if (zoomJob?.isActive == true) return
+        val generation = navigationGeneration
+        zoomJob = scope.launch {
+            while (zoomCommands.isNotEmpty() && !destroyed && generation == navigationGeneration &&
+                !state.value.isLoading && state.value.readerArticle == null && !state.value.readerLoading) {
+                val before = zoomScaleVersion
+                val changed = when (zoomCommands.removeFirst()) {
+                    ZoomCommand.IN -> webView.zoomIn()
+                    ZoomCommand.OUT -> webView.zoomOut()
+                    ZoomCommand.RESET -> if (pageScale > 0f && zoomBaseScale > 0f && kotlin.math.abs(pageScale / zoomBaseScale - 1f) > 0.005f) {
+                        webView.zoomBy((zoomBaseScale / pageScale).coerceIn(0.01f, 100f)); true
+                    } else false
+                }
+                // A reset queued immediately after + must use the scale delivered
+                // by that zoom, not the preceding UI-thread value. Native zoom
+                // animations are serialized until their scale callback settles.
+                if (changed) awaitZoomScaleSettled(before)
+                updateZoomState()
+            }
+        }
+    }
     private fun watchLoading() {
         loadingTimeout?.cancel()
         loadingTimeout = scope.launch {
@@ -536,6 +719,10 @@ class WebViewBrowserEngine(
     private fun loadUrl(url: String, extraHeaders: Map<String, String>, preserveTranslation: Boolean = false) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
+        val sameZoomDocument = isSameDocumentFragment(url)
+        cancelZoomWork(); cancelSnapshotPresentationRestore()
+        restoredZoomBaseScale = null
+        if (url == "about:blank") { zoomBaseScale = 0f; pageScale = 0f }
         navigationRequestGeneration++
         if (!preserveTranslation) translationNavigation.reset()
         humanVerification.reset()
@@ -545,8 +732,11 @@ class WebViewBrowserEngine(
         restoringScroll = null
         downloadUrl = null
         navigationGeneration++
+        if (sameZoomDocument) zoomBaselineGeneration = navigationGeneration
         faviconJob?.cancel()
         update { it.copy(url = url, isLoading = url != "about:blank", progress = 0,
+            pageZoomPercent = if (url == "about:blank") 100 else it.pageZoomPercent,
+            canZoomIn = false, canZoomOut = false,
             readerArticle = null, readerLoading = false,
             blockedRequests = 0, visitBlockingExceptionSite = visitExceptionFor(url),
             title = if (url == "about:blank") "New tab" else url, error = null,
@@ -556,6 +746,7 @@ class WebViewBrowserEngine(
         if (extraHeaders.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, extraHeaders)
     }
     override fun reload() { if (!destroyed) {
+        cancelZoomWork(); cancelSnapshotPresentationRestore()
         humanVerification.reset()
         translationNavigation.followLink()
         pageTranslation.reset(restore = true)
@@ -587,12 +778,14 @@ class WebViewBrowserEngine(
     }
 
     override fun goBack() { if (state.value.readerArticle != null) { toggleReader(); return }; if (canGoBack()) {
+        cancelZoomWork(); cancelSnapshotPresentationRestore()
         translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(-1)
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
     } }
     override fun goForward() { if (canGoForward()) {
+        cancelZoomWork(); cancelSnapshotPresentationRestore()
         translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(1)
@@ -714,6 +907,7 @@ class WebViewBrowserEngine(
     }
 
     override fun toggleReader() {
+        cancelZoomWork(); cancelSnapshotPresentationRestore()
         if (destroyed) return
         if (state.value.readerArticle != null) { update { it.copy(readerArticle = null) }; return }
         if (state.value.readerLoading || state.value.isLoading || !state.value.url.startsWith("http")) return
@@ -874,10 +1068,11 @@ class WebViewBrowserEngine(
         if (destroyed) return null
         val bundle = Bundle()
         return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY,
-            state.value.url, state.value.desktopMode, state.value.deviceDefaultMode) else null
+            state.value.url, state.value.desktopMode, state.value.deviceDefaultMode, zoomBaseScale, state.value.pageZoomPercent) else null
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
+        cancelZoomWork(); cancelSnapshotPresentationRestore()
         navigationRequestGeneration++
         blockingDocument = BlockingDocument(snapshot.url)
         // Restore the cached document in the mode in which it was fetched. Current
@@ -886,18 +1081,23 @@ class WebViewBrowserEngine(
         update { it.copy(desktopMode = snapshot.desktopMode, deviceDefaultMode = snapshot.deviceDefaultMode) }
         applyUserAgent(currentDisplayMode())
         restoringScroll = snapshot.scrollX to snapshot.scrollY
+        restoredZoomBaseScale = snapshot.zoomBaseScale.takeIf { it > 0f }
+        restoredZoomPercent = snapshot.zoomPercent
+        restoredZoomUrl = snapshot.url
+        if (snapshot.zoomBaseScale > 0f) zoomBaseScale = snapshot.zoomBaseScale
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
-        if (!restored) restoringScroll = null
+        if (!restored) { restoringScroll = null; restoredZoomBaseScale = null; restoredZoomPercent = null; restoredZoomUrl = null }
         if (restored) {
             update { it.copy(url = webView.url ?: "about:blank", visitBlockingExceptionSite = visitExceptionFor(webView.url ?: "about:blank"), title = webView.title ?: "New tab",
                 canGoBack = webView.canGoBack(), canGoForward = webView.canGoForward()) }
             documentPage = state.value
+            restoreSnapshotPresentation(snapshot)
         }
         return restored
     }
     override fun canSuspend(result: (Boolean) -> Unit) {
         if (destroyed || state.value.isLoading || restoringScroll != null || fileCallback != null || pendingPermissions.isNotEmpty() ||
-            mediaPermissionGranted || fullscreenActive || pageDownloads.isBusy || pageTranslation.active) { result(false); return }
+            mediaPermissionGranted || fullscreenActive || pendingDownloads > 0 || zoomJob?.isActive == true || restoredZoomPercent != null || pageDownloads.isBusy || pageTranslation.active) { result(false); return }
         val generation = navigationGeneration
         webView.evaluateJavascript("""
             (function(){
@@ -916,7 +1116,7 @@ class WebViewBrowserEngine(
             })()
         """.trimIndent()) { value -> result(!destroyed && generation == navigationGeneration && value == "true" &&
             !state.value.isLoading && fileCallback == null && pendingPermissions.isEmpty() && !mediaPermissionGranted &&
-            !fullscreenActive && !pageDownloads.isBusy && !pageTranslation.active) }
+            !fullscreenActive && pendingDownloads == 0 && zoomJob?.isActive != true && restoredZoomPercent == null && !pageDownloads.isBusy && !pageTranslation.active) }
     }
     override fun destroy() {
         if (destroyed) return

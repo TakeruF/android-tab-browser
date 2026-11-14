@@ -1,8 +1,5 @@
 package com.takeruf.nagi.browser.downloads
 
-import com.takeruf.nagi.R
-import com.takeruf.nagi.ui.localization.NagiStrings
-
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
@@ -15,11 +12,11 @@ import android.provider.MediaStore
 import java.io.File
 
 class DownloadService(private val context: Context) {
-    private val strings = NagiStrings(context)
     fun enqueue(download: DownloadRequest): Long {
         val filename = download.suggestedName.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(160).ifBlank { "download" }
         val request = DownloadManager.Request(Uri.parse(download.url))
-            .setTitle(filename).setDescription(strings(R.string.ui_downloaded_with_nagi))
+            // A fixed description masks DownloadManager's remaining-time text.
+            .setTitle(filename)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .addRequestHeader("User-Agent", download.userAgent)
         download.cookies?.let { request.addRequestHeader("Cookie", it) }

@@ -282,8 +282,15 @@
     <string name="ui_take_photo">사진 촬영</string>
     <string name="ui_choose_files">파일 선택</string>
     <string name="ui_camera_unavailable">카메라 앱을 열 수 없습니다.</string>
+    <string name="ui_downloads">다운로드</string>
+    <string name="ui_download_saving">Downloads에 저장 중…</string>
+    <string name="ui_download_progress">%1$s · %2$s / %3$s</string>
     <string name="ui_download_saved">Downloads에 저장했습니다</string>
     <string name="ui_generated_download_failed">생성된 파일을 저장할 수 없습니다. 최대 크기는 32 MB입니다.</string>
+    <string name="ui_page_zoom">확대/축소</string>
+    <string name="ui_page_zoom_out">축소</string>
+    <string name="ui_page_zoom_in">확대</string>
+    <string name="ui_page_zoom_reset">확대/축소 초기화</string>
     <string name="ui_page_drag">링크 및 이미지 드래그</string>
     <string name="ui_page_drag_description">웹페이지의 링크나 이미지를 길게 눌러 드래그하세요. 링크를 창의 주소 표시줄에 놓으면 열립니다. 우클릭으로 메뉴를 열거나 이 설정을 끄고 길게 눌러 메뉴를 열 수 있습니다.</string>
     <string name="ui_sleep_tabs_description">열린 페이지가 6개를 넘으면 10분간 사용하지 않은 안전한 백그라운드 탭을 절전 상태로 전환합니다. 표시 중인 페이지, 편집한 양식 및 사용 중인 미디어는 유지합니다. 절전 탭은 열 때 다시 로드되며 일부 페이지 상태가 손실될 수 있습니다.</string>
@@ -407,4 +414,7 @@
     <string name="ui_disable_spaces">스페이스 끄기</string>
     <string name="ui_enable_spaces_message">스페이스를 전환하며 탭을 따로 정리할 수 있습니다.\n\n스페이스 만들기·편집·삭제, 스페이스 간 탭 이동, 가로 스와이프 전환을 사용할 수 있습니다. 탭 검색과 닫은 탭 복원은 모든 스페이스를 대상으로 하며 각 스페이스의 색상이 화면에 반영됩니다.\n\n저장된 스페이스와 탭을 다시 사용할 수 있습니다. 즐겨찾기, 고정 탭, 분할 보기도 계속 사용할 수 있습니다.</string>
     <string name="ui_disable_spaces_message">현재 스페이스만 일반 탭 목록으로 사용합니다.\n\n스페이스 전환·만들기·편집·삭제, 스페이스 간 탭 이동, 가로 스와이프 전환이 숨겨집니다. 탭 검색과 닫은 탭 복원은 현재 스페이스로 제한되며 화면에는 설정한 테마 색상을 사용합니다.\n\n다른 스페이스와 탭은 보관되며 다시 켜면 사용할 수 있습니다. 즐겨찾기, 고정 탭, 분할 보기도 계속 사용할 수 있습니다. 스페이스나 탭은 삭제되지 않습니다.</string>
+    <string name="ui_resume_browsing">작업 계속하기</string>
+    <string name="ui_pinned_tab">고정된 탭</string>
+    <string name="ui_saved_split">저장된 분할 화면</string>
 </resources>

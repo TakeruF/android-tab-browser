@@ -67,6 +67,8 @@ class PageDownloads(private val view: WebView, private val host: BrowserHost) {
             if (!accepted) { release(id); pendingId = null; return@confirmGeneratedDownload }
             transfer = scope.launch {
                 var file: File? = null
+                val progress = host.trackGeneratedDownload(request)
+                var handedOff = false
                 try {
                     file = withContext(NonCancellable + Dispatchers.IO) { File.createTempFile("page-download-", ".tmp", view.context.cacheDir) }
                     val output = withContext(Dispatchers.IO) { file.outputStream() }
@@ -79,16 +81,20 @@ class PageDownloads(private val view: WebView, private val host: BrowserHost) {
                             require(bytes.isNotEmpty() && bytes.size <= 49152 && offset + bytes.size <= size)
                             withContext(Dispatchers.IO) { output.write(bytes) }
                             offset += bytes.size
+                            progress?.update(offset)
                         }
                     } finally { withContext(NonCancellable + Dispatchers.IO) { output.close() } }
                     if (generation == offeredGeneration && pendingId == id) {
-                        host.saveGeneratedDownload(request, file)
+                        host.saveGeneratedDownload(request, file) { saved -> progress?.finish(saved) }
+                        handedOff = true
                         file = null // Host owns cleanup after copying to Downloads.
                     }
                 } catch (error: Exception) {
                     if (error is CancellationException) throw error
+                    progress?.finish(false)
                     host.showMessage(strings(R.string.ui_generated_download_failed))
                 } finally {
+                    if (!handedOff) progress?.cancel()
                     file?.delete()
                     if (generation == offeredGeneration) { release(id); pendingId = null }
                 }

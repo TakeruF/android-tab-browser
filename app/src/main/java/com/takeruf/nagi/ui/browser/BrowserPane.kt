@@ -7,6 +7,7 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -39,7 +40,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit,
     onAdBlockingChange: (String, Boolean) -> Unit = { _, _ -> },
     onVisitBlockingChange: (Boolean) -> Unit = {}, onCustomizeNewTab: () -> Unit = {}, compactWindow: Boolean = false,
-    onTranslationOptions: () -> Unit = {}) {
+    onTranslationOptions: () -> Unit = {}, onResumeTab: (String) -> Unit = {}) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -111,6 +112,28 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     Box {
                         ToolButton(NagiIcons.Ellipsis, strings(R.string.ui_page_menu)) { onFocus(); pageMenu = true }
                         NagiOverflowMenu(pageMenu, { pageMenu = false }) {
+                            if (engine.supportsPageZoom && canShareLink && page.readerArticle == null) {
+                                val zoomEnabled = !page.isLoading && !page.readerLoading && page.error == null
+                                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(strings(R.string.ui_page_zoom), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                    IconButton(onClick = { onFocus(); engine.zoomOut() }, enabled = zoomEnabled && page.canZoomOut,
+                                        modifier = Modifier.size(48.dp).testTag("page-zoom-out")) {
+                                        Text("−", style = MaterialTheme.typography.headlineSmall,
+                                            modifier = Modifier.semantics { contentDescription = strings(R.string.ui_page_zoom_out) })
+                                    }
+                                    TextButton(onClick = { onFocus(); engine.resetZoom() }, enabled = zoomEnabled && page.pageZoomPercent != 100,
+                                        shape = NagiShapes.Rounded, contentPadding = PaddingValues(horizontal = 8.dp),
+                                        modifier = Modifier.widthIn(min = 64.dp).heightIn(min = 48.dp).testTag("page-zoom-reset")
+                                            .semantics { contentDescription = strings(R.string.ui_page_zoom_reset) }) {
+                                        Text(java.text.NumberFormat.getPercentInstance().format(page.pageZoomPercent / 100.0))
+                                    }
+                                    IconButton(onClick = { onFocus(); engine.zoomIn() }, enabled = zoomEnabled && page.canZoomIn,
+                                        modifier = Modifier.size(48.dp).testTag("page-zoom-in")) {
+                                        Icon(NagiIcons.Plus, strings(R.string.ui_page_zoom_in), Modifier.size(20.dp))
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
                             if (!inlineShare) {
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Share, null) }, text = { Text(strings(R.string.ui_share_link)) }, enabled = canShareLink,
                                     modifier = Modifier.testTag("menu-share-url:${tab.id}"), onClick = { pageMenu = false; shareLink() })
@@ -209,8 +232,11 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             Box(Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}")) {
                 if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
-                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space), { onFocus(); onOmnibox() }, compactWindow,
-                        state.settings, onCustomizeNewTab)
+                    val tabs = state.visibleTabs
+                    val shortcuts = remember(tabs, tab.id) { newTabShortcuts(tabs, tab.id) }
+                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space),
+                        { onFocus(); onOmnibox() }, compactWindow, state.settings, onCustomizeNewTab,
+                        shortcuts = shortcuts, onResumeTab = onResumeTab)
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(NagiShapes.Bottom), onFocus)

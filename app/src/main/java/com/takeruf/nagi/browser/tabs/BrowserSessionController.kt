@@ -12,6 +12,9 @@ class BrowserSessionController(private val container: AppContainer,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val collectors = mutableMapOf<String, Job>()
+    // Only tabs opened by a live page may disappear after a download. A user's
+    // home tab or a restored tab must never be closed by this transient event.
+    private val pageOpenedTabs = mutableSetOf<String>()
     private val mutablePages = MutableStateFlow<Map<String, PageState>>(emptyMap())
     val pages = mutablePages.asStateFlow()
     val generation = MutableStateFlow(0)
@@ -33,12 +36,18 @@ class BrowserSessionController(private val container: AppContainer,
                     val tab = container.workspace.dao.tab(id)
                     if (tab != null && tab.closedAt == null) {
                         val newId = container.tabs.create(tab.spaceId, event.url, parentTabId = id)
+                        pageOpenedTabs.add(newId)
                         openedTabs.emit(newId)
+                    }
+                }
+                EngineEvent.DownloadStartedWithoutDocument -> {
+                    if (pageOpenedTabs.remove(id) && engine.state.value.url == "about:blank" && !engine.state.value.isLoading) {
+                        container.tabs.close(id)
                     }
                 }
             } }
         }
-    }, onRemove = { id -> collectors.remove(id)?.cancel(); mutablePages.update { it - id } },
+    }, onRemove = { id -> pageOpenedTabs.remove(id); collectors.remove(id)?.cancel(); mutablePages.update { it - id } },
         onSuspend = { id, page -> mutablePages.update { it + (id to page.copy(isSuspended = true, isLoading = false)) } })
 
     init {
@@ -51,5 +60,5 @@ class BrowserSessionController(private val container: AppContainer,
         acquire(tab, desktopDefault).loadUrl(url)
     }
     fun dispose() { pool.destroyAll(); scope.cancel() }
-    fun reset() { pool.destroyAll(); generation.value++ }
+    fun reset() { pool.destroyAll(); pageOpenedTabs.clear(); generation.value++ }
 }

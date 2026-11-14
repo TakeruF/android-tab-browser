@@ -8,11 +8,46 @@ The camera writes a full-size JPEG to `cache/camera-uploads/` through the separa
 
 Video/audio recording and folder selection are outside this first implementation.
 
-## Generated downloads
+## Downloads
+
+HTTP(S) and generated-file confirmations use Nagi's shared Material 3 dialog and
+rounded text buttons, following the active Space color and light/dark theme.
+The filename and source remain visible, with size shown for generated files.
+Cancel, Back and outside dismissal do not start a transfer.
+
+HTTP(S) attachments continue through Android DownloadManager with ongoing and
+completion notifications. The request supplies a filename without a fixed
+description, allowing Android to show its progress percentage and estimated
+remaining time when the server provides a length and Android has a speed estimate.
+Unknown-length transfers use Android's indeterminate progress indicator. The
+system download notification channel must be enabled; its exact presentation
+depends on the Android version and device. Android may initially minimize this
+system notification; expand it to see its details.
+
+A tab opened by a live page (including `target="_blank"`, supported popups,
+the new-tab link setting and link context actions) is closed automatically after
+the user confirms an HTTP(S) download and DownloadManager accepts it, provided
+that tab has never committed a document. The existing transactional close policy
+returns selection to its opener and preserves its saved Split pair. Downloads
+in existing documents, manually created home tabs, restored tabs, cancellation
+and enqueue failures do not trigger this cleanup. A tab/Space selected in the
+meantime is not replaced by the opener. Redirects before the attachment do not
+count as a committed document. This cleanup does not apply to page-generated
+files, which require a live document to transfer their bytes.
+
+### Generated downloads
 
 `PageDownloads` installs a WebView message listener and a small document-start script on capable WebViews, with a page-finished fallback. Main-frame Blob/data download links are fetched immediately so that subsequent object-URL revocation does not invalidate the export. Programmatic downloads triggered by a user interaction are supported. WebView download callbacks also request a transfer where the object URL is still available.
 
 Native handling accepts only a main frame whose HTTP(S) origin matches the current page, validates metadata, permits one pending download per view, and caps files at 32 MB. The user confirms name, size and source origin before transfer. Bytes move in 48 KB chunks with a bounded reply and timeout, into a private temporary file. Navigation and destruction cancel pending transfers. The host copies the completed file on an IO dispatcher to MediaStore Downloads on API 29+, or app-specific Downloads on API 26–28, without overwriting an existing file. Partial output is removed on failure.
+
+Generated files have a separate low-importance notification with the filename,
+percentage and transferred/total bytes, followed by a saving state and a final
+success or failure state. Navigation/destruction removes cancelled progress;
+success is reported only after the destination copy finishes. Android 13+ asks
+for notification permission after the user accepts a generated download.
+Denying it still permits saving. Generated transfers remain tied to the live
+page and host lifetime; they are not process-resilient background downloads.
 
 This channel exposes no app-file read method or arbitrary native calls. It is not a credential bridge. Cross-frame exports and files larger than 32 MB are not supported. This implementation received a focused source review; it is not a full security audit or a claim of sandboxed adversarial runtime validation.
 

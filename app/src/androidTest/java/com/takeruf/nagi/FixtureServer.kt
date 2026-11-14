@@ -75,9 +75,16 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     return@use
                 }
                 if (path.startsWith("/download")) {
-                    val data = "Nagi download fixture".toByteArray()
-                    client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=nagi.txt\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n").toByteArray())
-                    client.getOutputStream().write(data)
+                    val slow = path == "/download-slow"
+                    val data = if (slow) ByteArray(2 * 1024 * 1024) { (it % 251).toByte() } else "Nagi download fixture".toByteArray()
+                    val output = client.getOutputStream()
+                    output.write(("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=${if (slow) "nagi-progress-qa.bin" else "nagi.txt"}\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                    var offset = 0
+                    while (offset < data.size) {
+                        val count = minOf(32768, data.size - offset)
+                        output.write(data, offset, count); output.flush(); offset += count
+                        if (slow) Thread.sleep(200)
+                    }
                     return@use
                 }
                 val body = pages[path] ?: if (path.startsWith("/blocked-media")) """

@@ -32,6 +32,7 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
                 onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
                 onCustomizeNewTab = { customizingNewTab = true },
+                onResumeTab = { id -> onFocusRight(false); vm.selectTab(id) },
                 onTranslationOptions = { onTranslationOptions(tab, engine) },
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap, compactWindow = compactWindow,
                 onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->

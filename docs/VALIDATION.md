@@ -98,6 +98,59 @@ was inspected in the wide light layout. Evidence is under ignored
 `artifacts/camera-preserve-20261109/`. Narrow/dark and Split were not rerun for
 this follow-up; physical camera placement remains unverified.
 
+## Download, page zoom and resume validation (2026-11-15)
+
+An isolated checkout from `ab003cc` validated download lifecycle/notifications
+and the shared Compose confirmation, native page-menu zoom, and new-tab resume
+links for current-Space pinned tabs and saved Split pairs.
+
+The selected tree passed all 190 Play Debug unit tests with no failures, errors
+or skips. Play Debug/Release lint each reported zero errors and 72 warnings.
+The following JDK-17 Gradle Wrapper tasks passed with `--no-parallel`:
+
+```sh
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayDebug :app:lintPlayRelease :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --no-parallel
+```
+
+After the final download-test update, instrumentation APK assembly and Play
+Debug lint passed again. Four-language resource checks confirmed all ten added
+strings and matching numbered placeholders.
+
+Dedicated `Nagi_Selected_20261115` (`emulator-5586`, API 36, WebView
+133.0.6943.137) passed 28 selected instrumentation executions:
+
+| Window and theme | Selection | Passed |
+| --- | --- | --- |
+| 1000 × 800 dp, dark | DownloadUiTest, PageZoomEngineTest, PageZoomUiTest, NewTabShortcutsUiTest | 14 |
+| Approximately 411 × 914 dp, light | DownloadUiTest, PageZoomUiTest, NewTabShortcutsUiTest | 11 |
+| Wide window | WebViewEngineTest native-acceptance and navigation-during-confirmation cases; VideoUiTest returningFromPopupPreservesDesktopPageZoomAcrossRepeatedTabSwitches | 3 |
+
+Both HTTP runs used ordinary DownloadManager scheduling, with no forced-job
+argument. The paced 2 MiB fixture completed with byte-for-byte verification,
+automatic empty-tab closure and retention of the live opener/draft. Generated
+8 MiB exports passed progress/completion notification and saved-length checks.
+Cancellation, manual tabs, previously displayed popup documents, changed
+selection, saved Split/opener restoration, metadata and Back dismissal passed.
+
+Zoom checks cover native whole-page scale, reset, rapid operations, viewport
+limits, pending-work protection, live state and snapshot scale/scroll restoration.
+Resume checks verify pinned selection and restoration of both saved Split panes,
+identical WebViews, edited Japanese drafts and a single document request.
+Phone/light and tablet/dark screenshots of resume links, restored Split, page
+zoom, download confirmation and progress were inspected.
+
+An earlier shared-device attempt reported a process crash; its installed APK
+hash differed from the selected build when inspected afterward. The final runs
+used the separate AVD, complete confirmation-UI dependencies and a matching
+installed APK. The selected main APK SHA-256 is
+`dea5dfb7b097d6803ed26b74ef7465bbd824c24c02e9c393f70260d992e5fa2b`.
+Exact selections, logs, screenshots and content hashes are retained in ignored
+`artifacts/selected-commit-20261115/`.
+
+This is selected emulator coverage, not a full instrumentation-suite result,
+physical-device/OEM validation, other-provider or live-site compatibility proof.
+No version bump or release action was performed.
+
 ## Local artifact retention
 
 Generated output belongs in Git-ignored `artifacts/` or `app/build/`. Keep the latest and previous signed release APK/AAB, checksums/update metadata, and compact final verification evidence. Remove superseded Debug APKs, repeated downloads, build intermediates, raw logcat/build logs, interrupted runs, and obsolete screenshots after their useful results are recorded.

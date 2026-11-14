@@ -283,8 +283,15 @@
     <string name="ui_take_photo">Take photo</string>
     <string name="ui_choose_files">Choose files</string>
     <string name="ui_camera_unavailable">No camera app is available.</string>
+    <string name="ui_downloads">Downloads</string>
+    <string name="ui_download_saving">Saving to Downloads…</string>
+    <string name="ui_download_progress">%1$s · %2$s / %3$s</string>
     <string name="ui_download_saved">Saved to Downloads</string>
     <string name="ui_generated_download_failed">Could not save this generated file. The limit is 32 MB.</string>
+    <string name="ui_page_zoom">Zoom</string>
+    <string name="ui_page_zoom_out">Zoom out</string>
+    <string name="ui_page_zoom_in">Zoom in</string>
+    <string name="ui_page_zoom_reset">Reset zoom</string>
     <string name="ui_page_drag">Drag links and images</string>
     <string name="ui_page_drag_description">Long-press a page link or image to drag it. Drop links on a pane address bar to open them. Right-click for actions; turn this off to use the long-press menu.</string>
     <string name="ui_sleep_tabs_description">When more than 6 pages are live, safe background tabs idle for 10 minutes can sleep. Displayed pages, edited forms and active media stay live. Sleeping tabs reload when opened; some page state may be lost.</string>
@@ -409,4 +416,7 @@
     <string name="ui_disable_spaces">Turn off Spaces</string>
     <string name="ui_enable_spaces_message">Switch between Spaces and organize tabs separately.\n\nCreate, edit and delete Spaces, move tabs between them, and swipe to switch. Search can find tabs in all Spaces, and closed-tab restoration works across Spaces. Each Space uses its own color.\n\nYour saved Spaces and tabs become available again. Favorites, pinned tabs and Split remain available.</string>
     <string name="ui_disable_spaces_message">Use only the current Space as a single tab collection.\n\nSpace switching, creation, editing, deletion, tab moves between Spaces and swipe switching will be hidden. Tab search and closed-tab restoration stay within the current Space. The interface uses your theme color.\n\nOther Spaces and their tabs are kept and become available when you turn Spaces on again. Favorites, pinned tabs and Split remain available. No Spaces or tabs are deleted.</string>
+    <string name="ui_resume_browsing">Continue browsing</string>
+    <string name="ui_pinned_tab">Pinned tab</string>
+    <string name="ui_saved_split">Saved split view</string>
 </resources>

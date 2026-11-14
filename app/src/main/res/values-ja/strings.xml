@@ -282,8 +282,15 @@
     <string name="ui_take_photo">写真を撮影</string>
     <string name="ui_choose_files">ファイルを選択</string>
     <string name="ui_camera_unavailable">カメラアプリを開けませんでした。</string>
+    <string name="ui_downloads">ダウンロード</string>
+    <string name="ui_download_saving">Downloads に保存中…</string>
+    <string name="ui_download_progress">%1$s · %2$s / %3$s</string>
     <string name="ui_download_saved">Downloads に保存しました</string>
     <string name="ui_generated_download_failed">生成ファイルを保存できませんでした。上限は32 MBです。</string>
+    <string name="ui_page_zoom">ズーム</string>
+    <string name="ui_page_zoom_out">縮小</string>
+    <string name="ui_page_zoom_in">拡大</string>
+    <string name="ui_page_zoom_reset">倍率をリセット</string>
     <string name="ui_page_drag">リンク・画像をドラッグ</string>
     <string name="ui_page_drag_description">ページのリンクや画像を長押ししてドラッグできます。リンクは各ペインのアドレス欄にドロップすると開きます。操作メニューは右クリック、またはこの設定をオフにして長押しで開けます。</string>
     <string name="ui_sleep_tabs_description">ページが6枚を超えると、10分以上使っていない安全なタブを休止します。表示中・フォーム編集中・メディア利用中のタブは保持します。休止タブは開くと再読み込みされ、ページ内の一部の状態は失われる場合があります。</string>
@@ -407,4 +414,7 @@
     <string name="ui_disable_spaces">Spaceをオフにする</string>
     <string name="ui_enable_spaces_message">Spaceを切り替えて、タブを分けて整理できます。\n\nSpaceの作成・編集・削除、Space間のタブ移動、横スワイプでの切り替えが使えます。タブ検索と閉じたタブの復元は全Spaceが対象になり、各Spaceの色が画面に反映されます。\n\n保存されているSpaceとタブが再び使えます。お気に入り・ピン留め・Splitも引き続き使えます。</string>
     <string name="ui_disable_spaces_message">現在のSpaceだけを通常のタブ一覧として使います。\n\nSpaceの切り替え・作成・編集・削除、Space間のタブ移動、横スワイプでの切り替えを非表示にします。タブ検索と閉じたタブの復元は現在のSpace内に限定され、画面には設定したテーマカラーを使います。\n\n他のSpaceとタブは保存され、再びオンにすると使えます。お気に入り・ピン留め・Splitも引き続き使えます。Spaceやタブは削除されません。</string>
+    <string name="ui_resume_browsing">作業に戻る</string>
+    <string name="ui_pinned_tab">ピン留めタブ</string>
+    <string name="ui_saved_split">保存済みの分割表示</string>
 </resources>

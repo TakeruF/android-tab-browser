@@ -282,8 +282,15 @@
     <string name="ui_take_photo">拍摄照片</string>
     <string name="ui_choose_files">选择文件</string>
     <string name="ui_camera_unavailable">没有可用的相机应用。</string>
+    <string name="ui_downloads">下载</string>
+    <string name="ui_download_saving">正在保存到 Downloads…</string>
+    <string name="ui_download_progress">%1$s · %2$s / %3$s</string>
     <string name="ui_download_saved">已保存到“下载”文件夹</string>
     <string name="ui_generated_download_failed">无法保存生成的文件。大小上限为 32 MB。</string>
+    <string name="ui_page_zoom">缩放</string>
+    <string name="ui_page_zoom_out">缩小</string>
+    <string name="ui_page_zoom_in">放大</string>
+    <string name="ui_page_zoom_reset">重置缩放</string>
     <string name="ui_page_drag">拖放链接和图片</string>
     <string name="ui_page_drag_description">长按网页链接或图片即可拖动。将链接放到窗格地址栏即可打开。右键可打开操作菜单，关闭此设置后也可通过长按打开菜单。</string>
     <string name="ui_sleep_tabs_description">同时运行的网页超过 6 个时，闲置至少 10 分钟且符合休眠条件的后台标签页会自动休眠。正在显示、表单内容已修改或正在播放媒体的页面不会休眠。休眠的标签页再次打开时会重新加载，部分页面状态可能丢失。</string>
@@ -407,4 +414,7 @@
     <string name="ui_disable_spaces">关闭空间</string>
     <string name="ui_enable_spaces_message">可切换空间，分别整理标签页。\n\n可创建、编辑、删除空间，在空间之间移动标签页，并通过横向滑动切换空间。标签页搜索和已关闭标签页的恢复将涵盖所有空间，界面会使用各空间的颜色。\n\n已保存的空间和标签页将重新可用。收藏、固定标签页和分屏仍可使用。</string>
     <string name="ui_disable_spaces_message">仅将当前空间作为普通标签页列表使用。\n\n隐藏空间切换、创建、编辑、删除、跨空间移动标签页及横向滑动切换功能。标签页搜索和已关闭标签页的恢复仅限当前空间，界面使用设置的主题颜色。\n\n其他空间和标签页会保留，重新开启后即可使用。收藏、固定标签页和分屏仍可使用。不会删除任何空间或标签页。</string>
+    <string name="ui_resume_browsing">继续浏览</string>
+    <string name="ui_pinned_tab">固定标签页</string>
+    <string name="ui_saved_split">已保存的分屏</string>
 </resources>

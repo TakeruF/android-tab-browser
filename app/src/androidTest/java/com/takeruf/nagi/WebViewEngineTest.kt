@@ -32,6 +32,7 @@ class WebViewEngineTest {
     private lateinit var siteDisplayModes: SiteDisplayModeStore
     private lateinit var ime: TestIme
     private val downloads = CopyOnWriteArrayList<DownloadRequest>()
+    private var downloadResult: ((Boolean) -> Unit)? = null
     private val uploads = CopyOnWriteArrayList<FileSelectionRequest>()
     private val fullscreenRequests = CopyOnWriteArrayList<View>()
     private val contextActions = CopyOnWriteArrayList<List<PageContextAction>>()
@@ -44,6 +45,7 @@ class WebViewEngineTest {
         override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) { uploads.add(request); result(null) }
         override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) { result(emptySet()) }
         override fun download(request: DownloadRequest) { downloads.add(request) }
+        override fun download(request: DownloadRequest, result: (Boolean) -> Unit) { downloads.add(request); downloadResult = result }
         override fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) { result(true) }
         override fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File) {
             generatedFiles.add(request to file.readBytes()); file.delete()
@@ -487,6 +489,22 @@ class WebViewEngineTest {
         assertTrue(downloads.first().cookies?.contains("nagi=cookie") == true)
         await { it.url == "${server.origin}/one" && !it.isLoading }
         assertEquals("Fixture One", engine.state.value.title)
+    }
+    @Test fun freshDownloadSignalsCleanupOnlyAfterNativeAcceptance() = runBlocking {
+        main { engine.loadUrl("${server.origin}/download") }
+        withTimeout(15_000) { while (downloadResult == null) delay(25) }
+        assertNull(withTimeoutOrNull(300) { engine.events.first { it is EngineEvent.DownloadStartedWithoutDocument } })
+        main { downloadResult!!.invoke(true) }
+        val event = withTimeout(5_000) { engine.events.first { it is EngineEvent.DownloadStartedWithoutDocument } }
+        assertEquals(EngineEvent.DownloadStartedWithoutDocument, event)
+    }
+    @Test fun navigationDuringDownloadConfirmationPreventsCleanup() = runBlocking {
+        main { engine.loadUrl("${server.origin}/download") }
+        withTimeout(15_000) { while (downloadResult == null) delay(25) }
+        main { engine.loadUrl("${server.origin}/one") }
+        await { it.title == "Fixture One" && !it.isLoading }
+        main { downloadResult!!.invoke(true) }
+        assertNull(withTimeoutOrNull(300) { engine.events.first { it is EngineEvent.DownloadStartedWithoutDocument } })
     }
     @Test fun validatedUppercaseSearchTemplateCanNavigate() {
         val provider = com.takeruf.nagi.domain.model.SearchEngine("case-qa", "Case QA", "caseqa", "HTTPS://example.com/?q={query}")

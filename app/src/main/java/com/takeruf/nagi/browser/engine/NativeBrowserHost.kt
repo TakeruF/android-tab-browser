@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class BlockedExternalAppRequest(val url: String, internal val launch: () -> Unit)
 
+class DownloadConfirmation(val name: String, val source: String, val size: Long?, internal val accept: () -> Unit)
+
 class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, FullscreenHost {
     var blockExternalApps: () -> Boolean = { false }
     private val blockedExternalApp = MutableStateFlow<BlockedExternalAppRequest?>(null)
@@ -42,13 +44,28 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     private var consentDialog: AlertDialog? = null
     val video = VideoPresentationController(activity)
     private val downloads = DownloadService(activity.applicationContext)
+    private val downloadNotifications = com.takeruf.nagi.browser.downloads.DownloadNotifications(activity.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var fileDialog: AlertDialog? = null
     private var captureFile: File? = null
     private var captureUri: Uri? = null
     private val capturedFiles = mutableListOf<File>()
-    private val generatedDialogs = mutableMapOf<AlertDialog, (Boolean) -> Unit>()
+    private val pendingDownloadResults = mutableMapOf<DownloadConfirmation, (Boolean) -> Unit>()
+    private val pendingDownloadConfirmations = MutableStateFlow<List<DownloadConfirmation>>(emptyList())
+    val downloadConfirmations = pendingDownloadConfirmations.asStateFlow()
     private var disposed = false
+    private val notificationPermissionResults = mutableListOf<() -> Unit>()
+    private val notificationPermissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        val callbacks = notificationPermissionResults.toList()
+        notificationPermissionResults.clear()
+        if (!disposed) callbacks.forEach { it() }
+    }
+    private fun withDownloadNotifications(action: () -> Unit) {
+        if (android.os.Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(activity,
+                Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) { action(); return }
+        notificationPermissionResults.add(action)
+        if (notificationPermissionResults.size == 1) notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
     private val cameraLauncher = activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         val file = captureFile
         val uri = captureUri
@@ -167,33 +184,53 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         val callback = permissionResult; permissionResult = null; requestedPermissions = emptySet()
         consentDialog = null; callback?.invoke(granted)
     }
-    override fun download(request: DownloadRequest) {
-        AlertDialog.Builder(activity).setTitle(strings(R.string.ui_download_file))
-            .setMessage("${request.suggestedName}\n\n${Uri.parse(request.url).host}")
-            .setPositiveButton(strings(R.string.ui_download)) { _, _ ->
-                runCatching { downloads.enqueue(request) }.onSuccess { showMessage(strings(R.string.ui_download_started)) }
-                    .onFailure { showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty())) }
-            }.setNegativeButton(strings(R.string.ui_cancel), null).show()
+    override fun download(request: DownloadRequest) = download(request) {}
+    override fun download(request: DownloadRequest, result: (Boolean) -> Unit) {
+        showDownloadConfirmation(request.suggestedName, Uri.parse(request.url).host.orEmpty(), null, result) { finish ->
+            runCatching { downloads.enqueue(request) }.onSuccess {
+                showMessage(strings(R.string.ui_download_started))
+                finish(true)
+            }.onFailure {
+                showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty()))
+                finish(false)
+            }
+        }
     }
     override fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) {
-        if (disposed) { result(false); return }
-        lateinit var dialog: AlertDialog
-        fun finish(accepted: Boolean) { generatedDialogs.remove(dialog)?.invoke(accepted) }
-        dialog = AlertDialog.Builder(activity).setTitle(strings(R.string.ui_download_file))
-            .setMessage("${request.name}\n${request.size / 1024} KB\n\n${request.origin}")
-            .setPositiveButton(strings(R.string.ui_download)) { _, _ -> finish(true) }
-            .setNegativeButton(strings(R.string.ui_cancel)) { _, _ -> finish(false) }
-            .setOnCancelListener { finish(false) }.create()
-        generatedDialogs[dialog] = result
-        dialog.show()
+        showDownloadConfirmation(request.name, request.origin, request.size, result) { finish ->
+            withDownloadNotifications { finish(true) }
+        }
     }
-    override fun saveGeneratedDownload(request: GeneratedDownload, file: File) {
-        if (disposed) { file.delete(); return }
+    private fun showDownloadConfirmation(name: String, source: String, size: Long?, result: (Boolean) -> Unit,
+        accept: ((Boolean) -> Unit) -> Unit) {
+        if (disposed) { result(false); return }
+        lateinit var confirmation: DownloadConfirmation
+        fun finish(accepted: Boolean) { pendingDownloadResults.remove(confirmation)?.invoke(accepted) }
+        confirmation = DownloadConfirmation(name, source, size) { accept(::finish) }
+        pendingDownloadResults[confirmation] = result
+        pendingDownloadConfirmations.value += confirmation
+    }
+    fun confirmDownload(confirmation: DownloadConfirmation) {
+        if (disposed || confirmation !in pendingDownloadConfirmations.value) return
+        pendingDownloadConfirmations.value -= confirmation
+        confirmation.accept()
+    }
+    fun dismissDownload(confirmation: DownloadConfirmation) {
+        if (confirmation !in pendingDownloadConfirmations.value) return
+        pendingDownloadConfirmations.value -= confirmation
+        pendingDownloadResults.remove(confirmation)?.invoke(false)
+    }
+    override fun trackGeneratedDownload(request: GeneratedDownload): DownloadProgress = downloadNotifications.start(request)
+    override fun saveGeneratedDownload(request: GeneratedDownload, file: File) = saveGeneratedDownload(request, file) {}
+    override fun saveGeneratedDownload(request: GeneratedDownload, file: File, result: (Boolean) -> Unit) {
+        if (disposed) { file.delete(); result(false); return }
         scope.launch {
             try {
                 withContext(Dispatchers.IO) { downloads.saveGenerated(request, file) }
                 showMessage(strings(R.string.ui_download_saved))
+                result(true)
             } catch (error: Exception) {
+                result(false)
                 if (error is CancellationException) throw error
                 showMessage(strings(R.string.ui_download_failed_1_s, error.message.orEmpty()))
             } finally { file.delete() }
@@ -256,13 +293,16 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     override fun removeInlineVideo(tabId: String) = video.removeInline(tabId)
     fun dispose() {
         disposed = true
+        notificationPermissionResults.clear()
         blockedExternalApp.value = null
         consentDialog?.dismiss(); finishPermission(emptySet())
         fileDialog?.dismiss(); fileDialog = null; finishFiles(null)
         captureFile?.delete(); captureFile = null; captureUri = null
         capturedFiles.forEach { it.delete() }; capturedFiles.clear()
-        generatedDialogs.toMap().forEach { (dialog, callback) -> dialog.dismiss(); callback(false) }
-        generatedDialogs.clear()
+        val downloadCallbacks = pendingDownloadResults.values.toList()
+        pendingDownloadResults.clear()
+        pendingDownloadConfirmations.value = emptyList()
+        downloadCallbacks.forEach { it(false) }
         scope.cancel(); video.dispose()
     }
 }

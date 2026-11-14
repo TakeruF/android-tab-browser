@@ -18,12 +18,16 @@ data class PageState(
     val translation: com.takeruf.nagi.browser.translation.PageTranslationState = com.takeruf.nagi.browser.translation.PageTranslationState(),
     val deviceDefaultMode: Boolean = false,
     val humanVerification: HumanVerificationState = HumanVerificationState(),
+    val pageZoomPercent: Int = 100,
+    val canZoomIn: Boolean = false, val canZoomOut: Boolean = false,
 )
 
 sealed interface EngineEvent {
     data class Metadata(val page: PageState) : EngineEvent
     data class Visited(val page: PageState) : EngineEvent
     data class OpenTab(val url: String) : EngineEvent
+    /** A native download was accepted while this engine still had no document. */
+    data object DownloadStartedWithoutDocument : EngineEvent
 }
 
 /** Opaque engine-owned state. A Chromium adapter can supply its own snapshot type. */
@@ -41,6 +45,10 @@ interface BrowserEngine {
     /** Whether page/nested content under native surface coordinates can consume a horizontal scroll. */
     fun canScrollHorizontallyAt(x: Float, y: Float, direction: Int, result: (Boolean) -> Unit) { result(true) }
     fun evaluateJavascript(script: String)
+    val supportsPageZoom: Boolean get() = false
+    fun zoomIn() {}
+    fun zoomOut() {}
+    fun resetZoom() {}
     fun setDesktopMode(enabled: Boolean)
     val supportsDeviceDefaultMode: Boolean get() = false
     fun setDeviceDefaultMode() {}
@@ -78,9 +86,21 @@ interface BrowserHost {
     fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit)
     fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit)
     fun download(request: DownloadRequest)
+    /** True only after the native service accepts the request; false on cancel/failure. */
+    fun download(request: DownloadRequest, result: (Boolean) -> Unit) { download(request); result(false) }
     fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) { result(false) }
     fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File) { file.delete() }
+    fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File, result: (Boolean) -> Unit) {
+        saveGeneratedDownload(request, file); result(true)
+    }
+    fun trackGeneratedDownload(request: GeneratedDownload): DownloadProgress? = null
     fun openExternal(url: String)
     fun openExternalLink(url: String, fallback: (String) -> Unit): Boolean = false
     fun showMessage(message: String)
+}
+
+interface DownloadProgress {
+    fun update(bytes: Long)
+    fun finish(saved: Boolean)
+    fun cancel()
 }
