@@ -25,12 +25,66 @@ class KeyboardShortcutsTest {
     @Test fun numbersDoNotInterceptTypingOtherModifiersReleaseOrRepeat() {
         for (meta in listOf(0, KeyEvent.META_ALT_ON, KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
             KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON)) assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_1, meta)))
-        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_0)))
+        assertEquals(Shortcut.RESET_ZOOM, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_0)))
         assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_1, action = KeyEvent.ACTION_UP)))
         assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_1, repeat = 1)))
         assertEquals(Shortcut.NEXT_TAB, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_TAB)))
         assertEquals(Shortcut.PREVIOUS_TAB, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_TAB, KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON)))
         assertEquals(Shortcut.RESTORE_TAB, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_T, KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON)))
+    }
+    @Test fun commonBrowserActionsSupportControlCommandAndKeyboardLayouts() {
+        for (meta in listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)) {
+            for (code in listOf(KeyEvent.KEYCODE_EQUALS, KeyEvent.KEYCODE_PLUS, KeyEvent.KEYCODE_NUMPAD_ADD)) {
+                assertEquals(Shortcut.ZOOM_IN, KeyboardShortcuts.map(key(code, meta)))
+                assertEquals(Shortcut.ZOOM_IN, KeyboardShortcuts.map(key(code, meta or KeyEvent.META_SHIFT_ON)))
+            }
+            for (code in listOf(KeyEvent.KEYCODE_MINUS, KeyEvent.KEYCODE_NUMPAD_SUBTRACT)) {
+                assertEquals(Shortcut.ZOOM_OUT, KeyboardShortcuts.map(key(code, meta)))
+            }
+            for (code in listOf(KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_NUMPAD_0)) {
+                assertEquals(Shortcut.RESET_ZOOM, KeyboardShortcuts.map(key(code, meta)))
+            }
+            assertEquals(Shortcut.HISTORY, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_H, meta)))
+            assertEquals(Shortcut.SETTINGS, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_COMMA, meta)))
+            assertEquals(Shortcut.PRIVATE_BROWSING, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_N, meta or KeyEvent.META_SHIFT_ON)))
+        }
+        assertEquals(Shortcut.HISTORY, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_H, KeyEvent.META_CTRL_LEFT_ON or KeyEvent.META_CAPS_LOCK_ON)))
+        assertEquals(Shortcut.RESET_ZOOM, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_NUMPAD_0, KeyEvent.META_META_RIGHT_ON or KeyEvent.META_NUM_LOCK_ON)))
+    }
+    @Test fun unrelatedModifierCombinationsAndUnusedChordsReachThePageOrPlatform() {
+        for (code in listOf(KeyEvent.KEYCODE_L, KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_MINUS, KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_COMMA)) {
+            for (meta in listOf(0, KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
+                KeyEvent.META_META_ON or KeyEvent.META_ALT_ON, KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON,
+                KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON, KeyEvent.META_CTRL_ON or KeyEvent.META_SYM_ON)) {
+                assertNull("code=$code, modifiers=$meta", KeyboardShortcuts.map(key(code, meta)))
+            }
+        }
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_N)))
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_D)))
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_N, KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON or KeyEvent.META_ALT_ON)))
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_H, action = KeyEvent.ACTION_UP)))
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_PLUS, repeat = 1)))
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.META_ALT_ON or KeyEvent.META_SHIFT_ON)))
+        assertNull(KeyboardShortcuts.map(key(KeyEvent.KEYCODE_ESCAPE, KeyEvent.META_ALT_ON)))
+        assertEquals(Shortcut.ESCAPE, KeyboardShortcuts.map(key(KeyEvent.KEYCODE_ESCAPE, 0)))
+    }
+    @Test fun zoomInUsesTheKeyboardLayoutWithoutRelaxingModifierGuards() {
+        fun layoutKey(code: Int, modifiers: Int, character: Char) = object : KeyEvent(0, 0, KeyEvent.ACTION_DOWN, code, 0, modifiers) {
+            override fun getUnicodeChar(metaState: Int): Int {
+                assertEquals(0, metaState and (KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK))
+                assertEquals(modifiers and KeyEvent.META_SHIFT_ON, metaState and KeyEvent.META_SHIFT_ON)
+                return character.code
+            }
+        }
+        for (primary in listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)) {
+            assertEquals(Shortcut.ZOOM_IN, KeyboardShortcuts.map(layoutKey(KeyEvent.KEYCODE_SEMICOLON, primary or KeyEvent.META_SHIFT_ON, '+')))
+            assertEquals(Shortcut.ZOOM_IN, KeyboardShortcuts.map(layoutKey(KeyEvent.KEYCODE_UNKNOWN, primary, '=')))
+            for (extra in listOf(KeyEvent.META_ALT_ON, KeyEvent.META_SYM_ON, KeyEvent.META_ALT_ON or KeyEvent.META_SHIFT_ON)) {
+                assertNull(KeyboardShortcuts.map(layoutKey(KeyEvent.KEYCODE_SEMICOLON, primary or extra, '+')))
+            }
+            assertNull(KeyboardShortcuts.map(layoutKey(KeyEvent.KEYCODE_MINUS, primary or KeyEvent.META_SHIFT_ON, '-')))
+            assertNull(KeyboardShortcuts.map(layoutKey(KeyEvent.KEYCODE_0, primary or KeyEvent.META_SHIFT_ON, '0')))
+        }
     }
     @Test fun numberingMatchesSidebarSectionsAndExcludesUnavailableTabs() {
         val state = BrowserUiState(workspace = WorkspaceSnapshot(

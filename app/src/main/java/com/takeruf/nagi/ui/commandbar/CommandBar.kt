@@ -38,13 +38,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.takeruf.nagi.browser.search.*
+import com.takeruf.nagi.ui.browser.KeyboardShortcuts
+import com.takeruf.nagi.ui.browser.Shortcut
 import com.takeruf.nagi.domain.model.*
 import com.takeruf.nagi.ui.theme.NagiSystemBars
 import kotlinx.coroutines.flow.first
 
 @Composable
 fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: BrowserSettings,
-    onDismiss: () -> Unit, onExecute: (SuggestionAction) -> Unit) {
+    onDismiss: () -> Unit, onExecute: (SuggestionAction) -> Unit,
+    onShortcut: (Shortcut) -> Boolean = { false }) {
     val strings = rememberNagiStrings()
     val input = rememberTextFieldState(initialText = initialValue, initialSelection = TextRange(0, initialValue.length))
     val query = input.text.toString()
@@ -89,12 +92,22 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                     // consume it here so Compose cannot move focus or execute an unfinished query.
                     if (event.type != KeyEventType.KeyDown) false
                     else if (input.composition != null) event.key in setOf(Key.Enter, Key.NumPadEnter, Key.DirectionDown, Key.DirectionUp, Key.Escape)
-                    else when (event.key) {
-                        Key.DirectionDown -> { selected = (selected + 1).coerceAtMost((suggestions.size - 1).coerceAtLeast(0)); true }
-                        Key.DirectionUp -> { selected = (selected - 1).coerceAtLeast(0); true }
-                        Key.Enter, Key.NumPadEnter -> { execute(); true }
-                        Key.Escape -> { onDismiss(); true }
-                        else -> false
+                    else {
+                        // This editor owns a Dialog window, so Activity's Window.Callback
+                        // does not receive its keys. Forward only browser navigation
+                        // chords; leave text-editing combinations with the IME/field.
+                        val shortcut = KeyboardShortcuts.map(event.nativeKeyEvent)
+                        val globalShortcut = shortcut?.tabNumber != null || when (shortcut) {
+                            Shortcut.HISTORY, Shortcut.SETTINGS, Shortcut.PRIVATE_BROWSING -> true
+                            else -> false
+                        }
+                        if (globalShortcut && shortcut != null && onShortcut(shortcut)) true else when (event.key) {
+                            Key.DirectionDown -> { selected = (selected + 1).coerceAtMost((suggestions.size - 1).coerceAtLeast(0)); true }
+                            Key.DirectionUp -> { selected = (selected - 1).coerceAtLeast(0); true }
+                            Key.Enter, Key.NumPadEnter -> { execute(); true }
+                            Key.Escape -> { onDismiss(); true }
+                            else -> false
+                        }
                     }
                 }) {
             Column {

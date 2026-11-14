@@ -241,36 +241,55 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     } }
     val shortcutHandler by rememberUpdatedState<(Shortcut) -> Boolean>({ shortcut ->
         val escapeHandled = fullscreen != null || omniboxOpen || showFind || (sidebarAdaptation.compact && !sidebarCollapsed)
-        when (shortcut) {
-            Shortcut.OMNIBOX -> openOmnibox()
-            Shortcut.NEW_TAB -> command(BrowserCommand.NEW_TAB)
-            Shortcut.CLOSE_TAB -> focusedTab?.let { if (right != null && rightFocused) rightFocused = false; vm.closeTab(it.id) }
-            Shortcut.RESTORE_TAB -> command(BrowserCommand.RESTORE_TAB)
-            Shortcut.NEXT_TAB -> { rightFocused = vm.cycleTab(true) == rightTabId }
-            Shortcut.PREVIOUS_TAB -> { rightFocused = vm.cycleTab(false) == rightTabId }
-            Shortcut.TAB_1, Shortcut.TAB_2, Shortcut.TAB_3, Shortcut.TAB_4,
-            Shortcut.TAB_5, Shortcut.TAB_6, Shortcut.TAB_7, Shortcut.TAB_8, Shortcut.TAB_9 -> {
-                if (vm.selectNumberedTab(requireNotNull(shortcut.tabNumber))) {
-                    rightFocused = (state.numberedTabTarget(requireNotNull(shortcut.tabNumber)) as? NumberedTabTarget.Tab)?.id == rightTabId && rightTabId != null
-                    omniboxOpen = false
-                    showFind = false
-                    fullscreen?.let { host.hideFullscreen() }
-                    navigate("browser")
+        val pageShortcutAllowed = state.ready && route == "browser" && !omniboxOpen && !showFind && fullscreen == null &&
+            blockedExternalApp == null && translationRequest == null &&
+            (!sidebarAdaptation.compact || sidebarCollapsed) && focusedEngine?.state?.value?.readerArticle == null
+        val zoomShortcut = when (shortcut) {
+            Shortcut.ZOOM_IN, Shortcut.ZOOM_OUT, Shortcut.RESET_ZOOM -> true
+            else -> false
+        }
+        val navigationShortcut = when (shortcut) {
+            Shortcut.HISTORY, Shortcut.SETTINGS, Shortcut.PRIVATE_BROWSING -> true
+            else -> false
+        }
+        if ((zoomShortcut && (!pageShortcutAllowed || focusedEngine == null)) || (navigationShortcut && !state.ready)) false else {
+            when (shortcut) {
+                Shortcut.OMNIBOX -> openOmnibox()
+                Shortcut.NEW_TAB -> command(BrowserCommand.NEW_TAB)
+                Shortcut.CLOSE_TAB -> focusedTab?.let { if (right != null && rightFocused) rightFocused = false; vm.closeTab(it.id) }
+                Shortcut.RESTORE_TAB -> command(BrowserCommand.RESTORE_TAB)
+                Shortcut.NEXT_TAB -> { rightFocused = vm.cycleTab(true) == rightTabId }
+                Shortcut.PREVIOUS_TAB -> { rightFocused = vm.cycleTab(false) == rightTabId }
+                Shortcut.TAB_1, Shortcut.TAB_2, Shortcut.TAB_3, Shortcut.TAB_4,
+                Shortcut.TAB_5, Shortcut.TAB_6, Shortcut.TAB_7, Shortcut.TAB_8, Shortcut.TAB_9 -> {
+                    if (vm.selectNumberedTab(requireNotNull(shortcut.tabNumber))) {
+                        rightFocused = (state.numberedTabTarget(requireNotNull(shortcut.tabNumber)) as? NumberedTabTarget.Tab)?.id == rightTabId && rightTabId != null
+                        omniboxOpen = false
+                        showFind = false
+                        fullscreen?.let { host.hideFullscreen() }
+                        navigate("browser")
+                    }
+                }
+                Shortcut.RELOAD -> focusedEngine?.reload()
+                Shortcut.BACK -> back()
+                Shortcut.FORWARD -> focusedEngine?.goForward()
+                Shortcut.FIND -> { showFind = true; navigate("browser") }
+                Shortcut.ZOOM_IN -> focusedEngine?.zoomIn()
+                Shortcut.ZOOM_OUT -> focusedEngine?.zoomOut()
+                Shortcut.RESET_ZOOM -> focusedEngine?.resetZoom()
+                Shortcut.HISTORY -> { omniboxOpen = false; showFind = false; command(BrowserCommand.HISTORY) }
+                Shortcut.SETTINGS -> { omniboxOpen = false; showFind = false; command(BrowserCommand.SETTINGS) }
+                Shortcut.PRIVATE_BROWSING -> activity.openPrivateBrowsing()
+                Shortcut.ESCAPE -> when {
+                    fullscreen != null -> host.hideFullscreen()
+                    omniboxOpen -> omniboxOpen = false
+                    showFind -> showFind = false
+                    sidebarAdaptation.compact && !sidebarCollapsed -> setSidebarCollapsed(true)
+                    else -> Unit
                 }
             }
-            Shortcut.RELOAD -> focusedEngine?.reload()
-            Shortcut.BACK -> back()
-            Shortcut.FORWARD -> focusedEngine?.goForward()
-            Shortcut.FIND -> { showFind = true; navigate("browser") }
-            Shortcut.ESCAPE -> when {
-                fullscreen != null -> host.hideFullscreen()
-                omniboxOpen -> omniboxOpen = false
-                showFind -> showFind = false
-                sidebarAdaptation.compact && !sidebarCollapsed -> setSidebarCollapsed(true)
-                else -> Unit
-            }
+            shortcut != Shortcut.ESCAPE || escapeHandled
         }
-        shortcut != Shortcut.ESCAPE || escapeHandled
     })
     DisposableEffect(activity) {
         activity.shortcutHandler = { shortcutHandler(it) }
@@ -583,7 +602,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             onDismiss = { host.dismissDownload(request) })
                     }
                 }
-                if (omniboxOpen) CommandBar(omniboxInitial, state.workspace, state.settings, onDismiss = { omniboxOpen = false }, onExecute = { action ->
+                if (omniboxOpen) CommandBar(omniboxInitial, state.workspace, state.settings, onDismiss = { omniboxOpen = false },
+                    onShortcut = { shortcutHandler(it) }, onExecute = { action ->
                     omniboxOpen = false
                     when (action) {
                         is SuggestionAction.Navigate -> openUrl(action.url)

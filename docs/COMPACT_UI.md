@@ -29,7 +29,8 @@ Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Spa
 ## Page zoom
 
 Pinch zoom remains available. The page menu also exposes minus, the current
-percentage (tap to reset), and plus. These are native WebView page-scale changes,
+percentage (tap to reset), and plus; Ctrl/Command + plus, minus and zero use the
+same focused-page operations. These are native WebView page-scale changes,
 including images and layout, rather than changing only `textZoom`. They do not
 reload the document or inject CSS. Reader has its separate text-size controls.
 

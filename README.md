@@ -98,7 +98,13 @@ Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), al
 | Ctrl / Command + 1–9 | Open sidebar item N: Favorites, pinned tabs, then ordinary tabs. 9 selects item 9; missing items do nothing. Numpad supported. |
 | Ctrl / Command + R | Reload |
 | Ctrl / Command + F | Find in page |
+| Ctrl / Command + + / − / 0 | Zoom the focused page in / out / reset. `=` and numpad keys also work. |
+| Ctrl / Command + H | Open browsing history |
+| Ctrl / Command + , | Open Settings |
+| Ctrl / Command + Shift + N | Open private browsing when supported |
 | Alt + Left / Right | Back / forward |
+
+Page zoom shortcuts apply to the visible, focused browser pane. They do not zoom a page behind Settings, History, Reader, the Omnibox, or another browser overlay. See [keyboard shortcuts](docs/KEYBOARD_SHORTCUTS.md).
 
 ## Architecture
 
