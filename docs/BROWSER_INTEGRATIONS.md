@@ -10,8 +10,10 @@ Video/audio recording and folder selection are outside this first implementation
 
 ## Downloads
 
-HTTP(S) and generated-file confirmations use Nagi's shared Material 3 dialog and
-rounded text buttons, following the active Space color and light/dark theme.
+HTTP(S) and generated-file confirmations use the same rounded, bordered notice
+card as page translation, following the active Space color and light/dark theme.
+Two equal-width, at least 48dp-tall buttons provide an outlined Cancel action
+and a filled Download action. The card remains modal while awaiting a decision.
 The filename and source remain visible, with size shown for generated files.
 Cancel, Back and outside dismissal do not start a transfer.
 
@@ -66,6 +68,23 @@ The WebView adapter rejects loading/restoring pages, pending file selection or p
 Sleeping tabs show a zZ indicator. Opening one recreates the WebView and restores its history and scroll snapshot where available, falling back to the last URL. At most 32 full snapshots are retained; older sleeping tabs keep only their page metadata. Closing a tab discards its snapshot. No live DOM or arbitrary JavaScript state is preserved, so applications with hidden state can still lose it on reload. Cookies remain managed by WebView.
 
 ## Validation
+
+On 2026-11-15, the shared download confirmation passed 10 focused API-36 UI
+checks across 411dp phone and 1000dp tablet widths in light and dark themes.
+They cover HTTP cancellation, generated-file metadata and Back dismissal, and
+tablet Split/opener draft restoration after acceptance. Separate focused cases
+also passed generated-file progress/save and background-tab selection after
+acceptance. All 193 Play Debug unit tests passed; Play Debug/Release lint each
+reported 0 errors and 81 warnings, and Debug/test APK assembly passed.
+Screenshots and exact test selections are in ignored
+`artifacts/download-dialog-20261115/`. This confirmation UI check did not verify
+ordinary HTTP DownloadManager scheduling, physical devices or live Moodle.
+
+The subsequent notice-card restyle passed the same 10 focused UI checks again,
+plus a separate outside-tap dismissal check using a local PDF attachment.
+Debug/test APK assembly and Play Debug/Release lint passed with 0 errors and
+81 warnings each. Updated screenshots and evidence are in ignored
+`artifacts/download-dialog-card-20261115/`.
 
 Camera contract tests cover full-size content-URI delivery and cancellation. Engine tests cover capture hints, Blob revocation, multi-chunk byte integrity, Unicode CSV, real MediaStore output, Android image drag with a readable image URI, edited-form protection, and history/scroll restoration. Pool tests cover age thresholds, protected/unsafe tabs, visibility races and closed snapshot disposal. UI cases exercise the service picker, manual suspension/wake and link drop to the right pane.
 
