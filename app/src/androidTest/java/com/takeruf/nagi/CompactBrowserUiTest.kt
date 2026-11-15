@@ -130,10 +130,11 @@ class CompactBrowserUiTest {
         compose.onNodeWithTag("compact-tabs-button").performClick()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_settings)).performClick()
         val label = compose.activity.getString(R.string.ui_bottom_search_bar)
+        compose.selectSettingsCategory("appearance")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
         compose.onNodeWithText(label).performClick()
         compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().bottomSearchBar } }
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_back_to_browser)).performClick()
+        compose.returnToBrowserFromSettings()
         compose.waitForIdle()
         assertAddressPosition(true)
         assertSame(view, webViews().single())

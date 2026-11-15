@@ -41,6 +41,7 @@ class AiSearchEnginesUiTest {
     @Test fun defaultAiPickerPersistsAndRanksLongInputFirst() {
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithText(strings(R.string.ui_default_search_engine)).assertIsDisplayed()
         compose.onNodeWithTag("default-ai-engine").performClick()
         compose.onNodeWithText("Perplexity").performClick()
@@ -48,7 +49,8 @@ class AiSearchEnginesUiTest {
         assertEquals("google", runBlocking { container.settings.settings.first().defaultSearchEngineId })
         screenshot("separate-defaults")
         compose.activityRule.scenario.recreate()
-        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
+        compose.returnToBrowserFromSettings()
         compose.runOnIdle {
             compose.activity.window.callback.dispatchKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN,
                 KeyEvent.KEYCODE_L, 0, KeyEvent.META_CTRL_ON))
@@ -69,6 +71,7 @@ class AiSearchEnginesUiTest {
     @Test fun settingsShowRegionAndCommandBarUsesShortNames() {
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         val list = compose.onNodeWithTag("search-engines-list")
@@ -81,7 +84,7 @@ class AiSearchEnginesUiTest {
         compose.onNodeWithTag("common-engine:perplexity").assertIsOff().performClick()
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().commonSearchEngineIds.orEmpty().containsAll(setOf("qwen", "perplexity")) } }
         compose.onNodeWithContentDescription(strings(R.string.ui_back_to_settings)).performClick()
-        compose.onNodeWithContentDescription(strings(R.string.ui_back_to_browser)).performClick()
+        compose.returnToBrowserFromSettings()
         compose.runOnIdle {
             compose.activity.window.callback.dispatchKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN,
                 KeyEvent.KEYCODE_L, 0, KeyEvent.META_CTRL_ON))
@@ -104,6 +107,7 @@ class AiSearchEnginesUiTest {
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         compose.onNodeWithTag("selected-common-engine:baidu").assert(hasText(strings(R.string.ui_search_default_badge)))

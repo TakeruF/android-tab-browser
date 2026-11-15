@@ -57,6 +57,7 @@ class CommonSearchEnginesUiTest {
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         val list = compose.onNodeWithTag("search-engines-list")
@@ -91,6 +92,7 @@ class CommonSearchEnginesUiTest {
         compose.onNodeWithText("Esc").performClick()
 
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         val list = compose.onNodeWithTag("search-engines-list")
@@ -102,7 +104,7 @@ class CommonSearchEnginesUiTest {
         compose.onNodeWithTag("common-engine:google").assertIsOn().assertIsNotEnabled()
         screenshot("selected-engines")
         compose.onNodeWithContentDescription(strings(R.string.ui_back_to_settings)).performClick()
-        compose.onNodeWithContentDescription(strings(R.string.ui_back_to_browser)).performClick()
+        compose.returnToBrowserFromSettings()
         compose.activityRule.scenario.recreate()
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isNotEmpty() }
         openSearch()
@@ -114,13 +116,14 @@ class CommonSearchEnginesUiTest {
         compose.onNodeWithText("Esc").performClick()
 
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         compose.onNodeWithTag("search-engines-list").performScrollToNode(hasTestTag("common-engine:baidu"))
         compose.onNodeWithTag("common-engine:baidu").performClick()
         compose.waitUntil(10_000) { runBlocking { "baidu" !in container.settings.settings.first().commonSearchEngineIds.orEmpty() } }
         compose.onNodeWithContentDescription(strings(R.string.ui_back_to_settings)).performClick()
-        compose.onNodeWithContentDescription(strings(R.string.ui_back_to_browser)).performClick()
+        compose.returnToBrowserFromSettings()
         openSearch()
         compose.onNodeWithTag("suggestion:engine:baidu").assertDoesNotExist()
     }

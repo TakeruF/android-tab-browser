@@ -425,7 +425,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 }
                 Column(Modifier.fillMaxSize()) {
                     Row(Modifier.weight(1f).fillMaxWidth()) {
-                        if (!sidebarAdaptation.compact) {
+                        if (!sidebarAdaptation.compact && route != "settings") {
                             Box(Modifier.width(width).fillMaxHeight().padding(vertical = 8.dp).testTag("sidebar")) {
                                 SidebarContent(previewState)
                             }
@@ -504,7 +504,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                             sessions.reset()
                                             snackbar.showSnackbar(strings(R.string.ui_site_data_cleared))
                                         } },
-                                        updateSection = { if (!container.isPrivate) com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) }) { navigate("browser") } }
+                                        updateSection = { if (!container.isPrivate) com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install, showVersion = false) }) { navigate("browser") } }
                                     composable("history") { LibraryScreen(state, vm, { navigate("browser") }, { vm.newTab(it); navigate("browser") }) }
                                 }
                                 if (!sidebarAdaptation.compact && route == "browser" && state.activeTab != null) {

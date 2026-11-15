@@ -342,17 +342,19 @@ class AppearanceUiTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         for (mode in listOf(ThemeMode.DARK, ThemeMode.LIGHT, ThemeMode.SYSTEM)) {
             val label = mode.name.lowercase().replaceFirstChar(Char::uppercase)
+            compose.selectSettingsCategory("appearance")
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
             compose.onNodeWithText(label).performClick()
             compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().theme == mode } }
             compose.waitUntil(10_000) { compose.onAllNodes(hasText(label) and isSelected()).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(label).assertIsSelected()
-            compose.onNodeWithTag("settings-list").performScrollToNode(hasText("You can also drag the sidebar edge."))
-            contrast(text("You can also drag the sidebar edge."))
+            compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Sidebar width"))
+            contrast(text("Sidebar width"))
             compose.activityRule.scenario.recreate()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Settings").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(mode, runBlocking { container.settings.settings.first().theme })
             theme(mode)
+            compose.selectSettingsCategory("appearance")
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
             compose.onNodeWithText(label).assertIsSelected()
         }

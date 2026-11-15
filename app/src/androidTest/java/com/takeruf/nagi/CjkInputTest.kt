@@ -117,6 +117,7 @@ class CjkInputTest {
     @Test fun koreanJamoCompositionAndEnter() = exercise(listOf("ㅎ", "하", "한", "한구", "한국어 검색"), "한국어 검색", false)
     @Test fun engineNameKeepsJapaneseChineseAndKoreanComposition() {
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         compose.onNodeWithTag("search-engines-list").performScrollToNode(hasText("Add search engine"))

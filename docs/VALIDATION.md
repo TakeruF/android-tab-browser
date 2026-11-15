@@ -98,6 +98,72 @@ was inspected in the wide light layout. Evidence is under ignored
 `artifacts/camera-preserve-20261109/`. Narrow/dark and Split were not rerun for
 this follow-up; physical camera placement remains unverified.
 
+## Settings category navigation (2026-11-10)
+
+`SettingsNavigationUiTest` passed both cases on the dedicated API-36
+`Nagi_Download_QA` emulator (`emulator-5584`, WebView 133.0.6943.137).
+It verifies the category/detail hierarchy at 360/700/768/1000 dp, the 760 dp
+available-content boundary, selection and preference retention through Activity
+recreation, meaningful confirmations, hidden unapproved autofill, and returning
+to the same live WebViews, Split pair, drafts and saved sidebar width.
+
+Sixteen distinct existing settings-related cases passed across focused runs:
+camera, Spaces, common/AI/custom engine settings, CJK engine-name composition,
+Japanese UI navigation, video settings, new-tab appearance, theme persistence,
+the bottom search bar, site-data confirmation/workspace retention, and the
+autofill gate. Initial harness failures were corrected for the new categories
+and hidden browser sidebar, a fixed English label, horizontal Space scrolling,
+and portrait display-cutout geometry. All selected cases passed on their final
+runs; this is not a full instrumentation suite.
+
+Debug and instrumentation APK builds passed. Screenshots for wide/light,
+wide/dark, compact/dark and the two-pane boundary were inspected and retained
+with logs and frozen artifacts under ignored `artifacts/settings-ui-20261110/`.
+The privacy lifetime/download explanation, camera instructions, and destructive
+action confirmations remain. About shows its version once; update dialogs keep
+their version display. Physical devices, OEM rendering and a store release were
+not verified by this UI task.
+
+## Settings selective commit validation (2026-11-15)
+
+An isolated checkout from `7a566ce` validated category/detail Settings navigation,
+the Settings-only sidebar visibility change, four-language labels, and the
+single About-version display in both distribution source sets.
+
+All 193 Play Debug unit tests passed with zero failures, errors or skips.
+Play Debug/Release lint each reported zero errors and 81 warnings.
+The JDK-17 Gradle Wrapper passed these tasks with `--no-parallel`:
+
+```sh
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayDebug :app:lintPlayRelease :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest :app:compileGithubDebugKotlin --no-parallel
+```
+
+Dedicated `Nagi_Selected_20261115` (`emulator-5586`, API 36, WebView
+133.0.6943.137) passed all 22 selected instrumentation executions:
+
+- Both `SettingsNavigationUiTest` cases passed across 360/700/768/1000 dp,
+  light/dark themes, Activity recreation, persisted preference/category
+  selection, the 760 dp available-content boundary, confirmation cancellation,
+  the production autofill gate, and return to identical live Split WebViews,
+  edited Japanese drafts and the saved sidebar width.
+- Nineteen affected regression cases passed for search engines, custom-engine
+  persistence, engine-name CJK composition, theme chips, camera registration
+  and rotation, Spaces, video settings, new-tab appearance, background
+  suspension, site-data confirmation, autofill availability, the bottom-search
+  setting, and keyboard navigation through Settings/Omnibox.
+- `LocalizationUiTest#japanese` passed category navigation, search customization,
+  theme selection and return to browsing with Japanese UI labels.
+
+No selected case failed or skipped. The original IME was confirmed restored.
+The three new Settings strings exist in all four locales with matching numbered
+placeholders. Narrow category/detail, wide light/dark and boundary screenshots
+were inspected. Installed main/test APK hashes matched the selected build.
+
+Logs, exact regression selections, screenshots and content hashes are retained
+under ignored `artifacts/settings-commit-20261115/`. This is selected emulator
+coverage, not a full instrumentation suite, physical-device/OEM validation or
+a store release. No version bump or release action was performed.
+
 ## Download, page zoom and resume validation (2026-11-15)
 
 An isolated checkout from `ab003cc` validated download lifecycle/notifications

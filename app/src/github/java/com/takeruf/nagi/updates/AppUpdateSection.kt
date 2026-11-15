@@ -14,7 +14,7 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 import com.takeruf.nagi.ui.theme.NagiShapes
 
 @Composable
-fun AppUpdateSection(updates: AppUpdates, onInstall: () -> Unit) {
+fun AppUpdateSection(updates: AppUpdates, onInstall: () -> Unit, showVersion: Boolean = true) {
     val state by updates.state.collectAsStateWithLifecycle()
     val strings = rememberNagiStrings()
     val busy = state.status in setOf(UpdateStatus.CHECKING, UpdateStatus.DOWNLOADING)
@@ -22,7 +22,7 @@ fun AppUpdateSection(updates: AppUpdates, onInstall: () -> Unit) {
         modifier = Modifier.fillMaxWidth().testTag("app-updates")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(strings(R.string.ui_app_updates), style = MaterialTheme.typography.titleMedium)
-            Text(strings(R.string.ui_current_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
+            if (showVersion) Text(strings(R.string.ui_current_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
             Text(strings(when (state.status) {
                 UpdateStatus.IDLE -> R.string.ui_update_idle
                 UpdateStatus.CHECKING -> R.string.ui_update_checking

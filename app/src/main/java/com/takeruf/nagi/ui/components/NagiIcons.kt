@@ -33,6 +33,8 @@ object NagiIcons {
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_history)
     val Bookmark: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_bookmark)
+    val Info: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_info)
     val Settings: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_settings)
     val Check: ImageVector

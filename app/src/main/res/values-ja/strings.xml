@@ -417,4 +417,7 @@
     <string name="ui_resume_browsing">作業に戻る</string>
     <string name="ui_pinned_tab">ピン留めタブ</string>
     <string name="ui_saved_split">保存済みの分割表示</string>
+    <string name="ui_about_nagi">Nagiについて</string>
+    <string name="ui_video_auto_pip_condition">ホームに戻ると、全画面・ポップアウト動画を小窓で再生</string>
+    <string name="ui_video_popups_condition">タブを切り替えると、自分で再生した動画を小窓で表示</string>
 </resources>

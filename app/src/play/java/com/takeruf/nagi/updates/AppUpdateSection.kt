@@ -14,14 +14,14 @@ import com.takeruf.nagi.ui.theme.NagiShapes
 
 @Composable
 fun AppUpdateSection(@Suppress("UNUSED_PARAMETER") updates: AppUpdates,
-    @Suppress("UNUSED_PARAMETER") onInstall: () -> Unit) {
+    @Suppress("UNUSED_PARAMETER") onInstall: () -> Unit, showVersion: Boolean = true) {
     val strings = rememberNagiStrings()
     val uriHandler = LocalUriHandler.current
     Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().testTag("app-updates")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(strings(R.string.ui_app_updates), style = MaterialTheme.typography.titleMedium)
-            Text(strings(R.string.ui_current_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
+            if (showVersion) Text(strings(R.string.ui_current_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
             Text(strings(R.string.ui_play_updates))
             TextButton(onClick = { uriHandler.openUri("https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}") }) {
                 Text(strings(R.string.ui_open_google_play))

@@ -70,6 +70,7 @@ class NewTabAppearanceTest {
         compose.onNodeWithText("Done").performClick()
         compose.onNodeWithTag("new-tab-background-DEFAULT").assertIsDisplayed()
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("appearance")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("settings-new-tab-background"))
         compose.onNodeWithTag("settings-new-tab-background").performClick()
         compose.onNodeWithTag("new-tab-option-DEFAULT").assertIsSelected()

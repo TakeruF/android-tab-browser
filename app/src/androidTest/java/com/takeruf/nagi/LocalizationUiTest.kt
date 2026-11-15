@@ -60,6 +60,7 @@ class LocalizationUiTest {
         screenshot("$language-home")
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
         compose.onNodeWithText(strings(R.string.ui_settings)).assertIsDisplayed()
+        compose.selectSettingsCategory("search")
         val list = compose.onNodeWithTag("settings-list")
         list.performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithContentDescription(strings(R.string.ui_edit_1_s, "搜狗")).assertDoesNotExist()
@@ -80,11 +81,12 @@ class LocalizationUiTest {
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithTag("settings-list").assertIsDisplayed()
         compose.onNodeWithTag("search-engines-list").assertDoesNotExist()
+        compose.selectSettingsCategory("appearance")
         list.performScrollToNode(hasText(strings(R.string.ui_dark)))
         compose.onNodeWithText(strings(R.string.ui_dark)).performScrollTo().performClick()
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().theme == ThemeMode.DARK } }
         screenshot("$language-settings")
-        compose.onNodeWithContentDescription(strings(R.string.ui_back_to_browser)).performClick()
+        compose.returnToBrowserFromSettings()
         compose.onNodeWithText(strings(R.string.ui_search_anything)).performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement(">" + strings(R.string.ui_open_settings))
         compose.onNodeWithText(strings(R.string.ui_open_settings)).assertIsDisplayed()

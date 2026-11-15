@@ -417,4 +417,7 @@
     <string name="ui_resume_browsing">继续浏览</string>
     <string name="ui_pinned_tab">固定标签页</string>
     <string name="ui_saved_split">已保存的分屏</string>
+    <string name="ui_about_nagi">关于Nagi</string>
+    <string name="ui_video_auto_pip_condition">返回主屏幕时，以小窗播放全屏或弹出视频</string>
+    <string name="ui_video_popups_condition">切换标签页时，以小窗显示你主动播放的视频</string>
 </resources>

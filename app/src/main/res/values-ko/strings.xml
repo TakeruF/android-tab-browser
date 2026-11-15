@@ -417,4 +417,7 @@
     <string name="ui_resume_browsing">작업 계속하기</string>
     <string name="ui_pinned_tab">고정된 탭</string>
     <string name="ui_saved_split">저장된 분할 화면</string>
+    <string name="ui_about_nagi">Nagi 정보</string>
+    <string name="ui_video_auto_pip_condition">홈으로 이동할 때 전체 화면·팝아웃 동영상을 작은 창으로 재생</string>
+    <string name="ui_video_popups_condition">탭 전환 시 직접 재생한 동영상을 작은 창으로 표시</string>
 </resources>

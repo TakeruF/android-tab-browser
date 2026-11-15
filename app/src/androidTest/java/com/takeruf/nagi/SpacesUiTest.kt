@@ -89,9 +89,10 @@ class SpacesUiTest {
         val webViews = views()
         webViews.forEach { evaluate(it, "window.__spaceToken='kept';document.getElementById('draft').value='unfinished draft'") }
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("general")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Use Spaces"))
         assertTrue(compose.onNodeWithText("Use Spaces").fetchSemanticsNode().boundsInRoot.top <
-            compose.onNodeWithText("Default search engine").fetchSemanticsNode().boundsInRoot.top)
+            compose.onNodeWithText("Open links in new tab").fetchSemanticsNode().boundsInRoot.top)
         compose.onNodeWithText("Use Spaces").performClick()
         compose.onNodeWithText("Turn off Spaces?").assertIsDisplayed()
         assertTrue(runBlocking { container.settings.settings.first().spacesEnabled })
@@ -104,7 +105,7 @@ class SpacesUiTest {
         compose.waitUntil(5_000) { runBlocking { !container.settings.settings.first().spacesEnabled } }
         compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("New Space").fetchSemanticsNodes().isEmpty() }
         screenshot("settings-off")
-        compose.onNodeWithContentDescription("Back to browser").performClick()
+        compose.returnToBrowserFromSettings()
         for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
             runBlocking { container.settings.update { it.copy(theme = theme) } }
             for (width in listOf(1000, 360)) {
@@ -132,6 +133,7 @@ class SpacesUiTest {
         screenshot("off-collapsed")
         compose.onNodeWithContentDescription("Expand sidebar").performClick()
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("general")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Use Spaces"))
         resize(360)
         compose.onNodeWithText("Use Spaces").performClick()
@@ -144,8 +146,8 @@ class SpacesUiTest {
         compose.onNodeWithTag("confirm-spaces-change").performClick()
         compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().spacesEnabled } }
         resize(1000)
-        compose.onNodeWithContentDescription("Back to browser").performClick()
-        compose.onNodeWithContentDescription("New Space").assertIsDisplayed()
+        compose.returnToBrowserFromSettings()
+        compose.onNodeWithContentDescription("New Space").performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription("Space actions").assertIsDisplayed()
         screenshot("on-restored")
         assertEquals(before, runBlocking { container.workspace.dao.spaces() })

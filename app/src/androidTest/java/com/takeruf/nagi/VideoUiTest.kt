@@ -426,13 +426,14 @@ class VideoUiTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         val pipTitle = "Automatically enter picture-in-picture"
         val popupTitle = "Automatically pop out videos"
+        compose.selectSettingsCategory("video")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText(pipTitle))
         compose.onNodeWithText(pipTitle).performClick()
         waitFor { runBlocking { !container.settings.settings.first().autoVideoPip } }
         assertTrue(runBlocking { container.settings.settings.first().videoPopups })
         compose.onNodeWithText(popupTitle).performClick()
         waitFor { runBlocking { !container.settings.settings.first().videoPopups } }
-        compose.onNodeWithContentDescription("Back to browser").performClick()
+        compose.returnToBrowserFromSettings()
         tap("#start-video"); assertAdvances()
         switchToNewTab()
         compose.onNodeWithTag("video-popup").assertDoesNotExist()

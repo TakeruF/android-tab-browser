@@ -419,4 +419,7 @@
     <string name="ui_resume_browsing">Continue browsing</string>
     <string name="ui_pinned_tab">Pinned tab</string>
     <string name="ui_saved_split">Saved split view</string>
+    <string name="ui_about_nagi">About Nagi</string>
+    <string name="ui_video_auto_pip_condition">Fullscreen and pop-out videos when you go Home</string>
+    <string name="ui_video_popups_condition">Videos you start when switching tabs</string>
 </resources>

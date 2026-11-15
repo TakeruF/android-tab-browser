@@ -59,7 +59,8 @@ class ReleaseFeaturesUiTest {
 
     @Test fun passwordAutofillSettingsAreHiddenUntilApproval() {
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Privacy"))
+        compose.selectSettingsCategory("privacy")
+        compose.onNodeWithTag("settings-list").assertIsDisplayed()
         compose.onNodeWithText("Password autofill").assertDoesNotExist()
         compose.onNodeWithTag("autofill-status").assertDoesNotExist()
         compose.onNodeWithTag("autofill-settings").assertDoesNotExist()
@@ -75,8 +76,10 @@ class ReleaseFeaturesUiTest {
         val next = runBlocking { container.tabs.create(spaceId, "${server.origin}/two") }
         compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tab(next)?.title == "Fixture Two" } }
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("tabs")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("suspend-background-tabs"))
         compose.onNodeWithTag("suspend-background-tabs").performClick()
+        compose.returnToBrowserFromSettings()
         val sleepingTab = hasContentDescription("Suspended tab") and hasAnyAncestor(hasTestTag("sidebar-tab-$tabId"))
         compose.waitUntil(5_000) { compose.onAllNodes(sleepingTab).fetchSemanticsNodes().isNotEmpty() }
         screenshot("suspended-tab-settings")
@@ -154,6 +157,7 @@ class ReleaseFeaturesUiTest {
         compose.runOnIdle { cookie = CookieManager.getInstance().getCookie(server.origin) }
         assertTrue(cookie?.contains("nagi=cookie") == true)
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("privacy")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Clear cookies and site data"))
         compose.onNodeWithText("Clear cookies and site data").performClick()
         compose.onNodeWithText("Cancel").performClick()
@@ -163,9 +167,11 @@ class ReleaseFeaturesUiTest {
         compose.onNodeWithText("Clear data").performClick()
         compose.waitUntil(10_000) { compose.runOnIdle { cookie = CookieManager.getInstance().getCookie(server.origin) }; cookie == null }
         assertEquals("${server.origin}/one", runBlocking { container.workspace.dao.tab(tabId)!!.url })
+        compose.selectSettingsCategory("about")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("app-updates"))
         compose.onNodeWithText("App updates").assertIsDisplayed()
-        compose.onNodeWithText("Current version: ${BuildConfig.VERSION_NAME}").assertExists()
+        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
+        compose.onNodeWithText("Current version: ${BuildConfig.VERSION_NAME}").assertDoesNotExist()
         if (BuildConfig.APK_UPDATES_ENABLED) {
             compose.onNodeWithText("Check for updates").assertExists()
         } else {
@@ -174,6 +180,7 @@ class ReleaseFeaturesUiTest {
             val info = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
             assertFalse(info.requestedPermissions.orEmpty().contains("android.permission.REQUEST_INSTALL_PACKAGES"))
         }
+        compose.selectSettingsCategory("privacy")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Privacy policy"))
         compose.onNodeWithText("Privacy policy").assertIsDisplayed()
         screenshot("release-updates")

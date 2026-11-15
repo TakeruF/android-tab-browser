@@ -26,6 +26,28 @@ Typing, page scrolling, same-document anchor navigation, and SPA history changes
 
 Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Space switcher, creation/edit/delete controls, move-to-Space actions and horizontal Space swipes. The expanded list labels its pinned section “Pinned tabs” instead of showing a Space name/icon. The UI uses the configured theme color while Spaces are disabled. Command Bar suggestions and closed-tab restoration stay within the current Space. Shared Favorites and browsing history remain available. Changing this setting does not reload pages or destroy live WebViews, including either Split pane. The preference persists across restarts.
 
+## Settings navigation
+
+Settings uses a category-and-detail layout. At 760 dp of available settings
+content width, categories stay on the left and the selected category opens on
+the right. The usual wide window frame consumes 8 dp, so this corresponds to a
+768 dp window without additional insets. Smaller windows show a category list;
+choosing a category opens its settings, and Back returns to the list. Selection
+survives resizing and Activity recreation.
+
+The browser sidebar is hidden while Settings is open. Returning to browsing
+restores the existing sidebar preference and live tab/Split sessions. General
+contains browsing behavior and Spaces; default search, AI and region choices
+are grouped under Search engines. Appearance, Tabs, Video, Privacy and About
+Nagi have their own categories. Password autofill remains hidden pending the
+existing production approval gate.
+
+Routine toggle explanations and duplicate headings have been removed. Brief
+video trigger descriptions, camera registration instructions, privacy lifetime
+and saved-download boundaries, archive/suspension limitations, and destructive
+action confirmations remain where they help users make a decision. About Nagi
+shows the installed version once; update dialogs retain their version display.
+
 ## Page zoom
 
 Pinch zoom remains available. The page menu also exposes minus, the current
@@ -55,6 +77,26 @@ API references: [WebView zoom operations](https://developer.android.com/referenc
 [scale callbacks](https://developer.android.com/reference/android/webkit/WebViewClient#onScaleChanged(android.webkit.WebView,%20float,%20float)).
 
 ## Validation
+
+On 2026-11-10, settings navigation passed two new UI cases and 16 distinct
+existing settings-related cases across focused runs on the dedicated API-36
+`Nagi_Download_QA` emulator (`emulator-5584`, WebView 133.0.6943.137).
+The new cases cover category/detail navigation, selection through Activity
+recreation and 360/700/768/1000 dp window changes, persisted preferences,
+confirmation cancellation, the autofill approval gate, and return to the same
+live Split pages/drafts and sidebar width. Screenshots were inspected for the
+category list, details and the 760 dp available-content boundary in light/dark
+themes under ignored `artifacts/settings-ui-20261110/`.
+
+The existing cases cover camera registration/rotation and portrait exclusion,
+Spaces, common/AI/custom search engines, CJK engine-name composition, Japanese
+interface navigation, video settings, background appearance, themes, the bottom
+search bar, site-data confirmation and workspace retention. Earlier harness
+failures used the old sidebar/category assumptions, a fixed label, a Space
+control outside the horizontal viewport, and an absolute portrait coordinate
+that included the system display cutout; corrected focused reruns passed.
+This is local selected emulator coverage, not a full instrumentation suite or
+physical-device/OEM validation. No release was performed.
 
 The 2026-11-09 confirmation update passed the same `SpacesUiTest` and Play Debug lint (0 errors). It also checks that the toggle precedes the default search engine in General, that neither direction changes the saved preference before confirmation, and that cancellation preserves the preference. Confirmation dialogs were inspected at 1000dp/light and 360dp/dark; the explanation scrolls in constrained windows. The updated Debug APK was installed and launched on the dedicated QA emulator.
 

@@ -91,6 +91,7 @@ class BrowserUiTest {
     }
     @Test fun settingsAllowCustomKeywordSearchAndSurviveActivityRecreation() {
         compose.onNodeWithContentDescription("Settings").performClick()
+        compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))
         compose.onNodeWithTag("customize-search-engines").performClick()
         compose.onNodeWithText("Add search engine").performScrollTo().performClick()
@@ -108,7 +109,7 @@ class BrowserUiTest {
         compose.onNodeWithTag("common-engine:$customId").performClick()
         compose.waitUntil(5_000) { runBlocking { customId in container.settings.settings.first().commonSearchEngineIds.orEmpty() } }
         compose.onNodeWithContentDescription("Back to settings").performClick()
-        compose.onNodeWithContentDescription("Back to browser").performClick()
+        compose.returnToBrowserFromSettings()
         shortcut(AndroidKeyEvent.KEYCODE_L)
         compose.onNode(hasSetTextAction()).performTextReplacement("fixture tablet")
         compose.onNodeWithText("Search Fixture Search for “tablet”").assertExists()

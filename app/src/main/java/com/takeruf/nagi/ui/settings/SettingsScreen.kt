@@ -8,10 +8,10 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
@@ -50,6 +50,47 @@ import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 import com.takeruf.nagi.ui.theme.NagiSystemBars
 import java.util.UUID
 
+internal enum class SettingsCategory(val title: Int) {
+    GENERAL(R.string.ui_general), APPEARANCE(R.string.ui_appearance), SEARCH(R.string.ui_search_engines),
+    TABS(R.string.ui_tabs), VIDEO(R.string.ui_video), PRIVACY(R.string.ui_privacy),
+    AUTOFILL(R.string.ui_password_autofill), ABOUT(R.string.ui_about_nagi),
+}
+
+@Composable
+private fun SettingsCategoryRow(category: SettingsCategory, selected: Boolean, compact: Boolean, onClick: () -> Unit) {
+    val strings = rememberNagiStrings()
+    val icon = when (category) {
+        SettingsCategory.GENERAL -> NagiIcons.SlidersHorizontal
+        SettingsCategory.APPEARANCE -> NagiIcons.Palette
+        SettingsCategory.SEARCH -> NagiIcons.Search
+        SettingsCategory.TABS -> NagiIcons.PanelsTopLeft
+        SettingsCategory.VIDEO -> NagiIcons.Monitor
+        SettingsCategory.PRIVACY -> NagiIcons.ShieldCheck
+        SettingsCategory.AUTOFILL -> NagiIcons.KeyRound
+        SettingsCategory.ABOUT -> NagiIcons.Info
+    }
+    Row(Modifier.fillMaxWidth().testTag("settings-category-${category.name.lowercase()}").clip(NagiShapes.Rounded)
+        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+        .selectable(selected = selected, role = if (compact) Role.Button else Role.Tab, onClick = onClick)
+        .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Icon(icon, null, Modifier.size(22.dp), tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(strings(category.title), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (compact) Icon(NagiIcons.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SettingsAction(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(modifier.fillMaxWidth().clip(NagiShapes.Rounded).clickable(onClick = onClick)
+        .heightIn(min = 60.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f))
+        Icon(NagiIcons.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
 @Composable
 fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onSuspendTabs: () -> Unit = {}, displayRotation: Int = 0, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
@@ -63,7 +104,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
         onPauseOrDispose { }
     }
     var customizingEngines by rememberSaveable { mutableStateOf(false) }
-    val settingsListState = rememberLazyListState()
+    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = customizingEngines) { customizingEngines = false }
     if (customizingEngines) {
         SearchEnginesScreen(state, vm, onBack = { customizingEngines = false })
@@ -93,221 +134,243 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             },
         )
     }
-    Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_browser), onClick = onBack)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text(strings(R.string.ui_settings), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+    BoxWithConstraints(Modifier.fillMaxSize().testTag("settings-screen")) {
+        val wide = maxWidth >= 760.dp
+        val category = selectedCategory?.let { SettingsCategory.valueOf(it) } ?: SettingsCategory.GENERAL
+        val categories = SettingsCategory.entries.filter { it != SettingsCategory.AUTOFILL || autofillApproved }
+        LaunchedEffect(wide) { if (wide && selectedCategory == null) selectedCategory = SettingsCategory.GENERAL.name }
+        BackHandler(enabled = !wide && selectedCategory != null) { selectedCategory = null }
+        val showCategories = !wide && selectedCategory == null
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = if (wide) 24.dp else 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                ToolButton(NagiIcons.ArrowBack, strings(if (wide || showCategories) R.string.ui_back_to_browser else R.string.ui_back_to_settings),
+                    onClick = { if (wide || showCategories) onBack() else selectedCategory = null })
+                Text(strings(if (wide || showCategories) R.string.ui_settings else category.title), Modifier.padding(start = 12.dp),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                if (wide || showCategories) {
+                    LazyColumn(Modifier.then(if (wide) Modifier.width(236.dp) else Modifier.fillMaxWidth()).fillMaxHeight()
+                        .testTag("settings-categories"), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        categories.forEach { destination -> item(key = destination.name) {
+                            SettingsCategoryRow(destination, selected = wide && category == destination, compact = !wide) {
+                                selectedCategory = destination.name
+                            }
+                        } }
+                    }
                 }
-            }
-        LazyColumn(Modifier.weight(1f).testTag("settings-list"), state = settingsListState, contentPadding = PaddingValues(32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        item { SettingsSection(strings(R.string.ui_general), NagiIcons.Globe) {
-            SettingToggle(strings(R.string.ui_spaces_enabled), strings(R.string.ui_spaces_enabled_description), prefs.spacesEnabled) { value ->
-                pendingSpacesEnabled = value
-            }
-            var defaultsMenu by remember { mutableStateOf(false) }
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(strings(R.string.ui_default_search_engine), Modifier.weight(1f))
-                Box {
-                    TextButton(shape = NagiShapes.Rounded, onClick = { defaultsMenu = true }) {
-                        Text(state.workspace.searchEngines.firstOrNull { it.id == prefs.defaultSearchEngineId }?.let { strings.engineName(it, inSettings = true) } ?: strings(R.string.ui_select))
-                        Icon(NagiIcons.ChevronDown, null)
-                    }
-                    NagiOverflowMenu(defaultsMenu, { defaultsMenu = false }) {
-                        SearchEngineOrder.sorted(state.workspace.searchEngines.filter { it.id !in AiSearchEngines.ids }, CommonSearchEngines.ids(prefs)) { it.id }
-                            .forEach { engine -> NagiOverflowMenuItem(text = { Text(strings.engineName(engine, inSettings = true)) }, leadingIcon = { Icon(NagiIcons.Search, null) },
-                            onClick = { vm.defaultEngine(engine.id); defaultsMenu = false }) }
-                    }
-                }
-            }
-            var aiDefaultsMenu by remember { mutableStateOf(false) }
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(strings(R.string.ui_default_ai_engine), Modifier.weight(1f))
-                Box {
-                    TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("default-ai-engine"), onClick = { aiDefaultsMenu = true }) {
-                        Text(strings.engineName(AiSearchEngines.default(prefs, state.workspace.searchEngines), inSettings = true))
-                        Icon(NagiIcons.ChevronDown, null)
-                    }
-                    NagiOverflowMenu(aiDefaultsMenu, { aiDefaultsMenu = false }) {
-                        AiSearchEngines.available(state.workspace.searchEngines).forEach { engine ->
-                            NagiOverflowMenuItem(text = { Text(strings.engineName(engine, inSettings = true)) },
-                                leadingIcon = { Icon(NagiIcons.Search, null) },
-                                onClick = { vm.defaultAiEngine(engine.id); aiDefaultsMenu = false })
+                if (wide) VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                if (!showCategories) Column(Modifier.weight(1f).fillMaxHeight()) {
+                    if (wide) Text(strings(category.title), Modifier.padding(start = 32.dp, top = 8.dp, bottom = 20.dp),
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    key(category) {
+                        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("settings-list"),
+                            contentPadding = PaddingValues(start = if (wide) 32.dp else 16.dp, end = if (wide) 32.dp else 16.dp, bottom = 32.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            if (category == SettingsCategory.GENERAL) item { SettingsSection(strings(R.string.ui_general), NagiIcons.Globe, showHeading = false) {
+                                SettingToggle(strings(R.string.ui_spaces_enabled), null, prefs.spacesEnabled) { value ->
+                                    pendingSpacesEnabled = value
+                                }
+                                SettingToggle(strings(R.string.ui_open_links_in_new_tab), null, prefs.openLinksInNewTab) { value -> vm.updateSettings { it.copy(openLinksInNewTab = value) } }
+                                SettingToggle(strings(R.string.ui_block_external_apps), null, prefs.blockExternalApps) { value -> vm.updateSettings { it.copy(blockExternalApps = value) } }
+                                SettingToggle(strings(R.string.ui_page_drag), null, prefs.nativePageDrag) { value -> vm.updateSettings { it.copy(nativePageDrag = value) } }
+                                SettingToggle(strings(R.string.ui_restore_tabs_on_launch), null, prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
+                                SettingToggle(strings(R.string.ui_desktop_site_by_default), null, prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
+                            } }
+                            if (category == SettingsCategory.VIDEO) item { SettingsSection(strings(R.string.ui_video), NagiIcons.Monitor, showHeading = false) {
+                                SettingToggle(strings(R.string.ui_video_auto_pip), strings(R.string.ui_video_auto_pip_condition), prefs.autoVideoPip) { value -> vm.updateSettings { it.copy(autoVideoPip = value) } }
+                                SettingToggle(strings(R.string.ui_video_popups), strings(R.string.ui_video_popups_condition), prefs.videoPopups) { value -> vm.updateSettings { it.copy(videoPopups = value) } }
+                            } }
+                            if (category == SettingsCategory.SEARCH) item { SettingsSection(strings(R.string.ui_search_engines), NagiIcons.Search, showHeading = false) {
+                                var defaultsMenu by remember { mutableStateOf(false) }
+                                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(strings(R.string.ui_default_search_engine), Modifier.weight(1f))
+                                    Box {
+                                        TextButton(shape = NagiShapes.Rounded, onClick = { defaultsMenu = true }) {
+                                            Text(state.workspace.searchEngines.firstOrNull { it.id == prefs.defaultSearchEngineId }?.let { strings.engineName(it, inSettings = true) } ?: strings(R.string.ui_select))
+                                            Icon(NagiIcons.ChevronDown, null)
+                                        }
+                                        NagiOverflowMenu(defaultsMenu, { defaultsMenu = false }) {
+                                            SearchEngineOrder.sorted(state.workspace.searchEngines.filter { it.id !in AiSearchEngines.ids }, CommonSearchEngines.ids(prefs)) { it.id }
+                                                .forEach { engine -> NagiOverflowMenuItem(text = { Text(strings.engineName(engine, inSettings = true)) }, leadingIcon = { Icon(NagiIcons.Search, null) },
+                                                onClick = { vm.defaultEngine(engine.id); defaultsMenu = false }) }
+                                        }
+                                    }
+                                }
+                                var aiDefaultsMenu by remember { mutableStateOf(false) }
+                                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(strings(R.string.ui_default_ai_engine), Modifier.weight(1f))
+                                    Box {
+                                        TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("default-ai-engine"), onClick = { aiDefaultsMenu = true }) {
+                                            Text(strings.engineName(AiSearchEngines.default(prefs, state.workspace.searchEngines), inSettings = true))
+                                            Icon(NagiIcons.ChevronDown, null)
+                                        }
+                                        NagiOverflowMenu(aiDefaultsMenu, { aiDefaultsMenu = false }) {
+                                            AiSearchEngines.available(state.workspace.searchEngines).forEach { engine ->
+                                                NagiOverflowMenuItem(text = { Text(strings.engineName(engine, inSettings = true)) },
+                                                    leadingIcon = { Icon(NagiIcons.Search, null) },
+                                                    onClick = { vm.defaultAiEngine(engine.id); aiDefaultsMenu = false })
+                                            }
+                                        }
+                                    }
+                                }
+                                SettingToggle(strings(R.string.ui_automatic_search_by_region), strings(R.string.ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off), prefs.automaticSearchRegion, onChange = vm::automaticSearchRegion)
+                                if (prefs.automaticSearchRegion) Text(strings(R.string.ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (prefs.automaticSearchRegion) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(prefs.searchRegionCountry?.let { "$it · ${strings.translate(prefs.searchRegionSource.orEmpty())}" } ?: if (prefs.searchRegionSource == "Unavailable") strings(R.string.ui_region_unavailable_current_engine_kept) else strings(R.string.ui_detecting_region),
+                                        Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TextButton(shape = NagiShapes.Rounded, onClick = vm::refreshSearchRegion) { Text(strings(R.string.ui_check_again)) }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                SettingsAction(strings(R.string.ui_customize_search_engines), Modifier.testTag("customize-search-engines")) { customizingEngines = true }
+                            } }
+                            if (category == SettingsCategory.APPEARANCE) item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette, showHeading = false) {
+                                SettingToggle(strings(R.string.ui_bottom_search_bar), null, prefs.bottomSearchBar) { value ->
+                                    vm.updateSettings { it.copy(bottomSearchBar = value) }
+                                }
+                                SettingToggle(strings(R.string.ui_avoid_camera_overlap), strings(R.string.ui_avoid_camera_overlap_description), prefs.avoidCameraOverlap) { value ->
+                                    vm.updateSettings { it.copy(avoidCameraOverlap = value) }
+                                }
+                                if (prefs.avoidCameraOverlap) {
+                                    val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                                    CameraPositionSelector(prefs.cameraLeftRotation, displayRotation, landscape) { leftRotation ->
+                                        vm.updateSettings { it.copy(cameraLeftRotation = leftRotation) }
+                                    }
+                                }
+                                if (prefs.avoidCameraOverlap && prefs.cameraLeftRotation != null) {
+                                    val margin = prefs.cameraSideMargin.toFloat()
+                                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings-camera-margin")) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(strings(R.string.ui_camera_side_margin), Modifier.weight(1f))
+                                            TextButton(shape = NagiShapes.Rounded,
+                                                enabled = prefs.cameraSideMargin != 32,
+                                                onClick = { vm.updateSettings { it.copy(cameraSideMargin = 32) } }) {
+                                                Text(strings(R.string.ui_camera_margin_reset))
+                                            }
+                                        }
+                                        Text(strings(R.string.ui_camera_margin_hint), style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            TextButton(shape = NagiShapes.Rounded, enabled = margin > 0,
+                                                modifier = Modifier.semantics { contentDescription = strings(R.string.ui_camera_margin_decrease) },
+                                                onClick = { vm.updateSettings { it.copy(cameraSideMargin = (it.cameraSideMargin - 1).coerceAtLeast(0)) } }) { Text("−") }
+                                            Text("${prefs.cameraSideMargin} dp", Modifier.padding(horizontal = 16.dp))
+                                            TextButton(shape = NagiShapes.Rounded, enabled = margin < 64,
+                                                modifier = Modifier.semantics { contentDescription = strings(R.string.ui_camera_margin_increase) },
+                                                onClick = { vm.updateSettings { it.copy(cameraSideMargin = (it.cameraSideMargin + 1).coerceAtMost(64)) } }) { Text("+") }
+                                        }
+                                        Slider(value = margin, onValueChange = { value ->
+                                            vm.updateSettings { it.copy(cameraSideMargin = value.roundToInt()) }
+                                        }, valueRange = 0f..64f,
+                                            modifier = Modifier.testTag("settings-camera-margin-slider"))
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(strings(R.string.ui_camera_margin_narrow), style = MaterialTheme.typography.labelSmall)
+                                            Text(strings(R.string.ui_camera_margin_wide), style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
+                                Row(Modifier.fillMaxWidth().testTag("settings-new-tab-background").clip(NagiShapes.Rounded)
+                                    .clickable { customizingNewTab = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(strings(R.string.ui_new_tab_background), Modifier.weight(1f))
+                                    Icon(NagiIcons.ChevronRight, null, Modifier.size(20.dp))
+                                }
+                                Text(strings(R.string.ui_theme), Modifier.padding(start = 16.dp, top = 16.dp), style = MaterialTheme.typography.titleSmall)
+                                FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
+                                }
+                                var width by remember(prefs.sidebarWidth) { mutableFloatStateOf(prefs.sidebarWidth) }
+                                Column(Modifier.padding(16.dp)) {
+                                    Row { Text(strings(R.string.ui_sidebar_width), Modifier.weight(1f)); Text(if (prefs.sidebarCollapsed) strings(R.string.ui_collapsed) else "${width.toInt()} dp", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    Slider(value = width, onValueChange = { width = it }, valueRange = 220f..380f,
+                                        onValueChangeFinished = {
+                                            val selectedWidth = width
+                                            vm.updateSettings { it.copy(sidebarWidth = if (selectedWidth <= 220f) it.sidebarWidth else selectedWidth,
+                                                sidebarCollapsed = selectedWidth <= 220f) }
+                                            if (selectedWidth <= 220f) width = prefs.sidebarWidth
+                                        })
+                                }
+                            } }
+                            if (category == SettingsCategory.TABS) item { SettingsSection(strings(R.string.ui_tabs), NagiIcons.PanelsTopLeft, showHeading = false) {
+                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(strings(R.string.ui_restore_a_closed_tab))
+                                        Text("Ctrl Shift T", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    TextButton(shape = NagiShapes.Rounded, onClick = { vm.restoreClosed() }) { Text(strings(R.string.ui_restore)) }
+                                }
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(strings(R.string.ui_sleep_tabs_description), style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TextButton(shape = NagiShapes.Rounded, onClick = onSuspendTabs, modifier = Modifier.testTag("suspend-background-tabs")) {
+                                        Text(strings(R.string.ui_sleep_tabs))
+                                    }
+                                }
+                                Column(Modifier.padding(16.dp)) {
+                                    Text(strings(R.string.ui_archive_inactive_tabs))
+                                    Text(strings(R.string.ui_checked_on_launch_or_when_you_choose_archive_now_pinned_b64b52e0),
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        ArchivePeriod.entries.forEach { period -> FilterChip(prefs.archivePeriod == period,
+                                            onClick = { vm.updateSettings { it.copy(archivePeriod = period) } }, label = { Text(when (period) {
+                                                ArchivePeriod.NEVER -> strings(R.string.ui_never); ArchivePeriod.DAY -> strings(R.string.ui_24_hours); ArchivePeriod.WEEK -> strings(R.string.ui_7_days); ArchivePeriod.MONTH -> strings(R.string.ui_30_days)
+                                            }) }) }
+                                    }
+                                    TextButton(shape = NagiShapes.Rounded, enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
+                                }
+                            } }
+                            if (category == SettingsCategory.AUTOFILL && autofillApproved) item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound, showHeading = false) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(strings(if (autofillManager?.isAutofillSupported != true) R.string.ui_autofill_unsupported
+                                        else if (autofillEnabled) R.string.ui_autofill_enabled else R.string.ui_autofill_disabled),
+                                        modifier = Modifier.testTag("autofill-status"), style = MaterialTheme.typography.titleSmall)
+                                    Text(strings(R.string.ui_password_autofill_description),
+                                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("autofill-settings"), onClick = {
+                                        val intent = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE,
+                                            Uri.parse("package:${context.packageName}"))
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (_: ActivityNotFoundException) {
+                                            try {
+                                                context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                            } catch (_: ActivityNotFoundException) {
+                                                Toast.makeText(context, strings(R.string.ui_autofill_settings_unavailable), Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }) { Text(strings(R.string.ui_open_autofill_settings)) }
+                                }
+                            } }
+                            if (category == SettingsCategory.PRIVACY) item { SettingsSection(strings(R.string.ui_privacy), NagiIcons.ShieldCheck, showHeading = false) {
+                                SettingToggle(strings(R.string.ui_ad_blocking), null, prefs.adBlockingEnabled, modifier = Modifier.testTag("ad-blocking-switch")) { enabled ->
+                                    vm.updateSettings { it.copy(adBlockingEnabled = enabled) }
+                                }
+                                SettingsAction(strings(R.string.ui_private_mode)) { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing() }
+                                Text(strings(R.string.ui_private_description), Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                SettingsAction(strings(R.string.ui_clear_browsing_history_a2d6ed)) { clearHistory = true }
+                                SettingsAction(strings(R.string.ui_clear_site_data)) { clearSiteData = true }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                Text(strings(R.string.ui_local_storage_privacy), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                SettingsAction(strings(R.string.ui_privacy_policy)) { uriHandler.openUri(strings(R.string.ui_privacy_policy_url)) }
+                            } }
+                            if (category == SettingsCategory.ABOUT) {
+                                item { SettingsSection(strings(R.string.ui_about_nagi), NagiIcons.Info, showHeading = false) {
+                                    Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Nagi", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                        Text(com.takeruf.nagi.BuildConfig.VERSION_NAME, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } }
+                                item { updateSection() }
+                            }
                         }
                     }
                 }
             }
-            SettingToggle(strings(R.string.ui_automatic_search_by_region), strings(R.string.ui_mainland_china_elsewhere_google_choosing_an_engine_turns_this_off), prefs.automaticSearchRegion, vm::automaticSearchRegion)
-            if (prefs.automaticSearchRegion) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(prefs.searchRegionCountry?.let { "$it · ${strings.translate(prefs.searchRegionSource.orEmpty())}" } ?: if (prefs.searchRegionSource == "Unavailable") strings(R.string.ui_region_unavailable_current_engine_kept) else strings(R.string.ui_detecting_region),
-                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(shape = NagiShapes.Rounded, onClick = vm::refreshSearchRegion) { Text(strings(R.string.ui_check_again)) }
-            }
-            SettingToggle(strings(R.string.ui_open_links_in_new_tab), strings(R.string.ui_page_links_you_tap_open_as_a_new_tab), prefs.openLinksInNewTab) { value -> vm.updateSettings { it.copy(openLinksInNewTab = value) } }
-            SettingToggle(strings(R.string.ui_block_external_apps), strings(R.string.ui_block_external_apps_description), prefs.blockExternalApps) { value -> vm.updateSettings { it.copy(blockExternalApps = value) } }
-            SettingToggle(strings(R.string.ui_page_drag), strings(R.string.ui_page_drag_description), prefs.nativePageDrag) { value -> vm.updateSettings { it.copy(nativePageDrag = value) } }
-            SettingToggle(strings(R.string.ui_restore_tabs_on_launch), strings(if (prefs.spacesEnabled) R.string.ui_keep_your_spaces_and_open_tabs_between_sessions else R.string.ui_keep_open_tabs_between_sessions), prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
-            SettingToggle(strings(R.string.ui_desktop_site_by_default), strings(R.string.ui_use_a_desktop_user_agent_for_newly_created_sessions), prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
-        } }
-        item { SettingsSection(strings(R.string.ui_video), NagiIcons.Monitor) {
-            SettingToggle(strings(R.string.ui_video_auto_pip), strings(R.string.ui_video_auto_pip_description), prefs.autoVideoPip) { value -> vm.updateSettings { it.copy(autoVideoPip = value) } }
-            SettingToggle(strings(R.string.ui_video_popups), strings(R.string.ui_video_popups_description), prefs.videoPopups) { value -> vm.updateSettings { it.copy(videoPopups = value) } }
-        } }
-        item { SettingsSection(strings(R.string.ui_common_search_engines), NagiIcons.Search) {
-            Row(Modifier.fillMaxWidth().testTag("customize-search-engines").clip(NagiShapes.Rounded).clickable { customizingEngines = true }
-                .padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(strings(R.string.ui_customize_search_engines))
-                    Text(strings(R.string.ui_common_search_engines_description), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(NagiIcons.ArrowForward, null, Modifier.size(20.dp))
-            }
-        } }
-        item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette) {
-            SettingToggle(strings(R.string.ui_bottom_search_bar), strings(R.string.ui_bottom_search_bar_description), prefs.bottomSearchBar) { value ->
-                vm.updateSettings { it.copy(bottomSearchBar = value) }
-            }
-            SettingToggle(strings(R.string.ui_avoid_camera_overlap), strings(R.string.ui_avoid_camera_overlap_description), prefs.avoidCameraOverlap) { value ->
-                vm.updateSettings { it.copy(avoidCameraOverlap = value) }
-            }
-            if (prefs.avoidCameraOverlap) {
-                val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
-                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                CameraPositionSelector(prefs.cameraLeftRotation, displayRotation, landscape) { leftRotation ->
-                    vm.updateSettings { it.copy(cameraLeftRotation = leftRotation) }
-                }
-            }
-            if (prefs.avoidCameraOverlap && prefs.cameraLeftRotation != null) {
-                val margin = prefs.cameraSideMargin.toFloat()
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("settings-camera-margin")) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(strings(R.string.ui_camera_side_margin), Modifier.weight(1f))
-                        TextButton(shape = NagiShapes.Rounded,
-                            enabled = prefs.cameraSideMargin != 32,
-                            onClick = { vm.updateSettings { it.copy(cameraSideMargin = 32) } }) {
-                            Text(strings(R.string.ui_camera_margin_reset))
-                        }
-                    }
-                    Text(strings(R.string.ui_camera_margin_hint), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(shape = NagiShapes.Rounded, enabled = margin > 0,
-                            modifier = Modifier.semantics { contentDescription = strings(R.string.ui_camera_margin_decrease) },
-                            onClick = { vm.updateSettings { it.copy(cameraSideMargin = (it.cameraSideMargin - 1).coerceAtLeast(0)) } }) { Text("−") }
-                        Text("${prefs.cameraSideMargin} dp", Modifier.padding(horizontal = 16.dp))
-                        TextButton(shape = NagiShapes.Rounded, enabled = margin < 64,
-                            modifier = Modifier.semantics { contentDescription = strings(R.string.ui_camera_margin_increase) },
-                            onClick = { vm.updateSettings { it.copy(cameraSideMargin = (it.cameraSideMargin + 1).coerceAtMost(64)) } }) { Text("+") }
-                    }
-                    Slider(value = margin, onValueChange = { value ->
-                        vm.updateSettings { it.copy(cameraSideMargin = value.roundToInt()) }
-                    }, valueRange = 0f..64f,
-                        modifier = Modifier.testTag("settings-camera-margin-slider"))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(strings(R.string.ui_camera_margin_narrow), style = MaterialTheme.typography.labelSmall)
-                        Text(strings(R.string.ui_camera_margin_wide), style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-            Row(Modifier.fillMaxWidth().testTag("settings-new-tab-background").clip(NagiShapes.Rounded)
-                .clickable { customizingNewTab = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(strings(R.string.ui_new_tab_background), Modifier.weight(1f))
-                Icon(NagiIcons.ChevronRight, null, Modifier.size(20.dp))
-            }
-            FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
-            }
-            var width by remember(prefs.sidebarWidth) { mutableFloatStateOf(prefs.sidebarWidth) }
-            Column(Modifier.padding(16.dp)) {
-                Row { Text(strings(R.string.ui_sidebar_width), Modifier.weight(1f)); Text(if (prefs.sidebarCollapsed) strings(R.string.ui_collapsed) else "${width.toInt()} dp", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Slider(value = width, onValueChange = { width = it }, valueRange = 220f..380f,
-                    onValueChangeFinished = {
-                        val selectedWidth = width
-                        vm.updateSettings { it.copy(sidebarWidth = if (selectedWidth <= 220f) it.sidebarWidth else selectedWidth,
-                            sidebarCollapsed = selectedWidth <= 220f) }
-                        if (selectedWidth <= 220f) width = prefs.sidebarWidth
-                    })
-                Text(strings(R.string.ui_at_the_minimum_width_the_sidebar_folds_into_a_rail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(strings(R.string.ui_you_can_also_drag_the_sidebar_edge), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } }
-        item { SettingsSection(strings(R.string.ui_tabs), NagiIcons.PanelsTopLeft) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(strings(R.string.ui_restore_a_closed_tab))
-                    Text("Ctrl Shift T", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                TextButton(shape = NagiShapes.Rounded, onClick = { vm.restoreClosed() }) { Text(strings(R.string.ui_restore)) }
-            }
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(strings(R.string.ui_sleep_tabs_description), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(shape = NagiShapes.Rounded, onClick = onSuspendTabs, modifier = Modifier.testTag("suspend-background-tabs")) {
-                    Text(strings(R.string.ui_sleep_tabs))
-                }
-            }
-            Column(Modifier.padding(16.dp)) {
-                Text(strings(R.string.ui_archive_inactive_tabs))
-                Text(strings(R.string.ui_checked_on_launch_or_when_you_choose_archive_now_pinned_b64b52e0),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ArchivePeriod.entries.forEach { period -> FilterChip(prefs.archivePeriod == period,
-                        onClick = { vm.updateSettings { it.copy(archivePeriod = period) } }, label = { Text(when (period) {
-                            ArchivePeriod.NEVER -> strings(R.string.ui_never); ArchivePeriod.DAY -> strings(R.string.ui_24_hours); ArchivePeriod.WEEK -> strings(R.string.ui_7_days); ArchivePeriod.MONTH -> strings(R.string.ui_30_days)
-                        }) }) }
-                }
-                TextButton(shape = NagiShapes.Rounded, enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
-            }
-        } }
-        if (autofillApproved) item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(strings(if (autofillManager?.isAutofillSupported != true) R.string.ui_autofill_unsupported
-                    else if (autofillEnabled) R.string.ui_autofill_enabled else R.string.ui_autofill_disabled),
-                    modifier = Modifier.testTag("autofill-status"), style = MaterialTheme.typography.titleSmall)
-                Text(strings(R.string.ui_password_autofill_description),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("autofill-settings"), onClick = {
-                    val intent = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE,
-                        Uri.parse("package:${context.packageName}"))
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: ActivityNotFoundException) {
-                        try {
-                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                        } catch (_: ActivityNotFoundException) {
-                            Toast.makeText(context, strings(R.string.ui_autofill_settings_unavailable), Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }) { Text(strings(R.string.ui_open_autofill_settings)) }
-            }
-        } }
-        item { SettingsSection(strings(R.string.ui_privacy), NagiIcons.ShieldCheck) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(strings(R.string.ui_automatic_search_uses_api_country_is_to_resolve_the_con_012b7a40), style = MaterialTheme.typography.bodySmall)
-                Text(strings(R.string.ui_your_workspace_stays_on_this_device), style = MaterialTheme.typography.titleSmall)
-                Text(strings(R.string.ui_local_storage_privacy),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(shape = NagiShapes.Rounded, onClick = { uriHandler.openUri(strings(R.string.ui_privacy_policy_url)) }) { Text(strings(R.string.ui_privacy_policy)) }
-                TextButton(shape = NagiShapes.Rounded, onClick = { clearHistory = true }) { Text(strings(R.string.ui_clear_browsing_history_a2d6ed)) }
-                TextButton(shape = NagiShapes.Rounded, onClick = { clearSiteData = true }) { Text(strings(R.string.ui_clear_site_data)) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(strings(R.string.ui_ad_blocking))
-                        Text(strings(R.string.ui_ad_blocking_description), style = MaterialTheme.typography.bodySmall)
-                    }
-                    Switch(prefs.adBlockingEnabled, { enabled -> vm.updateSettings { it.copy(adBlockingEnabled = enabled) } },
-                        modifier = Modifier.testTag("ad-blocking-switch"))
-                }
-                Text(strings(R.string.ui_private_description), style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing() }) {
-                    Text(strings(R.string.ui_private_mode))
-                }
-            }
-        } }
-        item { updateSection() }
-        item { Text("Nagi ${com.takeruf.nagi.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
     if (clearSiteData) AlertDialog(onDismissRequest = { clearSiteData = false },
@@ -337,7 +400,6 @@ private fun SearchEnginesScreen(state: BrowserUiState, vm: BrowserViewModel, onB
             Column(Modifier.padding(start = 12.dp)) {
                 Text(strings(R.string.ui_customize_search_engines), style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.SemiBold)
-                Text(strings(R.string.ui_manage_search_engines), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         LazyColumn(Modifier.weight(1f).testTag("search-engines-list"), contentPadding = PaddingValues(32.dp),
@@ -449,9 +511,9 @@ private fun SearchEngineTitle(title: String, isAi: Boolean, isDefault: Boolean) 
 }
 
 @Composable
-private fun SettingsSection(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsSection(title: String, icon: ImageVector, showHeading: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.widthIn(max = 1000.dp)) {
-        Row(Modifier.padding(start = 4.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically,
+        if (showHeading) Row(Modifier.padding(start = 4.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -462,13 +524,13 @@ private fun SettingsSection(title: String, icon: ImageVector, content: @Composab
     }
 }
 @Composable
-private fun SettingToggle(title: String, subtitle: String, value: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(NagiShapes.Rounded).clickable { onChange(!value) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SettingToggle(title: String, subtitle: String?, value: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
+    Row(modifier.fillMaxWidth().clip(NagiShapes.Rounded).toggleable(value = value, role = Role.Switch, onValueChange = onChange).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 20.dp)) {
             Text(title)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = value, onCheckedChange = onChange)
+        Switch(checked = value, onCheckedChange = null)
     }
 }
 
