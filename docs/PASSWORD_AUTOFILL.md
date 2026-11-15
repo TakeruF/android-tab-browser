@@ -1,20 +1,22 @@
 # Password autofill
 
-## Current availability: awaiting approval
+## Current availability
 
-Password autofill is unavailable in production until the submitted approval is granted. `PasswordAutofillAvailability.approved` remains false. WebView native autofill is excluded, manual requests are blocked, the page-menu action and the entire Settings section (including the service picker) are hidden in all locales. No pending-approval notice is shown in the normal UI. Existing Android provider preferences are not changed. The retained integration tests explicitly opt in to exercise future approved behavior with synthetic credentials; they do not indicate that the production feature is enabled. Approval requires a later source change and APK build; it does not enable itself automatically.
+Password autofill is enabled in the 1.3.0/code-19 candidate at the user's explicit
+request on 2026-11-15. Normal browsing exposes the Settings service picker and
+page-menu manual request, and WebView exposes native virtual form fields to the
+selected Android provider. Private browsing and Reader still exclude it.
+Existing Android provider preferences are not changed automatically.
 
-For investigation, `-PnagiAutofillDiagnostics=true` enables only a Debug QA install
-under the separate package `com.takeruf.nagi.autofillqa`, with event/count-only
-diagnostic logs. Ordinary Debug and all Release builds keep the production gate.
-The QA package/debug certificate cannot establish Google trust for the Play
-package/signing certificate. See the [2026-11-15 investigation and device
-procedure](AUTOFILL_INVESTIGATION_2026-11-15.md) for evidence, limitations and the
-distinction between legacy password autofill and Credential Manager approval.
-The [public-site follow-up](AUTOFILL_LIVE_SITES_2026-11-15.md) covers real Asahi ID
-and GitHub forms, synthetic system suggestions and the bounded Google control.
+This enables the integration, not provider approval. Google browser approval and
+successful delivery of existing Google website credentials remain unverified.
+The [investigation](AUTOFILL_INVESTIGATION_2026-11-15.md) and
+[public-site follow-up](AUTOFILL_LIVE_SITES_2026-11-15.md) record synthetic provider
+results separately from Google provider eligibility.
 
-The integration details and earlier validation below describe the retained implementation.
+`-PnagiAutofillDiagnostics=true` still creates a separate Debug QA package with
+event/count-only diagnostic logs. All Release builds keep diagnostics disabled;
+the QA package/debug certificate cannot establish trust for the Play identity.
 
 Nagi uses Android's Autofill Framework for website usernames and passwords. The WebView has an explicit resource ID and is marked important for autofill. Its native Compose host excludes only itself, allowing WebView's virtual HTML form fields to be traversed. WebView supplies the website domain, HTML field metadata and autocomplete hints to the selected system provider; Nagi does not read a password vault or add a JavaScript credential bridge.
 

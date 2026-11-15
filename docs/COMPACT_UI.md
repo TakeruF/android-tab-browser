@@ -45,8 +45,8 @@ The browser sidebar is hidden while Settings is open. Returning to browsing
 restores the existing sidebar preference and live tab/Split sessions. General
 contains browsing behavior and Spaces; default search, AI and region choices
 are grouped under Search engines. Appearance, Tabs, Video, Privacy and About
-Nagi have their own categories. Password autofill remains hidden pending the
-existing production approval gate.
+Nagi have their own categories. Password autofill has its own category in the 1.3.0/code-19 candidate; provider
+availability is documented separately.
 
 Settings uses a flat background continuous with the window edges.
 

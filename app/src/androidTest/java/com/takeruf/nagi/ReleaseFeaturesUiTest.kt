@@ -58,19 +58,27 @@ class ReleaseFeaturesUiTest {
         screenshot("commands-without-bookmarks")
     }
 
-    @Test fun passwordAutofillSettingsAreHiddenUntilApproval() {
+    @Test fun passwordAutofillSettingsOpenAndroidServicePicker() {
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.selectSettingsCategory("privacy")
-        compose.onNodeWithTag("settings-list").assertIsDisplayed()
-        compose.onNodeWithText("Password autofill").assertDoesNotExist()
-        compose.onNodeWithTag("autofill-status").assertDoesNotExist()
-        compose.onNodeWithTag("autofill-settings").assertDoesNotExist()
-        screenshot("password-autofill-hidden")
+        compose.selectSettingsCategory("autofill")
+        compose.onNodeWithTag("autofill-status").assertIsDisplayed()
+        compose.onNodeWithTag("autofill-settings").assertIsDisplayed().performClick()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        try {
+            var settingsOpened = false
+            compose.waitUntil(10_000) {
+                val shell = instrumentation.uiAutomation.executeShellCommand("dumpsys activity activities")
+                val activity = android.os.ParcelFileDescriptor.AutoCloseInputStream(shell).bufferedReader().use { it.readText() }
+                settingsOpened = activity.lineSequence().any { "mResumedActivity" in it && "com.android.settings" in it }
+                settingsOpened
+            }
+            assertTrue(settingsOpened)
+        } finally { instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK) }
     }
 
-    @Test fun passwordAutofillActionIsHiddenUntilApproval() {
+    @Test fun passwordAutofillActionIsAvailableOnNormalPages() {
         compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithTag("request-password-autofill").assertDoesNotExist()
+        compose.onNodeWithTag("request-password-autofill").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test fun backgroundTabsCanSleepAndWakeWithoutClosingThem() {

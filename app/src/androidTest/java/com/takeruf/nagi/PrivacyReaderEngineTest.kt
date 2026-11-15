@@ -382,6 +382,12 @@ class PrivacyReaderEngineTest {
         lateinit var profile: String
         main { profile = PrivateProfiles.create(); profiles.add(profile) }
         val regular = engine(); val private = engine(profile)
+        main {
+            assertTrue(regular.supportsPasswordAutofill)
+            assertFalse(private.supportsPasswordAutofill)
+            assertEquals(android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS,
+                private.surface.importantForAutofill)
+        }
         load(regular, "/privacy")
         js(regular, "document.cookie='normal=keep;path=/';localStorage.setItem('normal','keep');true")
         load(private, "/privacy")

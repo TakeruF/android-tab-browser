@@ -101,7 +101,7 @@ class WebViewEngineTest {
         siteDisplayModes = SiteDisplayModeStore(context, displayPreferences)
         server = FixtureServer(); scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity {
-            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes, passwordAutofillApproved = true)
+            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes)
             (engine as AndroidEngineSurface).surface.id = View.generateViewId()
             it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
@@ -314,19 +314,17 @@ class WebViewEngineTest {
         } } }
         main { engine.goBack() }; await { it.title == "Fixture One" && !it.isLoading }
     }
-    @Test fun passwordAutofillIsUnavailableByDefaultUntilApproval() {
+    @Test fun passwordAutofillIsEnabledByDefaultForNormalBrowsing() {
         main { engine.destroy() }
         scenario.onActivity { activity ->
             engine = WebViewBrowserEngine(activity, host, host, { false }, false)
             activity.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
         main {
-            assertFalse(engine.supportsPasswordAutofill)
-            assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS,
+            assertTrue(engine.supportsPasswordAutofill)
+            assertEquals(View.IMPORTANT_FOR_AUTOFILL_YES,
                 (engine as AndroidEngineSurface).surface.importantForAutofill)
-            engine.requestPasswordAutofill()
         }
-        assertEquals(listOf("Unavailable — awaiting approval"), messages.toList())
     }
 
     @Test fun passwordProviderFillsWebsiteFieldsThroughComposeSurface() {
@@ -409,9 +407,9 @@ class WebViewEngineTest {
                 val oldSurface = (engine as AndroidEngineSurface).surface
                 (oldSurface.parent as? ViewGroup)?.removeView(oldSurface)
                 engine.destroy()
-                engine = WebViewBrowserEngine(activity, host, host, { false }, false, passwordAutofillApproved = true)
+                engine = WebViewBrowserEngine(activity, host, host, { false }, false)
                 // A newer background tab must not replace this tab's autofill callback.
-                if (manual || splitPane) otherTab = WebViewBrowserEngine(activity, host, host, { false }, false, passwordAutofillApproved = true)
+                if (manual || splitPane) otherTab = WebViewBrowserEngine(activity, host, host, { false }, false)
                 if (suppressUiCallback) activity.getSystemService(android.view.autofill.AutofillManager::class.java)
                     .registerCallback(object : android.view.autofill.AutofillManager.AutofillCallback() {})
                 val surface = (engine as AndroidEngineSurface).surface
@@ -561,7 +559,7 @@ class WebViewEngineTest {
         main { snapshot = engine.saveState(); engine.destroy() }
         assertNotNull(snapshot)
         scenario.onActivity {
-            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes, passwordAutofillApproved = true)
+            engine = WebViewBrowserEngine(it, host, host, { false }, false, siteDisplayModes = siteDisplayModes)
             it.addContentView((engine as AndroidEngineSurface).surface, ViewGroup.LayoutParams(-1, -1))
         }
         main { assertTrue(engine.restoreState(snapshot!!)) }

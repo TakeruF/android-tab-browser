@@ -14,9 +14,16 @@ The country-availability response is retained for an exact comparison at upload.
 ## Release-note review
 
 The [six-language replacement notes](play-store/release-notes-1.3.0-code19.txt)
-are a proposal awaiting user confirmation. Counts: en-US 425, es-ES 446, fr-FR 485,
-ja-JP 233, zh-CN 142 and ko-KR 238 characters. The original approved/submitted
+are a proposal awaiting user confirmation. Counts are checked against the 500-character Console limit for every locale. The original approved/submitted
 code-18 notes are preserved unchanged in `release-notes-1.3.0.txt`.
 
 No replacement upload, review submission or public release has occurred yet.
 Evidence is retained in ignored `artifacts/1.3.0-replacement-20261115/`.
+
+## Password autofill scope update
+
+The user explicitly requested production password autofill on 2026-11-15.
+The candidate enables Android native form exposure, Settings/service selection
+and page-menu requests in normal browsing. Private/Reader restrictions remain.
+This is distinct from Google provider approval, matching saved credentials or
+a completed provider login. Diagnostics and synthetic providers remain Debug-only.

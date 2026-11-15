@@ -113,8 +113,8 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
     val strings = rememberNagiStrings()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
-    val autofillApproved = com.takeruf.nagi.browser.engine.PasswordAutofillAvailability.enabled
-    val autofillManager = remember(context) { if (autofillApproved) context.getSystemService(AutofillManager::class.java) else null }
+    val autofillAvailable = com.takeruf.nagi.browser.engine.PasswordAutofillAvailability.enabled
+    val autofillManager = remember(context) { if (autofillAvailable) context.getSystemService(AutofillManager::class.java) else null }
     var autofillEnabled by remember { mutableStateOf(autofillManager?.isEnabled == true) }
     LifecycleResumeEffect(autofillManager) {
         autofillEnabled = autofillManager?.isEnabled == true
@@ -156,7 +156,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer).testTag("settings-screen")) {
         val wide = maxWidth >= 760.dp
         val category = selectedCategory?.let { SettingsCategory.valueOf(it) } ?: SettingsCategory.GENERAL
-        val categories = SettingsCategory.entries.filter { it != SettingsCategory.AUTOFILL || autofillApproved }
+        val categories = SettingsCategory.entries.filter { it != SettingsCategory.AUTOFILL || autofillAvailable }
         LaunchedEffect(wide) { if (wide && selectedCategory == null) selectedCategory = SettingsCategory.GENERAL.name }
         BackHandler(enabled = !wide && selectedCategory != null) { selectedCategory = null }
         val showCategories = !wide && selectedCategory == null
@@ -380,7 +380,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                     TextButton(shape = NagiShapes.Rounded, enabled = prefs.archivePeriod != ArchivePeriod.NEVER, onClick = { vm.archiveNow() }) { Text(strings(R.string.ui_archive_now)) }
                                 }
                             } }
-                            if (category == SettingsCategory.AUTOFILL && autofillApproved) item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound, showHeading = false) {
+                            if (category == SettingsCategory.AUTOFILL && autofillAvailable) item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound, showHeading = false) {
                                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(strings(if (autofillManager?.isAutofillSupported != true) R.string.ui_autofill_unsupported
                                         else if (autofillEnabled) R.string.ui_autofill_enabled else R.string.ui_autofill_disabled),

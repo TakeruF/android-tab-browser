@@ -45,7 +45,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Camera photo uploads, native link/image drag, URL drop targets on pane address bars, and background-tab suspension with automatic restoration.
 - Optional camera avoidance under Settings → Appearance: register the camera position and reserve an adjustable 0–64 dp margin only when the camera is on the left in landscape.
 - Bookmark management, link/image context menus, site-data clearing, and Google Play-managed updates.
-- Password autofill is currently unavailable while approval is pending; see [current status](docs/PASSWORD_AUTOFILL.md).
+- Android password autofill and a manual retry action; suggestions depend on the selected system provider. See [availability and limits](docs/PASSWORD_AUTOFILL.md).
 - Advertisement/tracker blocking with site exceptions and pause/resume for a visit, isolated private browsing, and Reader mode with adjustable text size; see [privacy, blocking, and Reader](docs/PRIVACY_READER_BLOCKING.md).
 - On-device web page translation powered by [Google Translate](https://cloud.google.com/translate) through ML Kit. Open **… → Translate this page** to choose languages; download language models once, then translate offline. Includes automatic language detection, same-tab link continuation, optional always-translate rules, newly added text, and original-text restoration; see [page translation](docs/PAGE_TRANSLATION.md).
 - Supported external app links with an optional launch-blocking setting, disabled by default.

@@ -1,9 +1,6 @@
 package com.takeruf.nagi.browser.engine
 
-import com.takeruf.nagi.BuildConfig
-
-/** Keep production autofill unavailable until the submitted approval is granted. */
+/** Enables Android password autofill; each provider still controls credential availability. */
 object PasswordAutofillAvailability {
-    const val approved = false
-    val enabled: Boolean get() = approved || (BuildConfig.DEBUG && BuildConfig.PASSWORD_AUTOFILL_DIAGNOSTICS)
+    const val enabled = true
 }
