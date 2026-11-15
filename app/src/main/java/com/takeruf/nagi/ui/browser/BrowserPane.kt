@@ -194,8 +194,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                     onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenu = false })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenu = false })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
-                            if (!split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
-                            else {
+                            if (!compactWindow && !split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
+                            else if (!compactWindow) {
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenu = false })
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_split_view)) }, onClick = { onCloseSplit(); pageMenu = false })
                             }
@@ -234,7 +234,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
                     val tabs = state.visibleTabs
-                    val shortcuts = remember(tabs, tab.id) { newTabShortcuts(tabs, tab.id) }
+                    val shortcuts = remember(tabs, tab.id, compactWindow) { newTabShortcuts(tabs, tab.id, compactWindow) }
                     NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space),
                         { onFocus(); onOmnibox() }, compactWindow, state.settings, onCustomizeNewTab,
                         shortcuts = shortcuts, onResumeTab = onResumeTab)

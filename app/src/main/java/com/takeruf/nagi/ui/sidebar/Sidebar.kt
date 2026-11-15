@@ -91,7 +91,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     val splitLeft = state.visibleTabs.firstOrNull { it.id == splitLeftTabId }
     val splitRight = state.visibleTabs.firstOrNull { it.id == splitRightTabId && it.id != splitLeft?.id }
     fun selectTab(tab: BrowserTab) {
-        if (splitRight != null && (tab.id == splitLeft?.id || tab.id == splitRight.id)) onFocusSplit(tab.id == splitRight.id)
+        if (!overlay && splitRight != null && (tab.id == splitLeft?.id || tab.id == splitRight.id)) onFocusSplit(tab.id == splitRight.id)
         vm.selectTab(tab.id)
         onNavigate("browser")
     }
@@ -135,7 +135,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
     val sidebarTop = sidebarPalette.surfaceTint.copy(alpha = 0.10f).compositeOver(tint)
     val sidebarBottom = sidebarPalette.surfaceTint.copy(alpha = 0.03f).compositeOver(tint)
     fun detachesSplit(item: SidebarDragItem?, destination: SidebarDestination?): Boolean =
-        item != null && !item.favorite && item.pairRight == null && splitLeft != null && splitRight != null &&
+        !overlay && item != null && !item.favorite && item.pairRight == null && splitLeft != null && splitRight != null &&
             item.id in listOf(splitLeft.id, splitRight.id) && destination != null &&
             destination.section in listOf(SidebarSection.PINNED, SidebarSection.TODAY) &&
             destination.id != item.id
@@ -298,10 +298,10 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                     val pairLefts = tabs.filter { tab -> tabs.any { it.id == tab.splitRightTabId } }
                     val todayStart = SidebarDestination(SidebarSection.TODAY, atStart = true)
                     val pinnedStart = SidebarDestination(SidebarSection.PINNED, atStart = true)
-                    val listedTabs = tabs.filter { tab -> pairLefts.none { it.splitRightTabId == tab.id } }
+                    val listedTabs = if (overlay) tabs else tabs.filter { tab -> pairLefts.none { it.splitRightTabId == tab.id } }
                     @Composable
                     fun SidebarTab(tab: BrowserTab, drag: SidebarDragState) {
-                        val pairRight = tabs.firstOrNull { it.id == tab.splitRightTabId }
+                        val pairRight = tabs.firstOrNull { !overlay && it.id == tab.splitRightTabId }
                         if (pairRight != null) {
                             val pairItem = SidebarDragItem(tab.id, "${strings.tabTitle(tab)} / ${strings.tabTitle(pairRight)}", tab.faviconUrl,
                                 siteUrl = tab.url, pairRight = pairRight, pairLeft = tab,
@@ -323,7 +323,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                 }
                             }
                         } else TabRow(tab, state, vm, drag, tab.id in loadingIds, !mouseInput,
-                            { selectTab(tab) }, { onSplitTab(tab.id) }, suspended = tab.id in suspendedIds, largeTouchTargets = overlay)
+                            { selectTab(tab) }, { onSplitTab(tab.id) }, suspended = tab.id in suspendedIds, largeTouchTargets = overlay, splitEnabled = !overlay)
                     }
                     val list = rememberLazyListState()
                     var viewport by remember { mutableStateOf(Rect.Zero) }
@@ -571,7 +571,7 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
 private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel, drag: SidebarDragState,
     loading: Boolean, touch: Boolean, onSelect: () -> Unit, onSplit: () -> Unit,
     modifier: Modifier = Modifier, compact: Boolean = false, selectedOverride: Boolean? = null, suspended: Boolean = false,
-    replacementRight: Boolean? = null, largeTouchTargets: Boolean = false) {
+    replacementRight: Boolean? = null, largeTouchTargets: Boolean = false, splitEnabled: Boolean = true) {
     val strings = rememberNagiStrings()
     var menu by remember { mutableStateOf(false) }
     val selected = selectedOverride ?: (state.activeTab?.id == tab.id)
@@ -587,7 +587,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
         listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT)
     val item = SidebarDragItem(tab.id, strings.tabTitle(tab), tab.faviconUrl, siteUrl = tab.url)
     Box(modifier.fillMaxWidth().testTag("sidebar-tab-${tab.id}")
-        .sidebarTarget(drag, "tab-${tab.id}", SidebarDestination(section, tab.id), canSplit = !compact, replacementRight = replacementRight)) {
+        .sidebarTarget(drag, "tab-${tab.id}", SidebarDestination(section, tab.id), canSplit = splitEnabled && !compact, replacementRight = replacementRight.takeIf { splitEnabled })) {
         if (replacementTarget) Box(Modifier.matchParentSize().testTag("sidebar-replace-drop-${tab.id}")
             .background(palette.primary.copy(alpha = 0.28f).compositeOver(palette.surfaceContainerHigh), NagiShapes.Rounded)
             .border(2.dp, palette.primary, NagiShapes.Rounded))
@@ -623,7 +623,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                         Modifier.size(if (compact) 16.dp else 18.dp), tint = if (selected) contentColor else palette.onSurfaceVariant)
                 }
                 NagiOverflowMenu(menu, { menu = false }, modifier = Modifier.width((state.settings.sidebarWidth - 24f).dp)) {
-                    NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_open_in_right_pane)) }, onClick = { onSplit(); menu = false })
+                    if (splitEnabled) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_open_in_right_pane)) }, onClick = { onSplit(); menu = false })
                     state.workspace.spaces.filter { state.settings.spacesEnabled && it.id != tab.spaceId }.forEach { space ->
                         NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_move_to_1_s, strings.spaceName(space))) }, onClick = { vm.moveTab(tab.id, space.id); menu = false })
                     }

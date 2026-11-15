@@ -80,7 +80,7 @@ Navigation starts at `browser` and includes `settings` and `history`. The sideba
 
 1. A Compose pane retrieves a session by tab ID.
 2. EnginePool retains opened live sessions and tracks access with a monotonic clock. Once per minute, eligible hidden pages idle for at least 10 minutes can be suspended when more than 6 engines are live. Settings can request immediate background suspension.
-3. Both visible Split IDs are provided. Hidden sessions receive `onPause`, visible sessions `onResume`; leaving the browser screen or stopping the Activity also pauses sessions.
+3. Compact windows render only the selected tab and retain saved Split relationships. Both members of the selected saved pair remain protected from suspension and archiving, so widening can reattach the same live pages. Only the displayed member is visible to the lifecycle and video controllers. In wide windows, both visible Split IDs are provided. Hidden sessions receive `onPause`, visible sessions `onResume`; leaving the browser screen or stopping the Activity also pauses sessions.
 4. Returning to a live tab or Space reuses its engine/page. A suspended tab recreates its engine and restores a history/scroll snapshot where available, otherwise loading the last URL. At most 32 full snapshots are retained in memory.
 5. Closing, archiving, or deleting a tab detaches and destroys its native surface/session. Ending the Activity destroys all sessions.
 

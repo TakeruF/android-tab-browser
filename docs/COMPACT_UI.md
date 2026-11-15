@@ -8,7 +8,9 @@ The previous 600dp-entry/640dp-exit hysteresis allowed both layouts at 600–639
 
 **Settings → Appearance → Search bar at bottom** optionally moves the address/search bar below the page, just above the compact navigation controls. The choice persists across launches and applies only below 600dp; wide windows retain the top address bar. With this option enabled, search suggestions appear above the input and the input stays above the keyboard. The default remains the top address bar.
 
-Compact page headers move Back/Forward to the bottom bar and Reload into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split remains a left/right pair; this change does not add vertical splitting or hinge/posture handling.
+Compact page headers move Back/Forward to the bottom bar and Reload into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split is available only in wide windows. Below 600dp, the selected tab fills the page, including either member of a saved pair. The tab sheet lists both members individually; page/tab menus, Command Bar commands, and drag targets do not offer Split creation, replacement, swapping or closing. New-tab resume links also open individual pages in compact mode.
+
+Narrowing a window never detaches a saved pair or closes its partner. Both live engines remain protected from suspension and archiving while the pair is selected, including across Settings. Widening the window restores both panes with their original left/right order and selected side. Explicit tab close, move and reorder actions retain their existing repository semantics. This does not add vertical splitting or hinge/posture handling.
 
 The compact toolbar and the area behind system navigation share the same theme surface color, including live Space-color changes. In compact browsing, the three-button contrast scrim is disabled so it cannot add a different tint; leaving compact browsing restores the window's prior setting. Safe-area padding still keeps buttons above the system navigation controls.
 
@@ -79,6 +81,25 @@ API references: [WebView zoom operations](https://developer.android.com/referenc
 [scale callbacks](https://developer.android.com/reference/android/webkit/WebViewClient#onScaleChanged(android.webkit.WebView,%20float,%20float)).
 
 ## Validation
+
+On 2026-11-15, an isolated candidate from `045f1f8` passed all 195 Play Debug
+unit tests (zero failures/errors/skips), Debug/test APK assembly, and Play
+Debug/Release lint (0 errors and 81 warnings each). The candidate contains only
+the compact single-page change, its tests and documentation.
+
+All seven selected UI cases passed together on the dedicated API-36
+`Nagi_Download_QA` emulator (`emulator-5584`, WebView 133.0.6943.137). Coverage
+includes 360/599/600/1000dp windows and light/dark themes; separate compact entries
+for both saved members; absent Split menus, commands and drag previews; identical
+live WebViews and retained input/textarea/contenteditable drafts and document
+markers through resizing; saved-pair restoration after Activity recreation;
+bottom-search placement; hidden-partner navigation; closing either focused wide
+pane; whole-pair dragging; and replacing one wide pane. Recreation verifies saved
+pairing, not arbitrary live DOM/draft recovery. Screenshots were inspected.
+Evidence and frozen Debug/test APKs are under ignored
+`artifacts/compact-single-pane-20261115/commit/`. This is selected emulator
+coverage, not a full connected suite or physical-device result. No release action
+or version bump was performed.
 
 On 2026-11-10, settings navigation passed two new UI cases and 16 distinct
 existing settings-related cases across focused runs on the dedicated API-36

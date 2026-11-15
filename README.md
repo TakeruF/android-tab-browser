@@ -35,7 +35,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 - Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
 - A Command Bar for URLs, search, tabs, Spaces, and commands.
 - Standard search and “Ask ChatGPT” actions, selected with arrow keys and Enter or by touch/click. Questions and requests for explanations or comparisons, and input of at least 80 characters, prioritize ChatGPT. Explicit URLs and engine keywords take precedence.
-- Resizable Split panes with saved left/right tab pairs, a resizable/collapsible sidebar, and drag-and-drop organization for tabs and pairs.
+- Resizable Split panes in windows at least 600dp wide, with saved left/right tab pairs retained during single-page narrow-window browsing, a resizable/collapsible sidebar, and drag-and-drop organization for tabs and pairs.
 - Light, dark, and system themes with adjustable theme colors and selection contrast.
 - Japanese, Chinese, and Korean IME composition, keyboard shortcuts, and mouse/trackpad scrolling.
 - Video picture-in-picture when returning Home, plus draggable/resizable in-browser pop-out videos across tabs and Spaces. Both are independently configurable under **Settings → Video**, enabled by default.
@@ -83,7 +83,7 @@ Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), wi
 - Suggestions and keyword searches use the selected common search engines. Initial choices are Google + ChatGPT, or Baidu + Qwen in mainland China. Your chosen combination persists across region changes. Add, edit, or delete engines in the customization screen.
 - Hold a tab row to drag it; mouse and favicon dragging start directly. Insertion lines and a preview show the destination, with edge auto-scrolling.
 - Drop across the divider to pin/unpin, at the top to create a Favorite, below Favorites to restore a tab, or on a Space icon to move it. Tab menus include save and right-pane actions.
-- Use the page menu for Split, desktop mode, find, Reader, private browsing, or saving to Bookmarks/Favorites. Open and remove saved pages from the sidebar's Bookmarks button.
+- Use the page menu for desktop mode, find, Reader, private browsing, or saving to Bookmarks/Favorites. Split controls appear in windows at least 600dp wide. Open and remove saved pages from the sidebar's Bookmarks button.
 - Use the address-bar shield to inspect blocked requests, pause/resume blocking for the visit, or save a site exception. Settings → Privacy controls blocking globally. On narrow panes, hidden Share, Copy link, and blocking controls move to the top of the page menu.
 - Long-press a link/image to drag it, and drop a link on either pane address bar to navigate that pane. Images can be dragged to Android drop targets. Right-click for Nagi link/image actions. Turn off “Drag links and images” in Settings to restore the long-press action menu.
 - Drag the Split divider to resize. Drop a tab onto either pane or use the tab menu to show it on the right; swap or exit Split from the page menu.

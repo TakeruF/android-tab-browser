@@ -47,17 +47,17 @@ import kotlinx.coroutines.flow.first
 @Composable
 fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: BrowserSettings,
     onDismiss: () -> Unit, onExecute: (SuggestionAction) -> Unit,
-    onShortcut: (Shortcut) -> Boolean = { false }) {
+    onShortcut: (Shortcut) -> Boolean = { false }, splitEnabled: Boolean = true) {
     val strings = rememberNagiStrings()
     val input = rememberTextFieldState(initialText = initialValue, initialSelection = TextRange(0, initialValue.length))
     val query = input.text.toString()
-    val suggestions = remember(query, workspace, settings, strings) { SuggestionProvider.suggestions(query, workspace, settings, strings::translate) }
+    val suggestions = remember(query, workspace, settings, strings, splitEnabled) { SuggestionProvider.suggestions(query, workspace, settings, strings::translate, splitEnabled) }
     var selected by remember(query) { mutableIntStateOf(0) }
     val focus = remember { FocusRequester() }
     val list = rememberLazyListState()
     val execute = {
         if (input.composition == null) {
-        val fresh = SuggestionProvider.suggestions(input.text.toString(), workspace, settings, strings::translate)
+        val fresh = SuggestionProvider.suggestions(input.text.toString(), workspace, settings, strings::translate, splitEnabled)
         fresh.getOrNull(selected.coerceAtMost(fresh.lastIndex))?.let { onExecute(it.action) }
             ?: run { when (val value = InputResolver.resolve(input.text.toString(), workspace.searchEngines, settings)) {
                 is ResolvedInput.Navigate -> onExecute(SuggestionAction.Navigate(value.url))

@@ -156,7 +156,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     // A split belongs to its two tabs, independently of the selected standalone tab.
     val splitLeft = state.visibleTabs.firstOrNull { it.id == leftTabId }
     val splitRight = state.visibleTabs.firstOrNull { it.id == rightTabId && it.id != leftTabId }
-    val splitVisible = splitLeft != null && splitRight != null &&
+    val splitVisible = !sidebarAdaptation.compact && splitLeft != null && splitRight != null &&
         (state.activeTab?.id == leftTabId || state.activeTab?.id == rightTabId)
     val left = if (splitVisible) splitLeft else state.activeTab
     val right = splitRight.takeIf { splitVisible }
@@ -174,7 +174,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         }
     }
     SideEffect {
-        val protectedIds = setOfNotNull(left?.id, right?.id, host.video.presentation.value?.tabId)
+        // Keep the saved partner live while compact mode temporarily displays one member.
+        val protectedIds = setOfNotNull(left?.id, right?.id, splitLeft?.id, splitRight?.id, host.video.presentation.value?.tabId)
         container.tabs.protectFromArchive(protectedIds)
         sessions.pool.protect(protectedIds)
     }
@@ -219,6 +220,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         }
     }
     fun split() {
+        if (sidebarAdaptation.compact) return
         val leftId = state.activeTab?.id ?: return
         val candidate = state.visibleTabs.firstOrNull { tab ->
             tab.id != leftId && tab.splitRightTabId == null && state.visibleTabs.none { it.splitRightTabId == tab.id }
@@ -227,7 +229,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         else scope.launch { vm.createTab(select = false)?.let { vm.pairTabs(leftId, it) } }
         rightFocused = false; navigate("browser")
     }
-    fun closeSplit() { leftTabId?.let(vm::detachSplit); rightFocused = false }
+    fun closeSplit() { if (!sidebarAdaptation.compact) { leftTabId?.let(vm::detachSplit); rightFocused = false } }
     fun command(value: BrowserCommand) { when (value) {
         BrowserCommand.NEW_TAB -> newTab()
         BrowserCommand.SPLIT -> split()
@@ -306,12 +308,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
             previousSpaceId = id
         }
     }
-    LaunchedEffect(state.activeTab?.id, rightTabId) { rightFocused = rightTabId != null && state.activeTab?.id == rightTabId }
+    LaunchedEffect(state.activeTab?.id, rightTabId, sidebarAdaptation.compact) { rightFocused = rightTabId != null && state.activeTab?.id == rightTabId }
     LaunchedEffect(state.workspace.tabs) {
         val retained = state.workspace.tabs.filter { it.closedAt == null && it.archivedAt == null }.map { it.id }.toSet()
         video?.tabId?.takeUnless { it in retained }?.let { host.video.close(it, pause = true) }
         sessions.pool.retainTabIds(retained, state.workspace.tabs.filter { it.id in retained }.associate { it.id to it.url })
-        if (rightTabId != null && right == null) rightFocused = false
+        if (rightTabId != null && splitRight == null) rightFocused = false
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     val visibleIds by rememberUpdatedState(
@@ -603,6 +605,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     }
                 }
                 if (omniboxOpen) CommandBar(omniboxInitial, state.workspace, state.settings, onDismiss = { omniboxOpen = false },
+                    splitEnabled = !sidebarAdaptation.compact,
                     onShortcut = { shortcutHandler(it) }, onExecute = { action ->
                     omniboxOpen = false
                     when (action) {

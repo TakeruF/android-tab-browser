@@ -19,6 +19,17 @@ class SpacesSuggestionsTest {
         assertTrue(SuggestionProvider.suggestions("", workspace, BrowserSettings(spacesEnabled = false))
             .any { it.action == SuggestionAction.SelectTab("local") })
     }
+    @Test fun compactCommandsHideBothSplitActionsAndKeepTabSelection() {
+        for (query in listOf("", ">", ">split")) {
+            val results = SuggestionProvider.suggestions(query, workspace, BrowserSettings(), splitEnabled = false)
+            assertFalse(results.any { it.action == SuggestionAction.Command(BrowserCommand.SPLIT) })
+            assertFalse(results.any { it.action == SuggestionAction.Command(BrowserCommand.CLOSE_SPLIT) })
+        }
+        val wide = SuggestionProvider.suggestions(">split", workspace, BrowserSettings())
+        assertTrue(wide.any { it.action == SuggestionAction.Command(BrowserCommand.SPLIT) })
+        assertTrue(wide.any { it.action == SuggestionAction.Command(BrowserCommand.CLOSE_SPLIT) })
+    }
+
     @Test fun enabledSpacesKeepCrossSpaceSearchAndSwitching() {
         val results = SuggestionProvider.suggestions("", workspace, BrowserSettings())
         assertTrue(results.any { it.action == SuggestionAction.SelectTab("hidden") })

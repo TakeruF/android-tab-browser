@@ -16,6 +16,13 @@ class NewTabShortcutsTest {
         assertEquals(right, shortcuts.last().rightTab)
     }
 
+    @Test fun compactShortcutsExposeSavedMembersIndividuallyWithoutDuplicatePins() {
+        val shortcuts = newTabShortcuts(listOf(left, right), "new", compactWindow = true)
+        assertEquals(listOf(left.id, right.id), shortcuts.map { it.tab.id })
+        assertEquals(listOf(null, null), shortcuts.map { it.rightTab })
+        assertEquals(listOf(left.id), newTabShortcuts(listOf(left, right), right.id, compactWindow = true).map { it.tab.id })
+    }
+
     @Test fun skipsCurrentTabAndCurrentPairButKeepsPinsWithoutAnOpenPartner() {
         val current = BrowserTab("current", "space", isPinned = true)
         assertEquals(emptyList<String>(), newTabShortcuts(listOf(current), current.id).map { it.tab.id })

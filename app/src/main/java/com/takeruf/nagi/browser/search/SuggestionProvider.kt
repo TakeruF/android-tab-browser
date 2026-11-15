@@ -29,7 +29,7 @@ object SuggestionProvider {
         }
     }
 
-    fun suggestions(input: String, workspace: WorkspaceSnapshot, settings: BrowserSettings, localize: (String) -> String = { it }): List<Suggestion> {
+    fun suggestions(input: String, workspace: WorkspaceSnapshot, settings: BrowserSettings, localize: (String) -> String = { it }, splitEnabled: Boolean = true): List<Suggestion> {
         val query = input.trim()
         val result = mutableListOf<Suggestion>()
         val commandOnly = query.startsWith('>')
@@ -75,7 +75,7 @@ object SuggestionProvider {
                 result += Suggestion("space:${it.id}", SuggestionCategory.SPACES, localize("Switch to %1\$s").format(if (it.id in listOf("personal", "work") && it.name in listOf("Personal", "Work")) localize(it.name) else it.name), localize("Space"), SuggestionAction.SelectSpace(it.id))
             }
         }
-        BrowserCommand.entries.filter { match.isEmpty() || (it.label.contains(match, true) || localize(it.label).contains(match, true)) }.forEach {
+        BrowserCommand.entries.filter { splitEnabled || it !in setOf(BrowserCommand.SPLIT, BrowserCommand.CLOSE_SPLIT) }.filter { match.isEmpty() || (it.label.contains(match, true) || localize(it.label).contains(match, true)) }.forEach {
             result += Suggestion("command:${it.name}", SuggestionCategory.COMMANDS, localize(it.label), localize(it.hint), SuggestionAction.Command(it))
         }
         return result

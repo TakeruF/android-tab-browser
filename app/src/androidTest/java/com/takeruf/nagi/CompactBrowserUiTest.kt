@@ -230,26 +230,113 @@ class CompactBrowserUiTest {
         assertSame(view, webViews().single())
     }
 
-    @Test fun tabSheetDismissalDoesNotNavigateAndWideSplitKeepsBothPages() {
-        open("${server.origin}/one"); awaitTitle("Fixture One")
-        val first = runBlocking { container.workspace.dao.tabs(spaceId).first { it.title == "Fixture One" }.id }
-        val second = runBlocking { container.tabs.create(spaceId, "${server.origin}/two") }
-        awaitTitle("Fixture Two")
-        runBlocking { container.tabs.pair(first, second) }
-        compose.waitUntil(10_000) { webViews().size == 2 }
-        val views = webViews().toSet()
+    @Test fun savedSplitUsesOneSelectedPageInCompactAndRestoresBothLivePagesWhenWide() {
+        open("${server.origin}/ua-compact-left"); awaitDisplayMode(false)
+        val first = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val left = webViews().single()
+        enterDraft(left)
+        val second = runBlocking { container.tabs.create(spaceId, "${server.origin}/ua-compact-right") }
+        awaitUrl("${server.origin}/ua-compact-right")
+        awaitDisplayMode(false)
+        val right = webViews().single()
+        enterDraft(right)
+        runBlocking { container.tabs.pair(first, second); container.tabs.select(second) }
+        compose.waitForIdle()
+        assertSame(right, webViews().single())
+        fun assertPairSaved() {
+            assertEquals(second, runBlocking { container.workspace.dao.tab(first)!!.splitRightTabId })
+            assertTrue(runBlocking { container.workspace.dao.tabs(spaceId).filter { it.id in setOf(first, second) }.all { it.closedAt == null } })
+        }
+        fun screenshot(name: String) {
+            compose.waitForIdle()
+            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            java.io.File(compose.activity.getExternalFilesDir(null), "compact-single-$name.png").outputStream().use {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+            bitmap.recycle()
+        }
+        compose.onNodeWithContentDescription("Page menu").performClick()
+        compose.onNodeWithText("New split view").assertDoesNotExist()
+        compose.onNodeWithText("Swap panes").assertDoesNotExist()
+        compose.onNodeWithText("Close split view").assertDoesNotExist()
+        shell("input keyevent 4"); compose.waitForIdle()
         compose.onNodeWithTag("compact-tabs-button").performClick()
-        compose.onNodeWithTag("compact-tab-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("sidebar-split-group").assertDoesNotExist()
+        compose.onNodeWithTag("sidebar-tab-$first").assertExists()
+        compose.onNodeWithTag("sidebar-tab-$second").onChild().assertIsSelected()
+        screenshot("tabs-light")
+        val source = compose.onNodeWithTag("sidebar-tab-$first")
+        val from = source.fetchSemanticsNode().boundsInRoot
+        val end = compose.onNodeWithTag("sidebar-tab-$second").fetchSemanticsNode().boundsInRoot.center - from.topLeft
+        source.performTouchInput { down(center); advanceEventTime(650); moveTo(end, delayMillis = 100) }
+        compose.onNodeWithTag("sidebar-split-drop-$second").assertDoesNotExist()
+        compose.onNodeWithTag("sidebar-replace-drop-$second").assertDoesNotExist()
+        source.performTouchInput { cancel() }
+        assertPairSaved()
+        // A compact tab menu cannot create a pair, including via accessibility actions.
+        val actions = compose.onNodeWithTag("sidebar-tab-$first").onChild().fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+        compose.runOnIdle {
+            assertTrue(actions.first { it.label == compose.activity.getString(R.string.ui_show_actions) }.action())
+        }
+        compose.onNodeWithText("Open in right pane").assertDoesNotExist()
+        shell("input keyevent 4"); compose.waitForIdle()
         shell("input keyevent 4")
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("compact-tab-sheet").fetchSemanticsNodes().isEmpty() }
-        assertTrue(runBlocking { container.workspace.dao.tabs(spaceId).filter { it.id in setOf(first, second) }.all { it.closedAt == null } })
+        assertPairSaved()
+        for ((width, theme) in listOf(1000 to com.takeruf.nagi.domain.model.ThemeMode.LIGHT,
+            599 to com.takeruf.nagi.domain.model.ThemeMode.DARK, 600 to com.takeruf.nagi.domain.model.ThemeMode.DARK,
+            360 to com.takeruf.nagi.domain.model.ThemeMode.DARK)) {
+            runBlocking { container.settings.update { it.copy(theme = theme) } }
+            resize(width)
+            compose.waitUntil(10_000) { webViews().size == if (width < 600) 1 else 2 }
+            if (width < 600) {
+                assertSame(right, webViews().single())
+                compose.onNodeWithContentDescription("Resize split view").assertDoesNotExist()
+            } else {
+                assertEquals(setOf(left, right), webViews().toSet())
+                compose.onNodeWithContentDescription("Resize split view").assertIsDisplayed()
+                assertEquals(second, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+            }
+            assertPairSaved()
+            assertDraft(left); assertDraft(right)
+            screenshot("${width}-${theme.name.lowercase()}")
+        }
+        // Each saved member is independently selectable without detaching the pair.
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        compose.onNodeWithTag("sidebar-tab-$first").performClick()
+        compose.waitUntil(10_000) { webViews().singleOrNull() === left }
+        assertDraft(left); assertPairSaved()
+        // Keyboard command suggestions use the same compact policy as the menus.
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_search_or_enter_url)).performClick()
+        compose.onNodeWithTag("command-input").performTextReplacement(">")
+        compose.onNodeWithTag("suggestion:command:SPLIT").assertDoesNotExist()
+        compose.onNodeWithTag("suggestion:command:CLOSE_SPLIT").assertDoesNotExist()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_close_1_s,
+            compose.activity.getString(R.string.ui_search))).performClick()
+        compose.onNodeWithTag("command-input").assertDoesNotExist()
         resize(1000)
-        compose.onNodeWithTag("compact-browser-bar").assertDoesNotExist()
-        compose.onNodeWithTag("sidebar").assertIsDisplayed()
-        assertEquals(views, webViews().toSet())
+        compose.waitUntil(10_000) { webViews().size == 2 }
+        assertEquals(first, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+        assertDraft(left); assertDraft(right)
+        assertEquals(1, server.requests.count { it.path == "/ua-compact-left" })
+        assertEquals(1, server.requests.count { it.path == "/ua-compact-right" })
         resize(360)
-        compose.onNodeWithTag("compact-browser-bar").assertIsDisplayed()
-        assertEquals(views, webViews().toSet())
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(15_000) { webViews().size == 1 }
+        assertPairSaved()
+        resize(1000)
+        compose.waitUntil(15_000) { webViews().size == 2 }
+        assertPairSaved()
+    }
+
+    private fun awaitUrl(url: String) {
+        compose.waitUntil(15_000) {
+            val views = webViews()
+            var loaded = false
+            compose.runOnIdle { loaded = views.singleOrNull()?.let { it.url == url && it.progress == 100 } == true }
+            loaded
+        }
     }
 
     private fun awaitDisplayMode(desktop: Boolean, paneCount: Int = 1) {
@@ -378,10 +465,11 @@ class CompactBrowserUiTest {
     @Test fun hiddenAndSplitPagesKeepTheirDocumentsUntilTheyNavigate() {
         open("${server.origin}/ua-hidden")
         awaitDisplayMode(false)
-        val first = runBlocking { container.workspace.dao.tabs(spaceId).first { it.url == "${server.origin}/ua-hidden" }.id }
+        val first = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
         val original = webViews().single()
         enterDraft(original)
         val second = runBlocking { container.tabs.create(spaceId, "${server.origin}/ua-visible") }
+        awaitUrl("${server.origin}/ua-visible")
         awaitDisplayMode(false)
         val other = webViews().single()
         enterDraft(other)
@@ -406,14 +494,20 @@ class CompactBrowserUiTest {
         enterDraft(original)
         enterDraft(other)
         resize(360)
-        awaitDisplayMode(true, paneCount = 2)
+        awaitDisplayMode(true)
         assertDraft(original)
         assertDraft(other)
         compose.runOnIdle {
             original.evaluateJavascript("location.href='${server.origin}/ua-hidden-phone'", null)
             other.evaluateJavascript("location.href='${server.origin}/ua-visible-phone'", null)
         }
-        awaitDisplayMode(false, paneCount = 2)
+        awaitUrl("${server.origin}/ua-hidden-phone")
+        awaitDisplayMode(false)
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        compose.onNodeWithTag("sidebar-tab-$second").performClick()
+        awaitUrl("${server.origin}/ua-visible-phone")
+        awaitDisplayMode(false)
+        assertSame(other, webViews().single())
         assertTrue(server.requests.last { it.path == "/ua-hidden-phone" }.userAgent.contains("Mobile"))
         assertTrue(server.requests.last { it.path == "/ua-visible-phone" }.userAgent.contains("Mobile"))
     }

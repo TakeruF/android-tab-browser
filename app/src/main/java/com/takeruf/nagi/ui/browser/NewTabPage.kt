@@ -23,14 +23,18 @@ import androidx.compose.ui.unit.dp
 
 internal data class NewTabShortcut(val tab: BrowserTab, val rightTab: BrowserTab? = null)
 
-// Only the active workspace's open tabs are supplied. A saved pair occupies one slot.
-internal fun newTabShortcuts(tabs: List<BrowserTab>, currentTabId: String): List<NewTabShortcut> {
+// Only the active workspace's open tabs are supplied. Wide layouts group a saved pair into one slot.
+internal fun newTabShortcuts(tabs: List<BrowserTab>, currentTabId: String, compactWindow: Boolean = false): List<NewTabShortcut> {
     val byId = tabs.associateBy { it.id }
     val pairs = tabs.mapNotNull { left ->
         val right = byId[left.splitRightTabId]?.takeIf { it.id != left.id } ?: return@mapNotNull null
         NewTabShortcut(left, right)
     }
     val pairedIds = pairs.flatMap { listOfNotNull(it.tab.id, it.rightTab?.id) }.toSet()
+    if (compactWindow) {
+        return tabs.filter { it.id != currentTabId && (it.isPinned || it.id in pairedIds) }
+            .take(4).map { NewTabShortcut(it) }
+    }
     val savedSplits = pairs.filter { it.tab.id != currentTabId && it.rightTab?.id != currentTabId }
     val pinned = tabs.asSequence()
         .filter { it.isPinned && it.id != currentTabId && it.id !in pairedIds }
@@ -82,8 +86,8 @@ internal fun NewTabPage(spaceName: String, onSearch: () -> Unit, compactWindow: 
                                 modifier = Modifier.fillMaxWidth().testTag("new-tab-shortcut-${shortcut.tab.id}")) {
                                 Row(Modifier.heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(if (right == null) NagiIcons.Pin else NagiIcons.Columns2,
-                                        strings(if (right == null) R.string.ui_pinned_tab else R.string.ui_saved_split),
+                                    Icon(if (right != null) NagiIcons.Columns2 else if (shortcut.tab.isPinned) NagiIcons.Pin else NagiIcons.PanelsTopLeft,
+                                        if (right != null) strings(R.string.ui_saved_split) else if (shortcut.tab.isPinned) strings(R.string.ui_pinned_tab) else null,
                                         Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                                     Column(Modifier.weight(1f)) {
                                         Text(strings.tabTitle(shortcut.tab), style = MaterialTheme.typography.bodyMedium,
