@@ -1,0 +1,27 @@
+<en-US>
+Added page zoom and shortcuts for zoom, history, Settings and private browsing.
+Resume pinned tabs and saved split views from a new tab.
+Settings are now organized into categories that adapt to the window size.
+Improved download confirmations and progress notifications. Empty tabs opened for downloads close when a download starts.
+</en-US>
+
+<ja-JP>
+ページズームと、ズーム・履歴・設定・プライベートブラウジングのショートカットを追加しました。
+新しいタブからピン留めタブや保存済みSplitを再開できます。
+設定をカテゴリ別に整理し、画面幅に応じて表示を切り替えるようにしました。
+ダウンロードの確認画面と進捗通知を改善し、ダウンロード用に開かれた空タブを開始後に自動で閉じるようにしました。
+</ja-JP>
+
+<zh-CN>
+新增页面缩放，以及缩放、历史记录、设置和无痕浏览的快捷键。
+可从新标签页继续使用已固定的标签页和保存的分屏组合。
+设置按类别重新整理，并根据窗口宽度调整布局。
+改进下载确认界面和进度通知，开始下载后自动关闭为下载打开的空白标签页。
+</zh-CN>
+
+<ko-KR>
+페이지 확대·축소 기능과 관련 단축키를 추가했습니다. 방문 기록, 설정, 비공개 탐색도 단축키로 열 수 있습니다.
+새 탭에서 고정 탭과 저장된 분할 화면을 다시 열 수 있습니다.
+설정을 항목별로 정리하고 창 너비에 맞게 표시하도록 개선했습니다.
+다운로드 확인 화면과 진행 알림을 개선하고, 다운로드가 시작되면 다운로드용으로 열린 빈 탭을 자동으로 닫습니다.
+</ko-KR>
