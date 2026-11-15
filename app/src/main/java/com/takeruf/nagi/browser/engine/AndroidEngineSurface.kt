@@ -3,7 +3,10 @@ package com.takeruf.nagi.browser.engine
 import android.view.View
 
 /** Android rendering bridge only; browser commands stay on BrowserEngine. */
-interface AndroidEngineSurface { val surface: View }
+interface AndroidEngineSurface {
+    val surface: View
+    fun setDragPreviewColors(background: Int, content: Int, outline: Int, accent: Int) {}
+}
 interface FullscreenHost {
     fun showFullscreen(view: View, exit: () -> Unit)
     fun hideFullscreen()

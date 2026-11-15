@@ -1,5 +1,12 @@
 package com.takeruf.nagi.ui.browser
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
@@ -81,13 +88,13 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
                     if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
                     if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
-                    Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Rounded,
-                        color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), modifier = Modifier.weight(1f).height(40.dp)
+                    Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Pill,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f).height(40.dp)
                             .testTag("url-drop-${tab.id}")) {
                         Box {
-                        WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
-                        Row(Modifier.fillMaxSize().padding(start = 12.dp, end = if (inlineShare) 4.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        WebUrlDropTarget(Modifier.matchParentSize(), shape = NagiShapes.Pill) { url -> onFocus(); engine.loadUrl(url) }
+                        Row(Modifier.fillMaxSize().padding(start = 14.dp, end = if (inlineShare) 6.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
                             Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/"),
                                 Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -167,23 +174,14 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                             if (page.translation.active) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) },
                                 text = { Text(strings(R.string.ui_translation_original)) }, modifier = Modifier.testTag("menu-translation-restore"),
                                 onClick = { pageMenu = false; engine.restoreOriginalPage() })
-                            if (engine.supportsDeviceDefaultMode) {
-                                NagiOverflowMenuItem(leadingIcon = { Icon(if (!page.desktopMode && !page.deviceDefaultMode) NagiIcons.Check else NagiIcons.Smartphone, null) },
-                                    text = { Text(strings(R.string.ui_use_mobile_site)) }, enabled = page.desktopMode || page.deviceDefaultMode,
-                                    modifier = Modifier.testTag("display-mode:mobile").semantics { selected = !page.desktopMode && !page.deviceDefaultMode },
-                                    onClick = { engine.setDesktopMode(false); pageMenu = false })
-                                NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Check else NagiIcons.Monitor, null) },
-                                    text = { Text(strings(R.string.ui_use_desktop_site)) }, enabled = !page.desktopMode,
-                                    modifier = Modifier.testTag("display-mode:desktop").semantics { selected = page.desktopMode },
-                                    onClick = { engine.setDesktopMode(true); pageMenu = false })
-                                NagiOverflowMenuItem(leadingIcon = { Icon(if (page.deviceDefaultMode) NagiIcons.Check else NagiIcons.Smartphone, null) },
-                                    text = { Text(strings(R.string.ui_use_device_default_site)) },
-                                    enabled = !page.deviceDefaultMode && com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url) != null,
-                                    modifier = Modifier.testTag("display-mode:device-default").semantics { selected = page.deviceDefaultMode },
-                                    onClick = { engine.setDeviceDefaultMode(); pageMenu = false })
-                            } else {
-                                NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Smartphone else NagiIcons.Monitor, null) }, text = { Text(if (page.desktopMode) strings(R.string.ui_use_mobile_site) else strings(R.string.ui_use_desktop_site)) }, onClick = { engine.setDesktopMode(!page.desktopMode); pageMenu = false })
-                            }
+                            NagiOverflowMenuItem(leadingIcon = { Icon(if (!page.desktopMode) NagiIcons.Check else NagiIcons.Smartphone, null) },
+                                text = { Text(strings(R.string.ui_use_mobile_site)) }, enabled = page.desktopMode,
+                                modifier = Modifier.testTag("display-mode:mobile").semantics { selected = !page.desktopMode },
+                                onClick = { engine.setDesktopMode(false); pageMenu = false })
+                            NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Check else NagiIcons.Monitor, null) },
+                                text = { Text(strings(R.string.ui_use_desktop_site)) }, enabled = !page.desktopMode,
+                                modifier = Modifier.testTag("display-mode:desktop").semantics { selected = page.desktopMode },
+                                onClick = { engine.setDesktopMode(true); pageMenu = false })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.BookOpen, null) },
                                 text = { Text(strings(if (page.readerArticle != null) R.string.ui_exit_reader else R.string.ui_reader_mode)) },
                                 modifier = Modifier.testTag("reader-mode"), enabled = canShareLink && !page.isLoading && !page.readerLoading,
@@ -208,27 +206,27 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             if (!bottomSearchBar) AddressBar()
             // Keep page titles aligned across both split panes.
             if (split) Row(Modifier.fillMaxWidth().height(48.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(strings.tabTitle(tab), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(strings.tabTitle(tab), Modifier.weight(1f).testTag("split-title-${tab.id}").semantics { selected = focused },
+                    style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 IconButton(onClick = onCloseTab, modifier = Modifier.size(48.dp).testTag("close-split-tab:${tab.id}")) {
                     Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(21.dp))
                 }
             }
             Box(Modifier.fillMaxWidth().height(2.dp), contentAlignment = Alignment.BottomCenter) {
                 if (page.isLoading) LinearProgressIndicator(progress = { page.progress / 100f }, modifier = Modifier.fillMaxWidth().height(2.dp))
-                else HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                else HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
             }
-            if (showFind && focused) {
-                var query by remember { mutableStateOf("") }
-                LaunchedEffect(query, page.readerArticle) { engine.findInPage(query) }
+            val findOpen = showFind && focused
+            var findQuery by remember(findOpen) { mutableStateOf("") }
+            if (findOpen) {
+                LaunchedEffect(findQuery, page.readerArticle) { engine.findInPage(findQuery) }
                 DisposableEffect(engine) { onDispose { engine.clearFind() } }
-                FindInPageBar(query, { query = it }, "${if (page.findMatches == 0) 0 else page.activeFindMatch + 1}/${page.findMatches}",
-                    onPrevious = { engine.findNext(false) }, onNext = { engine.findNext(true) }, onClose = onCloseFind)
             }
             PageTranslationBar(page.translation, onRestore = engine::restoreOriginalPage)
             key(tab.id, engine) {
                 GoogleSignInRecoveryBar(page, onSwitchToMobile = { onFocus(); engine.retryGoogleSignInInMobileMode() })
-                HumanVerificationRecoveryBar(page, engine.supportsDeviceDefaultMode,
-                    onRetry = { onFocus(); engine.setDeviceDefaultMode() })
+                HumanVerificationRecoveryBar(page,
+                    onRetry = { onFocus(); engine.setDesktopMode(false) })
             }
             Box(Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}")) {
                 if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
@@ -242,6 +240,11 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(if (compactWindow) RectangleShape else NagiShapes.Bottom), onFocus)
                 if (page.readerLoading) CircularProgressIndicator(Modifier.align(Alignment.Center))
+                // Chrome-style: a compact card floating over the page's top end; the page does not move.
+                if (findOpen) FindInPageBar(findQuery, { findQuery = it },
+                    if (findQuery.isEmpty()) "" else "${if (page.findMatches == 0) 0 else page.activeFindMatch + 1}/${page.findMatches}",
+                    onPrevious = { engine.findNext(false) }, onNext = { engine.findNext(true) }, onClose = onCloseFind,
+                    modifier = Modifier.align(Alignment.TopEnd))
                 page.error?.let { error ->
                     Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
@@ -259,31 +262,39 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
 
 @Composable
 private fun FindInPageBar(query: String, onQuery: (String) -> Unit, count: String,
-    onPrevious: () -> Unit, onNext: () -> Unit, onClose: () -> Unit) {
+    onPrevious: () -> Unit, onNext: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
     val strings = rememberNagiStrings()
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-        @Composable fun Input(modifier: Modifier) {
-            TextField(query, onQuery, shape = NagiShapes.Rounded, placeholder = { Text(strings(R.string.ui_find_in_page), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                singleLine = true, modifier = modifier)
-        }
-        @Composable fun Navigation() {
-            ToolButton(NagiIcons.ChevronUp, strings(R.string.ui_previous_match), onClick = onPrevious)
-            ToolButton(NagiIcons.ChevronDown, strings(R.string.ui_next_match), onClick = onNext)
-        }
-        if (maxWidth < 360.dp) Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Input(Modifier.weight(1f))
-                ToolButton(NagiIcons.X, strings(R.string.ui_close_find), onClick = onClose)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(count, Modifier.weight(1f).padding(start = 16.dp), style = MaterialTheme.typography.labelSmall)
-                Navigation()
-            }
-        } else Row(verticalAlignment = Alignment.CenterVertically) {
-            Input(Modifier.weight(1f))
-            Text(count, style = MaterialTheme.typography.labelSmall)
-            Navigation()
-            ToolButton(NagiIcons.X, strings(R.string.ui_close_find), onClick = onClose)
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val colors = MaterialTheme.colorScheme
+    Surface(shape = NagiShapes.Rounded, color = colors.surfaceBright, contentColor = colors.onSurface, shadowElevation = 6.dp,
+        modifier = modifier.padding(8.dp).widthIn(max = 420.dp).fillMaxWidth().testTag("find-in-page")) {
+        Row(Modifier.height(48.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // An unadorned field, like Chrome's: no filled container or underline inside the card.
+            BasicTextField(query, onQuery, singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
+                cursorBrush = SolidColor(colors.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onNext() }),
+                modifier = Modifier.weight(1f).focusRequester(focus),
+                decorationBox = { field ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) Text(strings(R.string.ui_find_in_page), style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        field()
+                    }
+                })
+            if (count.isNotEmpty()) Text(count, Modifier.padding(horizontal = 8.dp), style = MaterialTheme.typography.labelMedium,
+                color = colors.onSurfaceVariant)
+            VerticalDivider(Modifier.height(24.dp).padding(horizontal = 4.dp), color = colors.outlineVariant)
+            FindButton(NagiIcons.ChevronUp, strings(R.string.ui_previous_match), onPrevious)
+            FindButton(NagiIcons.ChevronDown, strings(R.string.ui_next_match), onNext)
+            FindButton(NagiIcons.X, strings(R.string.ui_close_find), onClose)
         }
     }
+}
+
+@Composable
+private fun FindButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) { Icon(icon, label, Modifier.size(20.dp)) }
 }

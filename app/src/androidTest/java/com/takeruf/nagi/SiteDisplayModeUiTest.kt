@@ -2,6 +2,7 @@ package com.takeruf.nagi
 
 import android.content.Context
 import android.app.Activity
+import android.graphics.Bitmap
 import android.view.View
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -24,12 +25,17 @@ import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
-/** Synthetic pane only: no accounts, network, screenshots, or browser storage. */
-class DeviceDefaultModeUiTest {
+/** Synthetic pane only; no accounts, network, or browser storage. */
+class SiteDisplayModeUiTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun menuKeepsAllThreeChoicesDistinctAndMarksTheCurrentChoice() {
+    @Test fun compactLightMenuOffersTwoChoicesAndMarksTheCurrentChoice() = checkMenu(compact = true)
+
+    @Test fun wideDarkSplitMenuOffersTwoChoicesAndMarksTheCurrentChoice() = checkMenu(compact = false)
+
+    private fun checkMenu(compact: Boolean) {
         lateinit var context: Context
         lateinit var engine: TestEngine
         compose.setContent {
@@ -40,10 +46,10 @@ class DeviceDefaultModeUiTest {
                 onDispose { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
             }
             engine = remember { TestEngine(context) }
-            NagiTheme(ThemeMode.LIGHT) {
-                Box(Modifier.width(344.dp).fillMaxHeight()) {
+            NagiTheme(if (compact) ThemeMode.LIGHT else ThemeMode.DARK) {
+                Box(Modifier.width(if (compact) 344.dp else 700.dp).fillMaxHeight()) {
                     BrowserPane(BrowserTab("mode-test", "personal"), engine, BrowserUiState(),
-                        focused = true, split = false, showFind = false,
+                        focused = true, split = !compact, showFind = false, compactWindow = compact,
                         onCloseFind = {}, onFind = {}, onFocus = {}, onOmnibox = {}, onOpen = {},
                         onSplit = {}, onCloseSplit = {}, onCloseTab = {}, onSwap = {},
                         onAdBlockingChange = { _, _ -> })
@@ -53,15 +59,20 @@ class DeviceDefaultModeUiTest {
         fun open() = compose.onNodeWithContentDescription(context.getString(R.string.ui_page_menu)).performClick()
         open()
         compose.onNodeWithTag("display-mode:desktop").assertIsSelected().assertIsNotEnabled()
-        compose.onNodeWithTag("display-mode:device-default").performScrollTo().performClick()
-        open()
-        compose.onNodeWithTag("display-mode:device-default").assertIsSelected().assertIsNotEnabled()
+        compose.onNodeWithTag("display-mode:mobile").assertIsNotSelected().assertIsEnabled()
+        compose.onNodeWithTag("display-mode:device-default").assertDoesNotExist()
+        val screenshot = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val directory = File(context.getExternalFilesDir(null), "display-mode").apply { mkdirs() }
+        File(directory, if (compact) "compact-light.png" else "wide-dark-split.png").outputStream().use {
+            screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        screenshot.recycle()
         compose.onNodeWithTag("display-mode:mobile").performScrollTo().performClick()
         open()
         compose.onNodeWithTag("display-mode:mobile").assertIsSelected().assertIsNotEnabled()
         compose.onNodeWithTag("display-mode:desktop").performScrollTo().performClick()
         compose.runOnIdle {
-            assertEquals(listOf(SiteDisplayMode.DEVICE_DEFAULT, SiteDisplayMode.MOBILE, SiteDisplayMode.DESKTOP), engine.selections)
+            assertEquals(listOf(SiteDisplayMode.MOBILE, SiteDisplayMode.DESKTOP), engine.selections)
         }
     }
 
@@ -69,15 +80,10 @@ class DeviceDefaultModeUiTest {
         override val surface = View(context)
         override val state = MutableStateFlow(PageState(url = "https://example.test/", desktopMode = true))
         override val events = emptyFlow<EngineEvent>()
-        override val supportsDeviceDefaultMode = true
         val selections = mutableListOf<SiteDisplayMode>()
         override fun setDesktopMode(enabled: Boolean) {
             selections += if (enabled) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE
-            state.value = state.value.copy(desktopMode = enabled, deviceDefaultMode = false)
-        }
-        override fun setDeviceDefaultMode() {
-            selections += SiteDisplayMode.DEVICE_DEFAULT
-            state.value = state.value.copy(desktopMode = false, deviceDefaultMode = true)
+            state.value = state.value.copy(desktopMode = enabled)
         }
         override fun loadUrl(url: String) {}
         override fun reload() {}

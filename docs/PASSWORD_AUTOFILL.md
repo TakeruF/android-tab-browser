@@ -4,6 +4,16 @@
 
 Password autofill is unavailable in production until the submitted approval is granted. `PasswordAutofillAvailability.approved` remains false. WebView native autofill is excluded, manual requests are blocked, the page-menu action and the entire Settings section (including the service picker) are hidden in all locales. No pending-approval notice is shown in the normal UI. Existing Android provider preferences are not changed. The retained integration tests explicitly opt in to exercise future approved behavior with synthetic credentials; they do not indicate that the production feature is enabled. Approval requires a later source change and APK build; it does not enable itself automatically.
 
+For investigation, `-PnagiAutofillDiagnostics=true` enables only a Debug QA install
+under the separate package `com.takeruf.nagi.autofillqa`, with event/count-only
+diagnostic logs. Ordinary Debug and all Release builds keep the production gate.
+The QA package/debug certificate cannot establish Google trust for the Play
+package/signing certificate. See the [2026-11-15 investigation and device
+procedure](AUTOFILL_INVESTIGATION_2026-11-15.md) for evidence, limitations and the
+distinction between legacy password autofill and Credential Manager approval.
+The [public-site follow-up](AUTOFILL_LIVE_SITES_2026-11-15.md) covers real Asahi ID
+and GitHub forms, synthetic system suggestions and the bounded Google control.
+
 The integration details and earlier validation below describe the retained implementation.
 
 Nagi uses Android's Autofill Framework for website usernames and passwords. The WebView has an explicit resource ID and is marked important for autofill. Its native Compose host excludes only itself, allowing WebView's virtual HTML form fields to be traversed. WebView supplies the website domain, HTML field metadata and autocomplete hints to the selected system provider; Nagi does not read a password vault or add a JavaScript credential bridge.
@@ -18,6 +28,14 @@ Nagi uses Android's Autofill Framework for website usernames and passwords. The 
 The settings section reports whether Android autofill is enabled for Nagi, disabled, or unsupported, and refreshes when returning from Android settings. An enabled status does not mean that the provider has matching passwords or trusts Nagi. Manual retries use WebView's opaque virtual field ID from its native autofill structure or Android UI callback, not a request against the WebView container. A transparent ViewStructure delegate observes only the focused field ID and forwards the original structure unchanged; it does not retain text, values, or HTML attributes. This avoids depending on optional suggestion-UI callbacks to recognize a selected field. If Android reports that the provider cannot show suggestions after a manual request, the message identifies the provider result rather than incorrectly asking the user to tap the field again. Navigation invalidates the ID, and destroying the engine unregisters the callback.
 
 Chrome's Touch to Fill password sheet is browser-specific UI, not a public WebView feature Nagi can enable. Android and the selected provider control whether suggestions appear as a popup, keyboard suggestions, or another system UI. Nagi does not imitate Google's credential sheet or claim access to Chrome's password store.
+
+WebView 91 does not mark the focused virtual field in the structure it provides.
+If the provider also sends no UI callback, a manual retry cannot safely identify
+the field. Nagi reports that WebView could not identify it and suggests updating
+Android System WebView; it does not invent a virtual ID. The same Android 11 QA
+device passed the retained manual cases after updating only WebView to 133.
+This compatibility result does not identify why Google offered no credentials on
+the original physical device, or establish a minimum supported WebView version.
 
 Suggestions depend on the website, Android System WebView version, keyboard, device settings and provider. Providers may restrict which browsers can receive website credentials, including by signing-certificate allowlists. Enabling Autofill does not establish Google Password Manager approval or guarantee that existing Google website passwords appear for Nagi. Do not add app-to-site associations for arbitrary sites or rewrite their origins to bypass these checks.
 

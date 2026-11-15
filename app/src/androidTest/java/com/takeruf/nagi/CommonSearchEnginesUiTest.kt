@@ -89,7 +89,7 @@ class CommonSearchEnginesUiTest {
         screenshot("default-google-chatgpt")
         compose.onNode(hasSetTextAction()).performTextReplacement("360 android tablet")
         compose.onNodeWithText(strings(R.string.ui_search_1_s_for_2_s, "Google", "360 android tablet")).assertIsDisplayed()
-        compose.onNodeWithText("Esc").performClick()
+        compose.onNodeWithTag("command-close").performClick()
 
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
         compose.selectSettingsCategory("search")
@@ -113,7 +113,7 @@ class CommonSearchEnginesUiTest {
         compose.onNodeWithTag("suggestion:engine:baidu").assertIsDisplayed()
         compose.onNodeWithTag("suggestion:engine:so360").assertDoesNotExist()
         screenshot("google-chatgpt-baidu-after-recreate")
-        compose.onNodeWithText("Esc").performClick()
+        compose.onNodeWithTag("command-close").performClick()
 
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
         compose.selectSettingsCategory("search")

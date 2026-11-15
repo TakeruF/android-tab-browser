@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.3.0 adds page zoom, pinned-tab/Split resume links, keyboard actions, category-based Settings and download improvements. It was submitted to Google Play for review on 2026-11-15; public availability is not yet confirmed. See [1.3.0 notes](docs/releases/1.3.0.md) for scope, verification and release status.
+Version 1.3.0 adds page zoom, pinned-tab/Split resume links, keyboard actions, category-based Settings and download improvements. The earlier code-18 submission was stopped; a code-19 replacement including the latest UI, Command Bar and download-folder changes is being prepared. Release notes await user confirmation, and public availability is not yet confirmed. See [1.3.0 notes](docs/releases/1.3.0.md) for scope, verification and release status.
 
 Version 1.2.0 adds a confirmed Spaces on/off setting, improves Android browser-picker recognition, and fixes a private-mode close crash. See [1.2.0 notes](docs/releases/1.2.0.md) for verification and release status.
 
@@ -34,6 +34,7 @@ Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style 
 
 - Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
 - A Command Bar for URLs, search, tabs, Spaces, and commands.
+- Choose which suggestion categories the Command Bar lists in Settings → Command Bar; hiding Commands keeps their keyboard shortcuts working. See [Command Bar settings](docs/COMMAND_BAR.md).
 - Standard search and “Ask ChatGPT” actions, selected with arrow keys and Enter or by touch/click. Questions and requests for explanations or comparisons, and input of at least 80 characters, prioritize ChatGPT. Explicit URLs and engine keywords take precedence.
 - Resizable Split panes in windows at least 600dp wide, with saved left/right tab pairs retained during single-page narrow-window browsing, a resizable/collapsible sidebar, and drag-and-drop organization for tabs and pairs.
 - Light, dark, and system themes with adjustable theme colors and selection contrast.

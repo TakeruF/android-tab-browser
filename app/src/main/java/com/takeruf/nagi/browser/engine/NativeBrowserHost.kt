@@ -43,7 +43,9 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     private var requestedPermissions = emptySet<SitePermission>()
     private var consentDialog: AlertDialog? = null
     val video = VideoPresentationController(activity)
-    private val downloads = DownloadService(activity.applicationContext)
+    /** Chosen download folder (SAF tree URI) from Settings; null keeps the system Downloads folder. */
+    @Volatile var downloadFolder: String? = null
+    private val downloads = DownloadService(activity.applicationContext) { downloadFolder?.let(Uri::parse) }
     private val downloadNotifications = com.takeruf.nagi.browser.downloads.DownloadNotifications(activity.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var fileDialog: AlertDialog? = null
@@ -226,8 +228,11 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         if (disposed) { file.delete(); result(false); return }
         scope.launch {
             try {
-                withContext(Dispatchers.IO) { downloads.saveGenerated(request, file) }
-                showMessage(strings(R.string.ui_download_saved))
+                val folder = withContext(Dispatchers.IO) {
+                    downloads.saveGenerated(request, file)
+                    downloads.destinationName()
+                }
+                showMessage(folder?.let { strings(R.string.ui_download_saved_to_1_s, it) } ?: strings(R.string.ui_download_saved))
                 result(true)
             } catch (error: Exception) {
                 result(false)

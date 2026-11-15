@@ -13,10 +13,16 @@ private val Context.browserDataStore by preferencesDataStore("browser_settings")
 class SettingsStore(context: Context, private val store: androidx.datastore.core.DataStore<Preferences> = context.applicationContext.browserDataStore) {
     private object Keys {
         val spacesEnabled = booleanPreferencesKey("spaces_enabled")
+        val commandBarSearch = booleanPreferencesKey("command_bar_search")
+        val commandBarTabs = booleanPreferencesKey("command_bar_tabs")
+        val commandBarHistory = booleanPreferencesKey("command_bar_history")
+        val commandBarSpaces = booleanPreferencesKey("command_bar_spaces")
+        val commandBarCommands = booleanPreferencesKey("command_bar_commands")
         val avoidCameraOverlap = booleanPreferencesKey("avoid_camera_overlap")
         val cameraLeftRotation = intPreferencesKey("camera_left_rotation")
         val cameraSideMargin = intPreferencesKey("camera_side_margin")
         val bottomSearchBar = booleanPreferencesKey("bottom_search_bar")
+        val downloadFolder = stringPreferencesKey("download_folder")
         val theme = stringPreferencesKey("theme")
         // Keep the original storage key so existing color choices survive this rename.
         val themeColor = longPreferencesKey("accent_color")
@@ -53,7 +59,9 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         if (it is IOException) emit(emptyPreferences()) else throw it
     }.map { p -> BrowserSettings(
         spacesEnabled = p[Keys.spacesEnabled] ?: true,
+        commandBar = commandBarSettings(p),
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
+        downloadFolder = p[Keys.downloadFolder],
         avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
         cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
         cameraLeftRotation = p[Keys.cameraLeftRotation]?.takeIf { it in 0..3 },
@@ -101,7 +109,9 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
                 p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
                 spacesEnabled = p[Keys.spacesEnabled] ?: true,
+                commandBar = commandBarSettings(p),
                 bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
+                downloadFolder = p[Keys.downloadFolder],
                 avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
                 cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
                 cameraLeftRotation = p[Keys.cameraLeftRotation]?.takeIf { it in 0..3 },
@@ -118,11 +128,17 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
             val next = change(current)
             p[Keys.spacesEnabled] = next.spacesEnabled
+            p[Keys.commandBarSearch] = next.commandBar.showSearch
+            p[Keys.commandBarTabs] = next.commandBar.showTabs
+            p[Keys.commandBarHistory] = next.commandBar.showHistory
+            p[Keys.commandBarSpaces] = next.commandBar.showSpaces
+            p[Keys.commandBarCommands] = next.commandBar.showCommands
             p[Keys.avoidCameraOverlap] = next.avoidCameraOverlap
             p[Keys.cameraSideMargin] = next.cameraSideMargin.coerceIn(0, 64)
             next.cameraLeftRotation?.takeIf { it in 0..3 }?.let { p[Keys.cameraLeftRotation] = it }
                 ?: p.remove(Keys.cameraLeftRotation)
             p[Keys.bottomSearchBar] = next.bottomSearchBar
+            next.downloadFolder?.let { p[Keys.downloadFolder] = it } ?: p.remove(Keys.downloadFolder)
             next.translationTargetLanguage?.let { p[Keys.translationTargetLanguage] = it } ?: p.remove(Keys.translationTargetLanguage)
             p[Keys.alwaysTranslateLanguages] = next.alwaysTranslateLanguages.filter { (source, target) -> source != target }
                 .map { (source, target) -> "$source:$target" }.toSet()
@@ -149,6 +165,14 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
             p[Keys.regionCheckedAt] = next.searchRegionCheckedAt
         }
     }
+    private fun commandBarSettings(p: Preferences) = CommandBarSettings(
+        showSearch = p[Keys.commandBarSearch] ?: true,
+        showTabs = p[Keys.commandBarTabs] ?: true,
+        showHistory = p[Keys.commandBarHistory] ?: true,
+        showSpaces = p[Keys.commandBarSpaces] ?: true,
+        showCommands = p[Keys.commandBarCommands] ?: true,
+    )
+
     private fun translationRules(values: Set<String>?): Map<String, String> = values.orEmpty().mapNotNull { value ->
         val parts = value.split(':')
         if (parts.size == 2 && parts.all { it.isNotBlank() } && parts[0] != parts[1]) parts[0] to parts[1] else null

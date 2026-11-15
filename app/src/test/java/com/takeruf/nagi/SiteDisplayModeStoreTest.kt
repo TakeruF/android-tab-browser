@@ -52,35 +52,37 @@ class SiteDisplayModeStoreTest {
         }
     }
 
-    @Test fun deviceDefaultChoicePersistsWithoutChangingLegacyPreferenceTypes() {
+    @Test fun legacyDeviceDefaultChoiceIsReadAsMobileWithoutChangingOtherSites() {
         val preferences = context.getSharedPreferences("site_display_modes", Context.MODE_PRIVATE)
         preferences.edit().putBoolean("legacy.test", true).commit()
         val store = SiteDisplayModeStore(context)
         assertEquals(SiteDisplayMode.DESKTOP, store.mode("https://legacy.test/"))
-        store.rememberDeviceDefault("https://EXAMPLE.com./login")
-        assertEquals(SiteDisplayMode.DEVICE_DEFAULT, SiteDisplayModeStore(context).mode("http://example.com:8080/next"))
+        preferences.edit().putBoolean("example.com", false).putBoolean("device-default:example.com", true).commit()
+        assertEquals(SiteDisplayMode.MOBILE, SiteDisplayModeStore(context).mode("http://EXAMPLE.com.:8080/next"))
         assertEquals(false, preferences.getBoolean("example.com", true))
         assertNull(store.mode("https://other.example.com/"))
         assertEquals(true, store.desktopMode("https://legacy.test/"))
     }
 
-    @Test fun bothExplicitChoicesReplaceTheDeviceDefaultChoice() {
+    @Test fun bothExplicitChoicesReplaceTheLegacyDeviceDefaultChoice() {
+        val preferences = context.getSharedPreferences("site_display_modes", Context.MODE_PRIVATE)
         val store = SiteDisplayModeStore(context)
         for (desktop in listOf(false, true)) {
-            store.rememberDeviceDefault("https://example.com/")
+            preferences.edit().putBoolean("example.com", false).putBoolean("device-default:example.com", true).commit()
             store.remember("https://example.com/next", desktop)
             assertEquals(if (desktop) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE,
                 SiteDisplayModeStore(context).mode("https://example.com/"))
+            assertFalse(preferences.contains("device-default:example.com"))
         }
     }
 
-    @Test fun deviceDefaultMemoryChoiceIsIsolatedAndRejectsNonWebAddresses() {
+    @Test fun memoryChoiceIsIsolatedAndRejectsNonWebAddresses() {
         val store = SiteDisplayModeStore(context, inMemory = true)
-        store.rememberDeviceDefault("https://example.com/")
-        assertEquals(SiteDisplayMode.DEVICE_DEFAULT, store.mode("https://example.com/next"))
+        store.remember("https://example.com/", false)
+        assertEquals(SiteDisplayMode.MOBILE, store.mode("https://example.com/next"))
         assertNull(SiteDisplayModeStore(context).mode("https://example.com/"))
         for (url in listOf("about:blank", "file://example.com/test", "javascript:alert(1)")) {
-            store.rememberDeviceDefault(url)
+            store.remember(url, false)
             assertNull(store.mode(url))
         }
     }

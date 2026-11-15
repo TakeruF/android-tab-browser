@@ -16,7 +16,6 @@ data class PageState(
     val readerArticle: com.takeruf.nagi.browser.reader.ReaderArticle? = null,
     val readerLoading: Boolean = false,
     val translation: com.takeruf.nagi.browser.translation.PageTranslationState = com.takeruf.nagi.browser.translation.PageTranslationState(),
-    val deviceDefaultMode: Boolean = false,
     val humanVerification: HumanVerificationState = HumanVerificationState(),
     val pageZoomPercent: Int = 100,
     val canZoomIn: Boolean = false, val canZoomOut: Boolean = false,
@@ -50,8 +49,6 @@ interface BrowserEngine {
     fun zoomOut() {}
     fun resetZoom() {}
     fun setDesktopMode(enabled: Boolean)
-    val supportsDeviceDefaultMode: Boolean get() = false
-    fun setDeviceDefaultMode() {}
     fun retryGoogleSignInInMobileMode() {}
     val supportsPasswordAutofill: Boolean get() = false
     fun requestPasswordAutofill() {}

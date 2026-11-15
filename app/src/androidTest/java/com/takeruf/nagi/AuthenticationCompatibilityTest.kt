@@ -206,15 +206,18 @@ class AuthenticationCompatibilityTest {
         }
     }
 
-    @Test fun deviceDefaultRedirectsAndReloadKeepNativeIdentityAndHttpOnlyCookie() {
-        AuthFixture().use { server -> withEngine(Configuration("device-default", true)) { engine, modes, cookies ->
-            modes.rememberDeviceDefault(server.origin)
+    @Test fun savedMobileChoiceKeepsIdentityAndHttpOnlyCookieAcrossRedirectsAndReload() {
+        AuthFixture().use { server -> withEngine(Configuration("saved-mobile", true)) { engine, modes, cookies ->
+            modes.remember(server.origin, false)
             main { engine.loadUrl("${server.origin}/start") }
             awaitPage(engine, "${server.origin}/finish")
-            assertTrue(engine.state.value.deviceDefaultMode)
+            assertFalse(engine.state.value.desktopMode)
             val requests = server.requests.filter { it.path in setOf("/start", "/middle", "/finish") }
             assertEquals(listOf("/start", "/middle", "/finish"), requests.map { it.path })
-            val expected = WebSettings.getDefaultUserAgent((engine.surface as WebView).context)
+            lateinit var expected: String
+            main { expected = (engine.surface as WebView).settings.userAgentString }
+            assertTrue(expected.contains("Android"))
+            assertTrue(expected.contains("Mobile"))
             assertTrue(requests.all { it.ua == expected })
             assertTrue(requests.drop(1).all { it.syntheticCookie })
             val count = server.requests.count { it.path == "/finish" }
@@ -644,16 +647,10 @@ class AuthenticationCompatibilityTest {
         val nativeIdentity = args.getString("liveNativeIdentity") == "true"
         require(!nativeIdentity || (site == "sazanka" && configurations.any { it.name == selected && it.desktop }))
         require(!nativeIdentity || !reducedDesktopVersion)
-        val deviceDefaultChoice = args.getString("liveDeviceDefaultChoice") == "true"
-        require(!deviceDefaultChoice || (site == "sazanka" && selected != null && !nativeIdentity && !reducedDesktopVersion))
-        val deviceDefaultRecovery = args.getString("liveDeviceDefaultRecovery") == "true"
-        require(!deviceDefaultRecovery || (site == "sazanka" && configurations.any { it.name == selected && it.desktop } &&
-            !deviceDefaultChoice && !nativeIdentity && !reducedDesktopVersion))
         if (nativeIdentity || reducedDesktopVersion) assumeTrue("UA metadata preservation required",
             WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
         val manual = args.getString("liveSazankaManual") == "true"
         require(!manual || (site == "sazanka" && selected != null))
-        require(!manual || !deviceDefaultRecovery)
         val manualNonce = java.util.UUID.randomUUID().toString()
         val manualOutput = File(instrumentation.targetContext.getExternalFilesDir(null), "auth-compatibility")
         val manualDone = File(manualOutput, "sazanka-manual-done")
@@ -756,7 +753,6 @@ class AuthenticationCompatibilityTest {
                       });
                     }
                 """.trimIndent(), setOf("https://www.shisetsuyoyaku.city.suginami.tokyo.jp"))
-                if (deviceDefaultChoice) modes.rememberDeviceDefault(entry)
                 if (nativeIdentity) {
                     // Restore the provider's real tablet identity. This temporary
                     // settings-only view never loads a URL or reads browser storage.
@@ -827,23 +823,12 @@ class AuthenticationCompatibilityTest {
                         !(manualDone.exists() && manualDone.readText().trim() == manualNonce)) delay(250)
                 }
             } else runBlocking { delay(25_000) }
-            var beforeDeviceDefault: JSONObject? = null
-            if (deviceDefaultRecovery) {
-                beforeDeviceDefault = signals(view)
-                beforeDeviceDefault.put("humanVerificationHint", engine.state.value.humanVerification.turnstileFailed)
-                main { engine.setDeviceDefaultMode() }
-                runBlocking { delay(25_000) }
-            }
             val result = signals(view).put("configuration", configuration.name)
                 .put("humanVerificationHint", engine.state.value.humanVerification.turnstileFailed)
                 .put("site", site).put("beforeLogin", beforeLogin).put("loginAction", loginAction)
                 .put("manual", manual)
                 .put("reducedDesktopVersion", reducedDesktopVersion)
                 .put("nativeIdentity", nativeIdentity)
-                .put("deviceDefaultChoice", deviceDefaultChoice)
-                .put("deviceDefaultMode", engine.state.value.deviceDefaultMode)
-                .put("deviceDefaultRecovery", deviceDefaultRecovery).put("beforeDeviceDefault", beforeDeviceDefault)
-                .put("storedDeviceDefaultChoice", modes.mode(entry) == SiteDisplayMode.DEVICE_DEFAULT)
                 .put("observations", JSONArray(observations.toList()))
                 .put("observationLimitReached", observations.size >= 300)
                 .put("totalObserved", totalObserved.get()).put("cloudflareObserved", cloudflareObserved.get())
@@ -858,7 +843,7 @@ class AuthenticationCompatibilityTest {
                 result.put("webViewVersion", WebViewCompat.getCurrentWebViewPackage(instrumentation.targetContext)?.versionName)
             }
             write(if (site == "chatgpt") "live-${configuration.name}" else
-                "live-sazanka-${configuration.name}${if (deviceDefaultRecovery) "-device-default-recovery" else if (deviceDefaultChoice) "-device-default-choice" else if (nativeIdentity) "-native-identity" else if (reducedDesktopVersion) "-reduced-version" else ""}", result)
+                "live-sazanka-${configuration.name}${if (nativeIdentity) "-native-identity" else if (reducedDesktopVersion) "-reduced-version" else ""}", result)
         }
     }
 }

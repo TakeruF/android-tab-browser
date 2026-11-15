@@ -25,7 +25,7 @@ The 127 modules resolved from `releaseRuntimeClasspath` on 2026-10-04, including
 | Boost-derived code in Kotlin JVM math | [BSL-1.0](app/src/main/assets/licenses/Kotlin-boost_LICENSE.txt) |
 | Public Suffix List in OkHttp | [MPL-2.0](app/src/main/assets/licenses/MPL-2.0.txt) — [original NOTICE](https://github.com/square/okhttp/blob/parent-4.12.0/okhttp/src/main/resources/okhttp3/internal/publicsuffix/NOTICE) and [source data](https://publicsuffix.org/list/public_suffix_list.dat) |
 
-Original license texts and copyright notices are stored in [assets/licenses](app/src/main/assets/licenses/) and bundled in Debug/Release APKs, including GWT/Guava texts inherited through Kotlin collections/unsigned JVM. WebView and the Android framework are provided by the device.
+Original license texts and copyright notices are stored in [assets/licenses](app/src/main/assets/licenses/) and bundled in Debug/Release APKs, including GWT/Guava texts inherited through Kotlin collections/unsigned JVM. Settings › About › Open-source licenses lists these components and shows each bundled text, plus the complete module inventory; the catalog is checked against `assets/licenses` by `LicenseCatalogTest`. WebView and the Android framework are provided by the device.
 
 ## Development and test tools
 

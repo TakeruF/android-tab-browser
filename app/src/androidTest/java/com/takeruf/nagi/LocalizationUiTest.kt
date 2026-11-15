@@ -108,8 +108,8 @@ class LocalizationUiTest {
         compose.onNode(hasSetTextAction()).performTextReplacement(">" + strings(R.string.ui_open_settings))
         compose.onNodeWithText(strings(R.string.ui_open_settings)).assertIsDisplayed()
         screenshot("$language-commands")
-        if (compose.onAllNodesWithText("Esc").fetchSemanticsNodes().isNotEmpty()) {
-            compose.onNodeWithText("Esc").performClick()
+        if (compose.onAllNodesWithTag("command-close").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("command-close").performClick()
         } else {
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         }

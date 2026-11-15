@@ -6,16 +6,24 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import com.takeruf.nagi.browser.engine.AndroidEngineSurface
 import com.takeruf.nagi.browser.engine.BrowserEngine
 
 @Composable
 fun BrowserSurface(engine: BrowserEngine, modifier: Modifier = Modifier, onFocus: () -> Unit = {}) {
-    val surface = (engine as AndroidEngineSurface).surface
-    NativeSurface(surface, modifier, onFocus, engine)
+    val renderer = engine as AndroidEngineSurface
+    val colors = MaterialTheme.colorScheme
+    SideEffect {
+        renderer.setDragPreviewColors(colors.surfaceContainerHigh.toArgb(), colors.onSurface.toArgb(),
+            colors.outlineVariant.toArgb(), colors.primary.toArgb())
+    }
+    NativeSurface(renderer.surface, modifier, onFocus, engine)
 }
 
 /** Attaches a native surface; history input stays at the native boundary. */

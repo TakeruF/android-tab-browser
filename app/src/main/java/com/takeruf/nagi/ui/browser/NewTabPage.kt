@@ -1,11 +1,11 @@
 package com.takeruf.nagi.ui.browser
 
+import com.takeruf.nagi.ui.components.hardwareKeyboardConnected
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -63,13 +63,13 @@ internal fun NewTabPage(spaceName: String, onSearch: () -> Unit, compactWindow: 
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(20.dp))
-            Surface(onClick = onSearch, shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainer,
-                contentColor = MaterialTheme.colorScheme.onSurface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
-                Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(onClick = onSearch, shape = NagiShapes.Pill, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface) {
+                Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(NagiIcons.Search, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(if (compact) strings(R.string.ui_search) else strings(R.string.ui_where_would_you_like_to_go), Modifier.weight(1f).padding(start = 12.dp),
                         style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (!compact) Text("Ctrl L", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!compact && hardwareKeyboardConnected()) Text("Ctrl L", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (shortcuts.isNotEmpty()) {
@@ -80,7 +80,7 @@ internal fun NewTabPage(spaceName: String, onSearch: () -> Unit, compactWindow: 
                         Text(strings(R.string.ui_resume_browsing), Modifier.padding(start = 12.dp, top = 10.dp),
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         shortcuts.forEachIndexed { index, shortcut ->
-                            if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 12.dp))
+                            if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
                             val right = shortcut.rightTab
                             Surface(onClick = { onResumeTab(shortcut.tab.id) }, color = Color.Transparent,
                                 modifier = Modifier.fillMaxWidth().testTag("new-tab-shortcut-${shortcut.tab.id}")) {

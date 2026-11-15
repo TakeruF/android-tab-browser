@@ -18,6 +18,7 @@ The legacy GitHub source set may still be checked for historical regressions, bu
 
 ## Feature coverage and limitations
 
+- [Command Bar settings](COMMAND_BAR.md): category/command visibility, saved choices, shortcut hints, empty-list navigation and retained live pages.
 - [Narrow-window browsing](COMPACT_UI.md): window boundaries, tab sheets, phone UA/Client Hints, per-site choices, and page/draft retention through resizing.
 - [Privacy, Reader, and blocking](PRIVACY_READER_BLOCKING.md): actual WebView requests, exceptions, storage isolation, Reader sanitization, and restoration of blocked-ad containers.
 - [Page translation](PAGE_TRANSLATION.md): page-menu/language controls, live DOM translation and restoration, session cancellation, and an opt-in real-model download/translation smoke test.
@@ -123,6 +124,72 @@ The privacy lifetime/download explanation, camera instructions, and destructive
 action confirmations remain. About shows its version once; update dialogs keep
 their version display. Physical devices, OEM rendering and a store release were
 not verified by this UI task.
+
+## Download lifecycle and notifications (2026-11-10)
+
+The local working tree, including pre-existing UI work, passed all 190 Play Debug
+unit tests, Play Debug/Release lint (zero errors, 72 warnings each), and Debug/test
+APK builds. Download contract/notification unit coverage includes API 26/35;
+native confirmation-dialog callbacks are covered on API 35.
+
+On the dedicated `Nagi_Download_QA` emulator (`emulator-5584`, API 36, WebView
+133.0.6943.137), all seven `DownloadUiTest` cases passed at 411×914 dp with a
+light app theme and 1000×800 dp with a dark app theme. They cover an attachment
+opened in a new tab, redirects, live opener/draft retention, saved Split pairs,
+cancellation, manually created tabs, already-rendered popup pages, and selection
+changes while confirmation is open. A paced 2 MiB HTTP fixture completes through
+DownloadManager with byte-for-byte verification. An 8 MiB Blob fixture exercises
+the native progress notification, destination copy, completion notification and
+saved output length. Screenshots include the notification shade, opener and Split.
+
+Five selected `WebViewEngineTest` cases also passed: native acceptance before
+cleanup, navigation during confirmation, cookie/filename preservation, Blob/data
+exports after object-URL revocation, and actual Downloads collection output.
+Initial test-harness failures involved dialog scheduling, a fixture route collision,
+notification accessibility lookup and Split rendering/hit-test timing; the
+corrected final runs passed. The HTTP notification can be minimized by Android;
+generated-file notifications visibly showed percentage, byte counts and a progress
+bar. Evidence and frozen Debug/test APKs are under ignored
+`artifacts/download-qa-20261110/`.
+
+This is selected local emulator coverage, not a full instrumentation suite,
+physical-device/OEM notification validation, live-site compatibility proof, or
+a store release. No version bump, tag, upload or publication was performed.
+
+## Combined feature validation (2026-11-10)
+
+After integrating Settings navigation, native page zoom, the six additional
+keyboard actions and download handling, all 193 Play Debug unit tests passed.
+Play Debug/Release lint each reported zero errors and 81 warnings; Debug and
+instrumentation APK assembly passed. Debug lint passed again after adding the
+download fixture diagnostics. Selected Settings, zoom/video and keyboard/IME
+emulator results are recorded above and in `KEYBOARD_SHORTCUTS.md` and
+`COMPACT_UI.md`; this was not a full connected-test run.
+
+The final three-case download rerun passed generated-file progress/output and
+Split restoration under normal scheduling. Its HTTP case closed the temporary
+tab and preserved the live opener/draft, but DownloadManager stayed pending with
+zero bytes. The QA emulator's default network lacked Android's validated-network
+capability. A data-preserving reboot and an A/B run with the previously passing
+download-only APK both reproduced that wait. Ordinary HTTP worker startup is
+therefore not established by this final integrated run.
+
+For a separate controlled loopback check, `DownloadUiTest` accepts the explicit
+instrumentation argument `forceLocalDownloadJob=true`. Only its paced HTTP
+fixture can force its own pending DownloadProvider job once through
+`cmd jobscheduler run -f`; the default test path and production code do not
+bypass scheduling constraints or change persistent device configuration.
+All three selected cases passed in this mode (24.981 s), including native HTTP
+progress notification, byte-for-byte 2 MiB output, temporary-tab close, live
+opener/draft preservation, an 8 MiB Blob notification/save and the visible Split
+pair. This verifies the transfer after explicit job execution, not normal OS
+scheduling on the current QA network.
+
+The frozen integrated main APK has SHA-256
+`0ef992d15caf81b66610c7ebce5249a265a692d95be3969c7d7d23873bf2cb6f`.
+Final logs, diagnostic output, test APK and compact evidence are retained under
+ignored `artifacts/integration-20261110/`; the main APK and zoom evidence are in
+`artifacts/page-zoom-20261110/`. No physical-device test or release was performed.
 
 ## Settings selective commit validation (2026-11-15)
 

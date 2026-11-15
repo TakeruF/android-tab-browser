@@ -25,7 +25,7 @@ import org.json.JSONObject
 import com.takeruf.nagi.browser.downloads.DownloadFilename
 
 private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY: Int, val url: String,
-    val desktopMode: Boolean, val deviceDefaultMode: Boolean = false, val zoomBaseScale: Float = 0f,
+    val desktopMode: Boolean, val zoomBaseScale: Float = 0f,
     val zoomPercent: Int = 100) : EngineSnapshot
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -43,17 +43,35 @@ class WebViewBrowserEngine(
     },
     private val alwaysTranslateRules: () -> Map<String, String> = { emptyMap() },
     private val rememberAlwaysTranslate: (String, String) -> Unit = { _, _ -> },
-    private val passwordAutofillApproved: Boolean = PasswordAutofillAvailability.approved,
+    private val passwordAutofillApproved: Boolean = PasswordAutofillAvailability.enabled,
 ) : BrowserEngine, AndroidEngineSurface {
     private val strings = NagiStrings(context)
     private val webTheme = android.view.ContextThemeWrapper(context, R.style.Theme_Nagi_Web_Light)
     private var zoomInteractionVersion = 0L
+    private var nativeDragHost: String? = null
+    private var nativeDragActive = false
     private val webView = object : WebView(webTheme) {
         override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
             if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                nativeDragHost = if (nativePageDrag()) Uri.parse(state.value.url).host else null
                 zoomInteractionVersion++; cancelZoomWork(); cancelSnapshotPresentationRestore()
             }
+            if (event.actionMasked == android.view.MotionEvent.ACTION_UP && !nativeDragActive) nativeDragHost = null
             return super.dispatchTouchEvent(event)
+        }
+        override fun onDragEvent(event: android.view.DragEvent): Boolean {
+            val nativeStart = event.action == android.view.DragEvent.ACTION_DRAG_STARTED && nativeDragHost != null
+            if (event.action == android.view.DragEvent.ACTION_DRAG_STARTED) {
+                nativeDragHost?.let { host ->
+                    nativeDragActive = true
+                    updateDragShadow(LinkDragShadow(context, host, dragPreviewColors, fitCanvas = true))
+                }
+            }
+            if (event.action == android.view.DragEvent.ACTION_DRAG_ENDED) {
+                nativeDragActive = false
+                nativeDragHost = null
+            }
+            return super.onDragEvent(event) || nativeStart
         }
         override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
             val connection = super.onCreateInputConnection(outAttrs)
@@ -63,12 +81,20 @@ class WebViewBrowserEngine(
 
         override fun onProvideAutofillVirtualStructure(structure: android.view.ViewStructure, flags: Int) {
             if (!supportsPasswordAutofill) return
+            PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.STRUCTURE_REQUESTED)
             super.onProvideAutofillVirtualStructure(FocusedAutofillStructure(structure) { id ->
                 autofillVirtualId = id
+                PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.FOCUSED_FIELD_OBSERVED)
             }, flags)
+        }
+
+        override fun autofill(values: android.util.SparseArray<android.view.autofill.AutofillValue>) {
+            PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.FILL_DELIVERED, values.size())
+            super.autofill(values)
         }
     }
     private var darkTheme = false
+    private var dragPreviewColors: LinkDragPreviewColors? = null
     private val cookies = if (privateProfileName == null) CookieManager.getInstance()
         else PrivateProfiles.attach(webView, privateProfileName)
     private val pageVideo = PageVideo(webView, fullscreenHost, tabId)
@@ -91,8 +117,7 @@ class WebViewBrowserEngine(
     }
     private val eventChannel = Channel<EngineEvent>(Channel.UNLIMITED)
     override val events = eventChannel.receiveAsFlow()
-    private val deviceUa = WebSettings.getDefaultUserAgent(context)
-    private val mobileUa = SiteUserAgent.mobile(deviceUa)
+    private val mobileUa = SiteUserAgent.mobile(WebSettings.getDefaultUserAgent(context))
     private val defaultUaMetadata = if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
         WebSettingsCompat.getUserAgentMetadata(webView.settings) else null
     private val favicons = if (privateProfileName == null) FaviconStore.get(context) else null
@@ -158,6 +183,7 @@ class WebViewBrowserEngine(
         webView.importantForAutofill = if (supportsPasswordAutofill) android.view.View.IMPORTANT_FOR_AUTOFILL_YES
             else android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         if (supportsPasswordAutofill) autofillManager?.let { manager ->
+            PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.ENGINE_ENABLED)
             WebViewAutofillCallbacks.register(manager, webView) { id, event ->
                 autofillVirtualId = id
                 if (manualAutofillPending && event == android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE)
@@ -194,7 +220,26 @@ class WebViewBrowserEngine(
         cookies.setAcceptThirdPartyCookies(webView, false)
         applyUserAgent(if (desktopDefault) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
-        webView.setOnLongClickListener { if (nativePageDrag()) startLinkDrag() else showPageContextMenu() }
+        webView.setOnLongClickListener {
+            if (!nativePageDrag()) showPageContextMenu()
+            else if (startLinkDrag()) true
+            else {
+                nativeDragHost = Uri.parse(webView.hitTestResult?.extra.orEmpty()).host
+                    ?: Uri.parse(state.value.url).host
+                val interaction = zoomInteractionVersion
+                val generation = navigationGeneration
+                val handler = android.os.Handler(android.os.Looper.getMainLooper()) { message ->
+                    val host = Uri.parse(message.data.getString("url").orEmpty()).host
+                    if (!destroyed && generation == navigationGeneration && interaction == zoomInteractionVersion && nativeDragHost != null && host != null) {
+                        nativeDragHost = host
+                        if (nativeDragActive) webView.updateDragShadow(LinkDragShadow(webView.context, host, dragPreviewColors, fitCanvas = true))
+                    }
+                    true
+                }
+                webView.requestFocusNodeHref(handler.obtainMessage())
+                false
+            }
+        }
         webView.setOnContextClickListener { showPageContextMenu() }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -436,7 +481,6 @@ class WebViewBrowserEngine(
             // An attachment is not a document navigation. Keep the source page restorable.
             downloadUrl = url
             update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode,
-                deviceDefaultMode = it.deviceDefaultMode,
                 translation = it.translation, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
             val offeredGeneration = navigationGeneration
@@ -627,18 +671,13 @@ class WebViewBrowserEngine(
         // since a WebView may otherwise export only the link's visible label as plain text.
         if (hit.type != WebView.HitTestResult.SRC_ANCHOR_TYPE) return false
         val url = hit.extra?.takeIf { it.startsWith("https://", true) || it.startsWith("http://", true) } ?: return false
-        val density = webView.resources.displayMetrics.density
-        val shadow = android.widget.TextView(webView.context).apply {
-            text = Uri.parse(url).host.orEmpty(); textSize = 16f
-            setTextColor(android.graphics.Color.BLACK); setBackgroundColor(android.graphics.Color.LTGRAY)
-            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (12 * density).toInt())
-            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-            measure(android.view.View.MeasureSpec.makeMeasureSpec((240 * density).toInt(), android.view.View.MeasureSpec.AT_MOST),
-                android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED))
-            layout(0, 0, measuredWidth, measuredHeight)
-        }
+        nativeDragHost = null
         return webView.startDragAndDrop(android.content.ClipData.newPlainText("Link", url),
-            android.view.View.DragShadowBuilder(shadow), null, android.view.View.DRAG_FLAG_GLOBAL)
+            LinkDragShadow(webView.context, Uri.parse(url).host.orEmpty(), dragPreviewColors),
+            null, android.view.View.DRAG_FLAG_GLOBAL)
+    }
+    override fun setDragPreviewColors(background: Int, content: Int, outline: Int, accent: Int) {
+        dragPreviewColors = LinkDragPreviewColors(background, content, outline, accent)
     }
     private fun showPageContextMenu(): Boolean {
         val hit = webView.hitTestResult ?: return false
@@ -804,6 +843,7 @@ class WebViewBrowserEngine(
         if (state.value.isLoading || state.value.error != null || state.value.readerArticle != null) return
         val manager = autofillManager
         if (manager?.isEnabled != true) {
+            PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.SERVICE_DISABLED)
             host.showMessage(strings(R.string.ui_autofill_enable_first))
             return
         }
@@ -816,15 +856,20 @@ class WebViewBrowserEngine(
                 while (!webView.hasWindowFocus()) delay(16)
                 true
             } == true
-            if (!focused || destroyed || generation != navigationGeneration || !webView.isAttachedToWindow) return@launch
+            if (!focused || destroyed || generation != navigationGeneration || !webView.isAttachedToWindow) {
+                PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.WINDOW_NOT_READY)
+                return@launch
+            }
             if (!webView.onCheckIsTextEditor()) {
+                PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.NO_TEXT_EDITOR)
                 host.showMessage(strings(R.string.ui_autofill_focus_field))
                 return@launch
             }
             webView.requestFocus()
             val virtualId = autofillVirtualId
             if (virtualId == null) {
-                host.showMessage(strings(R.string.ui_autofill_focus_field))
+                PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.NO_FOCUSED_ID)
+                host.showMessage(strings(R.string.ui_autofill_field_unidentified))
                 return@launch
             }
             // WebView keeps the HTML field rectangle internal. Anchor the manual
@@ -837,6 +882,7 @@ class WebViewBrowserEngine(
             val bounds = android.graphics.Rect(x, y, x + 1, y + 1)
             host.showMessage(strings(R.string.ui_autofill_requested))
             manualAutofillPending = true
+            PasswordAutofillDiagnostics.record(PasswordAutofillDiagnostics.Event.MANUAL_REQUEST_CALLED)
             manager.requestAutofill(webView, virtualId, bounds)
         }
     }
@@ -944,7 +990,6 @@ class WebViewBrowserEngine(
         val desktop = mode == SiteDisplayMode.DESKTOP
         val version = Regex("Chrome/([0-9.]+)").find(mobileUa)?.groupValues?.get(1) ?: "130.0.0.0"
         webView.settings.userAgentString = when (mode) {
-            SiteDisplayMode.DEVICE_DEFAULT -> deviceUa
             SiteDisplayMode.DESKTOP -> "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$version Safari/537.36"
             SiteDisplayMode.MOBILE -> mobileUa
         }
@@ -952,17 +997,14 @@ class WebViewBrowserEngine(
         // even after the UA string changes. Keep both signals in the selected mode.
         defaultUaMetadata?.let { defaults ->
             val metadata = UserAgentMetadata.Builder(defaults)
-            if (mode != SiteDisplayMode.DEVICE_DEFAULT) metadata.setMobile(!desktop)
+            metadata.setMobile(!desktop)
             if (desktop) metadata.setPlatform("Linux").setPlatformVersion("")
                 .setArchitecture("x86").setBitness(64).setModel("").setWow64(false)
             WebSettingsCompat.setUserAgentMetadata(webView.settings, metadata.build())
         }
     }
-    private fun currentDisplayMode(): SiteDisplayMode = when {
-        state.value.deviceDefaultMode -> SiteDisplayMode.DEVICE_DEFAULT
-        state.value.desktopMode -> SiteDisplayMode.DESKTOP
-        else -> SiteDisplayMode.MOBILE
-    }
+    private fun currentDisplayMode(): SiteDisplayMode =
+        if (state.value.desktopMode) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE
     private fun displayModeFor(url: String): SiteDisplayMode? =
         if (SiteDisplayModeStore.siteHost(url) == null) null else siteDisplayModes.mode(url)
             ?: if (defaultDesktopMode()) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE
@@ -970,7 +1012,7 @@ class WebViewBrowserEngine(
         val mode = displayModeFor(url) ?: return
         if (currentDisplayMode() == mode) return
         webView.stopLoading()
-        update { it.copy(desktopMode = mode == SiteDisplayMode.DESKTOP, deviceDefaultMode = mode == SiteDisplayMode.DEVICE_DEFAULT) }
+        update { it.copy(desktopMode = mode == SiteDisplayMode.DESKTOP) }
         applyUserAgent(mode)
     }
     private fun applyHistoryDisplayMode(offset: Int) {
@@ -990,18 +1032,12 @@ class WebViewBrowserEngine(
         siteDisplayModes.remember(state.value.url, enabled)
         changeDisplayMode(if (enabled) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE)
     }
-    override val supportsDeviceDefaultMode: Boolean get() = true
-    override fun setDeviceDefaultMode() {
-        if (destroyed || SiteDisplayModeStore.siteHost(state.value.url) == null) return
-        siteDisplayModes.rememberDeviceDefault(state.value.url)
-        changeDisplayMode(SiteDisplayMode.DEVICE_DEFAULT)
-    }
     private fun changeDisplayMode(mode: SiteDisplayMode) {
         if (currentDisplayMode() == mode) return
         // Changing the UA during a load already restarts WebView's request. Stop it first
         // so this explicit reload is the only request triggered by the display toggle.
         webView.stopLoading()
-        update { it.copy(desktopMode = mode == SiteDisplayMode.DESKTOP, deviceDefaultMode = mode == SiteDisplayMode.DEVICE_DEFAULT) }
+        update { it.copy(desktopMode = mode == SiteDisplayMode.DESKTOP) }
         applyUserAgent(mode)
         reload()
     }
@@ -1068,7 +1104,7 @@ class WebViewBrowserEngine(
         if (destroyed) return null
         val bundle = Bundle()
         return if (webView.saveState(bundle) != null) WebViewSnapshot(bundle, webView.scrollX, webView.scrollY,
-            state.value.url, state.value.desktopMode, state.value.deviceDefaultMode, zoomBaseScale, state.value.pageZoomPercent) else null
+            state.value.url, state.value.desktopMode, zoomBaseScale, state.value.pageZoomPercent) else null
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
@@ -1078,7 +1114,7 @@ class WebViewBrowserEngine(
         // Restore the cached document in the mode in which it was fetched. Current
         // window defaults and per-site choices apply on the next navigation/reload,
         // not by replacing a page merely because it is selected or restored.
-        update { it.copy(desktopMode = snapshot.desktopMode, deviceDefaultMode = snapshot.deviceDefaultMode) }
+        update { it.copy(desktopMode = snapshot.desktopMode) }
         applyUserAgent(currentDisplayMode())
         restoringScroll = snapshot.scrollX to snapshot.scrollY
         restoredZoomBaseScale = snapshot.zoomBaseScale.takeIf { it > 0f }

@@ -95,7 +95,7 @@ class CjkInputTest {
         key(ic, AndroidKeyEvent.KEYCODE_ENTER)
         compose.onNode(hasSetTextAction()).assertTextEquals(provisional.last())
         compose.onNode(hasSetTextAction()).assertIsFocused()
-        compose.onNodeWithText("Esc").assertExists()
+        compose.onNodeWithTag("command-close").assertExists()
         assertEquals("about:blank", runBlocking { container.workspace.dao.tabs(spaceId).first { it.closedAt == null }.url })
         // Editor actions can also arrive while a candidate is still being composed.
         compose.runOnIdle { ic.performEditorAction(EditorInfo.IME_ACTION_GO) }
@@ -108,7 +108,7 @@ class CjkInputTest {
         compose.waitUntil(5_000) { compose.onNode(hasSetTextAction()).fetchSemanticsNode().config[SemanticsProperties.StateDescription] == "Ready" }
         if (useImeAction) compose.runOnIdle { ic.performEditorAction(EditorInfo.IME_ACTION_GO) }
         else key(ic, AndroidKeyEvent.KEYCODE_ENTER)
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Esc").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("command-close").fetchSemanticsNodes().isEmpty() }
         val encoded = URLEncoder.encode(committed, "UTF-8")
         compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tabs(spaceId).any { it.url.contains(encoded) } } }
     }

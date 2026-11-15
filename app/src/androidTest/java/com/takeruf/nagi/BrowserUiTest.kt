@@ -113,7 +113,7 @@ class BrowserUiTest {
         shortcut(AndroidKeyEvent.KEYCODE_L)
         compose.onNode(hasSetTextAction()).performTextReplacement("fixture tablet")
         compose.onNodeWithText("Search Fixture Search for “tablet”").assertExists()
-        compose.onNodeWithText("Esc").performClick()
+        compose.onNodeWithTag("command-close").performClick()
         omnibox("${server.origin}/one"); awaitTitle("Fixture One")
         compose.activityRule.scenario.recreate()
         awaitTitle("Fixture One")

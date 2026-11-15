@@ -6,10 +6,12 @@ import android.view.DragEvent
 import android.view.View
 import androidx.core.net.toUri
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.takeruf.nagi.ui.theme.NagiShapes
@@ -33,7 +35,7 @@ internal fun droppedWebUrl(clip: ClipData?): String? {
 
 /** Native drop receiver interoperates with WebView sources; it doesn't handle ordinary touches. */
 @Composable
-fun WebUrlDropTarget(modifier: Modifier = Modifier, onOpen: (String) -> Unit) {
+fun WebUrlDropTarget(modifier: Modifier = Modifier, shape: Shape = NagiShapes.Rounded, onOpen: (String) -> Unit) {
     val currentOpen by rememberUpdatedState(onOpen)
     var entered by remember { mutableStateOf(false) }
     Box(modifier) {
@@ -56,6 +58,8 @@ fun WebUrlDropTarget(modifier: Modifier = Modifier, onOpen: (String) -> Unit) {
                     }
                 }
             })
-        if (entered) Box(Modifier.matchParentSize().border(2.dp, MaterialTheme.colorScheme.primary, NagiShapes.Rounded))
+        if (entered) Box(Modifier.matchParentSize()
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), shape)
+            .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), shape))
     }
 }

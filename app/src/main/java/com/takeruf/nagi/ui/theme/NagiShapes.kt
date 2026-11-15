@@ -10,6 +10,8 @@ object NagiShapes {
     val Rounded = RoundedCornerShape(Radius)
     val Top = RoundedCornerShape(topStart = Radius, topEnd = Radius)
     val Sidebar = RoundedCornerShape(topEnd = Radius, bottomEnd = Radius)
+    /** Fully rounded search fields, matching the omnibox silhouette. */
+    val Pill = RoundedCornerShape(percent = 50)
     val Bottom = RoundedCornerShape(bottomStart = Radius, bottomEnd = Radius)
     val Material = Shapes(
         extraSmall = Rounded, small = Rounded, medium = Rounded,

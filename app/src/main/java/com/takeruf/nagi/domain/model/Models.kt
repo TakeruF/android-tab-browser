@@ -43,6 +43,14 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class NewTabBackground { DEFAULT, SOLID, GRADIENT, PHOTO }
 enum class ArchivePeriod(val days: Int?) { NEVER(null), DAY(1), WEEK(7), MONTH(30) }
 
+data class CommandBarSettings(
+    val showSearch: Boolean = true,
+    val showTabs: Boolean = true,
+    val showHistory: Boolean = true,
+    val showSpaces: Boolean = true,
+    val showCommands: Boolean = true,
+)
+
 data class BrowserSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val sidebarWidth: Float = 264f,
@@ -75,11 +83,14 @@ data class BrowserSettings(
     val translationTargetLanguage: String? = null,
     val alwaysTranslateLanguages: Map<String, String> = emptyMap(),
     val bottomSearchBar: Boolean = false,
+    /** SAF tree URI chosen in Settings; null keeps the system Downloads folder. */
+    val downloadFolder: String? = null,
     val avoidCameraOverlap: Boolean = false,
     val cameraSideMargin: Int = 32,
     // Display rotation at which the user registered the camera on the left.
     val cameraLeftRotation: Int? = null,
     val spacesEnabled: Boolean = true,
+    val commandBar: CommandBarSettings = CommandBarSettings(),
 )
 
 data class WorkspaceSnapshot(

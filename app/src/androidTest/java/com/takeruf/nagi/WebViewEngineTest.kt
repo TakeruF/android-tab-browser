@@ -11,8 +11,16 @@ import android.provider.Settings
 import android.accessibilityservice.AccessibilityServiceInfo
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import com.takeruf.nagi.ui.browser.BrowserSurface
 import com.takeruf.nagi.testing.AutofillHarnessService
 import org.json.JSONObject
@@ -26,6 +34,7 @@ import org.junit.Assert.*
 import java.util.concurrent.CopyOnWriteArrayList
 
 class WebViewEngineTest {
+    @get:Rule val compose = createEmptyComposeRule()
     private lateinit var server: FixtureServer
     private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var engine: BrowserEngine
@@ -60,17 +69,28 @@ class WebViewEngineTest {
         try { withTimeout(15_000) { engine.state.first(predicate) } }
         catch (e: TimeoutCancellationException) { throw AssertionError("Page did not reach expected state: ${engine.state.value}", e) }
     }
-    private fun clickElement(id: String) {
+    private fun clickElement(id: String, throughSystem: Boolean = false) {
         main { engine.evaluateJavascript("var r=document.getElementById('$id').getBoundingClientRect();document.title='$id:'+JSON.stringify({x:r.x+r.width/2,y:r.y+r.height/2,w:innerWidth})") }
         val rect = JSONObject(await { it.title.startsWith("$id:") }.title.removePrefix("$id:"))
+        var screenPoint: Pair<Int, Int>? = null
         main {
             val view = (engine as AndroidEngineSurface).surface
             val scale = view.width / rect.getDouble("w")
             val x = (rect.getDouble("x") * scale).toFloat(); val y = (rect.getDouble("y") * scale).toFloat()
-            val now = SystemClock.uptimeMillis()
-            val down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0)
-            val up = MotionEvent.obtain(now, now + 60, MotionEvent.ACTION_UP, x, y, 0)
-            view.dispatchTouchEvent(down); view.dispatchTouchEvent(up); down.recycle(); up.recycle()
+            if (throughSystem) {
+                val location = IntArray(2); view.getLocationOnScreen(location)
+                screenPoint = location[0] + x.toInt() to location[1] + y.toInt()
+            } else {
+                val now = SystemClock.uptimeMillis()
+                val down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0)
+                val up = MotionEvent.obtain(now, now + 60, MotionEvent.ACTION_UP, x, y, 0)
+                view.dispatchTouchEvent(down); view.dispatchTouchEvent(up); down.recycle(); up.recycle()
+            }
+        }
+        screenPoint?.let { (x, y) ->
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("input tap $x $y")).use { it.readBytes() }
+            instrumentation.waitForIdleSync()
         }
     }
     @Before fun setup() {
@@ -252,6 +272,10 @@ class WebViewEngineTest {
             pointer(MotionEvent.ACTION_MOVE, start.x + (end.x - start.x) * step / 15, start.y + (end.y - start.y) * step / 15)
             runBlocking { delay(40) }
         }
+        val preview = automation.takeScreenshot()
+        java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir, "native-drag-preview.png")
+            .outputStream().use { preview.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        preview.recycle()
         pointer(MotionEvent.ACTION_UP, end.x, end.y)
         val clip = runBlocking { withTimeout(10_000) { dropped.await() } }
         val uri = clip.getItemAt(0).uri
@@ -308,6 +332,11 @@ class WebViewEngineTest {
     @Test fun passwordProviderFillsWebsiteFieldsThroughComposeSurface() {
         passwordProviderFillsWebsiteFields(manual = false)
     }
+    @Test fun passwordProviderFillsWithOriginalSystemKeyboard() {
+        // Compare the platform keyboard with the test IME; the provider offers popup UI only.
+        ime.close()
+        passwordProviderFillsWebsiteFields(manual = false, originalKeyboard = true)
+    }
     @Test fun manuallyRequestedPasswordFillsAfterAutomaticSuggestionsAreUnavailable() {
         passwordProviderFillsWebsiteFields(manual = true)
     }
@@ -320,7 +349,17 @@ class WebViewEngineTest {
     @Test fun manualAutofillWithoutMatchesStillRequestsProviderAndReportsRequest() {
         passwordProviderFillsWebsiteFields(manual = true, declineManual = true)
     }
-    private fun passwordProviderFillsWebsiteFields(manual: Boolean, suppressUiCallback: Boolean = false, identifierOnly: Boolean = false, declineManual: Boolean = false) {
+    @Test fun manualAutofillTargetsNewlyFocusedPasswordWithoutProviderUiCallback() {
+        passwordProviderFillsWebsiteFields(manual = true, suppressUiCallback = true, switchField = true)
+    }
+    @Test fun manualAutofillTargetsRightSplitPaneWithDuplicateViewResourceIds() {
+        passwordProviderFillsWebsiteFields(manual = true, suppressUiCallback = true, splitPane = true)
+    }
+    @Test fun legacyWebViewWithoutFocusedMetadataDoesNotInventVirtualId() {
+        Assume.assumeTrue(android.webkit.WebView.getCurrentWebViewPackage()?.versionName?.startsWith("91.") == true)
+        passwordProviderFillsWebsiteFields(manual = true, suppressUiCallback = true, expectUnidentifiedField = true)
+    }
+    private fun passwordProviderFillsWebsiteFields(manual: Boolean, suppressUiCallback: Boolean = false, identifierOnly: Boolean = false, declineManual: Boolean = false, switchField: Boolean = false, splitPane: Boolean = false, expectUnidentifiedField: Boolean = false, originalKeyboard: Boolean = false) {
         if (identifierOnly) {
             server.close()
             server = FixtureServer(pages = mapOf("/login" to """
@@ -346,69 +385,118 @@ class WebViewEngineTest {
             AutofillHarnessService.offerOnlyOnManualRequest = manual
             AutofillHarnessService.manualRequests = 0
             AutofillHarnessService.automaticRequestsDeclined = 0
-            shell("settings put secure autofill_service com.takeruf.nagi/.testing.AutofillHarnessService")
+            AutofillHarnessService.focusedIdMatches = false
+            AutofillHarnessService.fieldStructureValid = false
+            AutofillHarnessService.totalRequests = 0
+            AutofillHarnessService.nullResponses = 0
+            shell("settings put secure autofill_service ${instrumentation.targetContext.packageName}/com.takeruf.nagi.testing.AutofillHarnessService")
+            // Secure-settings observers and WebView's provider initialization are asynchronous.
+            // Construct the tested engine only after Android reports the selected service.
+            runBlocking { withTimeout(10_000) { while (true) {
+                var ready = false
+                scenario.onActivity { activity ->
+                    val manager = activity.getSystemService(android.view.autofill.AutofillManager::class.java)
+                    ready = manager.isEnabled && (android.os.Build.VERSION.SDK_INT < 28 ||
+                        manager.autofillServiceComponentName == android.content.ComponentName(instrumentation.targetContext, AutofillHarnessService::class.java))
+                }
+                if (ready) break
+                delay(50)
+            } } }
             automation.serviceInfo = automation.serviceInfo.apply {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             }
             scenario.onActivity { activity ->
+                val oldSurface = (engine as AndroidEngineSurface).surface
+                (oldSurface.parent as? ViewGroup)?.removeView(oldSurface)
+                engine.destroy()
+                engine = WebViewBrowserEngine(activity, host, host, { false }, false, passwordAutofillApproved = true)
                 // A newer background tab must not replace this tab's autofill callback.
-                if (manual) otherTab = WebViewBrowserEngine(activity, host, host, { false }, false, passwordAutofillApproved = true)
+                if (manual || splitPane) otherTab = WebViewBrowserEngine(activity, host, host, { false }, false, passwordAutofillApproved = true)
                 if (suppressUiCallback) activity.getSystemService(android.view.autofill.AutofillManager::class.java)
                     .registerCallback(object : android.view.autofill.AutofillManager.AutofillCallback() {})
                 val surface = (engine as AndroidEngineSurface).surface
                 (surface.parent as? ViewGroup)?.removeView(surface)
                 activity.setContent {
-                    if (manual) androidx.compose.material3.MaterialTheme {
-                        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-                        com.takeruf.nagi.ui.browser.BrowserPane(
-                            tab = com.takeruf.nagi.domain.model.BrowserTab("autofill", "fixture"), engine = engine,
-                            state = com.takeruf.nagi.ui.browser.BrowserUiState(), focused = true,
-                            split = false, showFind = false, onCloseFind = {}, onFind = {}, onFocus = {},
-                            onOmnibox = {}, onOpen = {}, onSplit = {}, onCloseSplit = {}, onCloseTab = {}, onSwap = {})
+                    androidx.compose.material3.MaterialTheme(colorScheme = if (splitPane)
+                        androidx.compose.material3.darkColorScheme() else androidx.compose.material3.lightColorScheme()) {
+                        Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+                            if (splitPane) BrowserSurface(checkNotNull(otherTab), Modifier.weight(1f).fillMaxHeight())
+                            Box(Modifier.weight(1f).fillMaxHeight()) {
+                                if (manual) {
+                                    com.takeruf.nagi.ui.browser.BrowserPane(
+                                        tab = com.takeruf.nagi.domain.model.BrowserTab("autofill", "fixture"), engine = engine,
+                                        state = com.takeruf.nagi.ui.browser.BrowserUiState(), focused = true,
+                                        split = splitPane, showFind = false, onCloseFind = {}, onFind = {}, onFocus = {},
+                                        onOmnibox = {}, onOpen = {}, onSplit = {}, onCloseSplit = {}, onCloseTab = {}, onSwap = {})
+                                } else BrowserSurface(engine, Modifier.fillMaxSize())
+                            }
                         }
-                    } else BrowserSurface(engine, Modifier.fillMaxSize().safeDrawingPadding())
+                    }
+                }
+                if (splitPane) {
+                    val otherSurface = (checkNotNull(otherTab) as AndroidEngineSurface).surface
+                    assertEquals(surface.id, otherSurface.id)
+                    assertNotEquals(surface.autofillId, otherSurface.autofillId)
+                    checkNotNull(otherTab).loadUrl("${server.origin}/login")
                 }
             }
             main { engine.loadUrl("${server.origin}/login") }
             await { it.title == "Fixture Login" && !it.isLoading }
             instrumentation.waitForIdleSync()
-            clickElement("login-user")
+            compose.waitForIdle()
+            clickElement("login-user", throughSystem = true)
+            stage = "focus HTML field"
+            runBlocking { withTimeout(5_000) { while (true) {
+                var focused = false
+                main { focused = (engine as AndroidEngineSurface).surface.hasFocus() }
+                if (focused) break
+                delay(50)
+            } } }
+            if (!originalKeyboard) ime.awaitBinding()
+            main {
+                val surface = (engine as AndroidEngineSurface).surface
+                assertEquals(View.IMPORTANT_FOR_AUTOFILL_YES, surface.importantForAutofill)
+                var ancestor = surface.parent
+                while (ancestor is View) {
+                    assertNotEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS, ancestor.importantForAutofill)
+                    assertNotEquals(View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS, ancestor.importantForAutofill)
+                    ancestor = ancestor.parent
+                }
+            }
             if (manual) {
                 stage = "decline automatic request"
                 runBlocking { withTimeout(10_000) { while (AutofillHarnessService.automaticRequestsDeclined == 0) delay(50) } }
                 assertFalse(AutofillHarnessService.offered)
-                fun tap(label: String) {
-                    fun find(node: android.view.accessibility.AccessibilityNodeInfo): android.view.accessibility.AccessibilityNodeInfo? {
-                        if ((node.contentDescription?.toString() == label || node.text?.toString() == label) && node.isVisibleToUser) return node
-                        repeat(node.childCount) { index -> node.getChild(index)?.let { child -> find(child)?.let { return it } } }
-                        return null
-                    }
-                    runBlocking { withTimeout(10_000) {
-                        while (true) {
-                            if (android.os.Build.VERSION.SDK_INT >= 36) automation.clearCache()
-                            val node = automation.windows.asSequence().mapNotNull { it.root }.mapNotNull(::find).firstOrNull()
-                            if (node != null) {
-                                val bounds = android.graphics.Rect(); node.getBoundsInScreen(bounds)
-                                shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
-                                break
-                            }
-                            delay(50)
-                        }
-                    } }
+                if (switchField) {
+                    clickElement("login-password", throughSystem = true)
+                    instrumentation.waitForIdleSync()
                 }
                 stage = "open page menu"
-                tap("Page menu")
+                compose.onNodeWithContentDescription("Page menu").performSemanticsAction(SemanticsActions.OnClick) { it() }
+                compose.waitForIdle()
                 stage = "choose manual autofill"
-                tap("Fill saved password")
+                compose.onNodeWithTag("request-password-autofill").performSemanticsAction(SemanticsActions.OnClick) { it() }
+                compose.waitForIdle()
+            }
+            if (expectUnidentifiedField) {
+                val expected = instrumentation.targetContext.getString(R.string.ui_autofill_field_unidentified)
+                runBlocking { withTimeout(5_000) { while (expected !in messages) delay(50) } }
+                assertEquals(0, AutofillHarnessService.manualRequests)
+                assertTrue(AutofillHarnessService.automaticRequestsDeclined > 0)
+                return
             }
             if (declineManual) {
                 runBlocking { withTimeout(10_000) { while (AutofillHarnessService.manualRequests == 0 || messages.none { it == "Requested suggestions from your autofill service." }) delay(50) } }
                 assertTrue(AutofillHarnessService.manualRequests > 0)
+                assertTrue(AutofillHarnessService.nullResponses > 0)
+                assertFalse(AutofillHarnessService.offered)
                 assertFalse(messages.any { it.startsWith("Tap a login field first") })
                 return
             }
             stage = "offer credentials"
             runBlocking { withTimeout(15_000) { while (!AutofillHarnessService.offered) delay(50) } }
+            assertTrue("The requested virtual ID must identify the currently focused HTML field", AutofillHarnessService.focusedIdMatches)
+            assertTrue("HTML fields need distinct IDs, text types, and nonempty native bounds", AutofillHarnessService.fieldStructureValid)
             assertTrue(AutofillHarnessService.fieldHints.contains("username"))
             if (!identifierOnly) assertTrue(AutofillHarnessService.fieldHints.contains("current-password"))
             var suggestionBounds: android.graphics.Rect? = null

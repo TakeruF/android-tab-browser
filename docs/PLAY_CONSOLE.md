@@ -1,6 +1,15 @@
 # Google Play release preparation
 
-## Latest production submission — 2026-11-15
+## Replacement preparation — 2026-11-15
+
+The user stopped the earlier 1.3.0 submission. A live lifecycle API check confirms
+code 18 is NOT_SENT_FOR_REVIEW, while code 17 (1.2.0) is PUBLISHED. All current
+development work is being prepared as 1.3.0 / code 19; the highest uploaded code
+is 18. Replacement release notes await user confirmation before upload/submission.
+Existing country availability is retained. See
+[replacement verification](RELEASE_1.3.0_CODE19_VERIFICATION.md).
+
+## Historical production submission — 2026-11-15
 
 Nagi **1.3.0 / code 18** is submitted for a full production rollout. Console
 shows **Changes in review**, quick checks running, and **Managed publishing off**.

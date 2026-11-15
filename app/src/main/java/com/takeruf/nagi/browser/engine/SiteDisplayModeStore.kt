@@ -6,7 +6,7 @@ import android.net.Uri
 import java.net.IDN
 import java.util.Locale
 
-enum class SiteDisplayMode { MOBILE, DESKTOP, DEVICE_DEFAULT }
+enum class SiteDisplayMode { MOBILE, DESKTOP }
 
 /** Explicit display choices are shared by every tab and survive Activity/process recreation. */
 class SiteDisplayModeStore(
@@ -19,7 +19,8 @@ class SiteDisplayModeStore(
     fun mode(url: String): SiteDisplayMode? {
         val key = siteHost(url) ?: return null
         if (inMemory) return choices[key]
-        if (preferences.getBoolean("device-default:$key", false)) return SiteDisplayMode.DEVICE_DEFAULT
+        // Older versions also saved a non-desktop choice for device-default mode.
+        if (preferences.getBoolean("device-default:$key", false)) return SiteDisplayMode.MOBILE
         return if (preferences.contains(key)) {
             if (preferences.getBoolean(key, false)) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE
         } else null
@@ -32,13 +33,6 @@ class SiteDisplayModeStore(
         if (inMemory) { choices[key] = if (desktop) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE; return }
         // apply() updates memory synchronously, before a new tab or Activity can read it.
         preferences.edit().putBoolean(key, desktop).remove("device-default:$key").apply()
-    }
-
-    fun rememberDeviceDefault(url: String) {
-        val key = siteHost(url) ?: return
-        if (inMemory) { choices[key] = SiteDisplayMode.DEVICE_DEFAULT; return }
-        // Keep the existing Boolean preference readable by older versions.
-        preferences.edit().putBoolean(key, false).putBoolean("device-default:$key", true).apply()
     }
 
     companion object {

@@ -127,6 +127,7 @@ class CompactBrowserUiTest {
             else assertTrue("Address bar above page", address.bottom <= content.top + 1f)
         }
         assertAddressPosition(false)
+        compose.onNodeWithTag("compact-search-button").assertIsDisplayed()
         compose.onNodeWithTag("compact-tabs-button").performClick()
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_settings)).performClick()
         val label = compose.activity.getString(R.string.ui_bottom_search_bar)
@@ -137,6 +138,7 @@ class CompactBrowserUiTest {
         compose.returnToBrowserFromSettings()
         compose.waitForIdle()
         assertAddressPosition(true)
+        compose.onNodeWithTag("compact-search-button").assertDoesNotExist()
         assertSame(view, webViews().single())
         compose.runOnIdle { view.scrollTo(0, 420) }
         compose.waitUntil(5_000) { view.scrollY > 0 }
@@ -167,6 +169,7 @@ class CompactBrowserUiTest {
         runBlocking { container.settings.update { it.copy(bottomSearchBar = false) } }
         compose.waitForIdle()
         assertAddressPosition(false)
+        compose.onNodeWithTag("compact-search-button").assertIsDisplayed()
     }
 
     @Test fun thumbControlsOpenSelectCloseTabsAndSwitchSpaces() {
@@ -296,7 +299,7 @@ class CompactBrowserUiTest {
             } else {
                 assertEquals(setOf(left, right), webViews().toSet())
                 compose.onNodeWithContentDescription("Resize split view").assertIsDisplayed()
-                assertEquals(second, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+                compose.onNodeWithTag("split-title-$second").assertIsSelected()
             }
             assertPairSaved()
             assertDraft(left); assertDraft(right)
@@ -308,7 +311,7 @@ class CompactBrowserUiTest {
         compose.waitUntil(10_000) { webViews().singleOrNull() === left }
         assertDraft(left); assertPairSaved()
         // Keyboard command suggestions use the same compact policy as the menus.
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_search_or_enter_url)).performClick()
+        compose.onNodeWithTag("compact-search-button").performClick()
         compose.onNodeWithTag("command-input").performTextReplacement(">")
         compose.onNodeWithTag("suggestion:command:SPLIT").assertDoesNotExist()
         compose.onNodeWithTag("suggestion:command:CLOSE_SPLIT").assertDoesNotExist()
@@ -317,7 +320,7 @@ class CompactBrowserUiTest {
         compose.onNodeWithTag("command-input").assertDoesNotExist()
         resize(1000)
         compose.waitUntil(10_000) { webViews().size == 2 }
-        assertEquals(first, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+        compose.onNodeWithTag("split-title-$first").assertIsSelected()
         assertDraft(left); assertDraft(right)
         assertEquals(1, server.requests.count { it.path == "/ua-compact-left" })
         assertEquals(1, server.requests.count { it.path == "/ua-compact-right" })

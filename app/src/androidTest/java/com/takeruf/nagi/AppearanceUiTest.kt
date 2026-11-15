@@ -240,7 +240,7 @@ class AppearanceUiTest {
             assertEquals(originalSpace, persisted())
 
             editSpace()
-            compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+            compose.onNodeWithTag("space-color-custom").performScrollTo().performClick()
             compose.onNodeWithText("HEX color").performTextReplacement("#CC3333")
             compose.waitUntil(10_000) { vm.state.value.currentSpace?.color == 0xFFCC3333 }
             compose.waitForIdle()
@@ -274,14 +274,14 @@ class AppearanceUiTest {
 
     @Test fun customThemeColorPersistsAndRemainsReadableInBothThemes() {
         editSpace()
-        compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+        compose.onNodeWithTag("space-color-custom").performScrollTo().performClick()
         compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
         compose.onAllNodesWithText("Save").onLast().performClick()
         // The inner editor changes only the draft; cancelling the outer editor must discard it.
         assertEquals(0xFF426B5A, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.color })
         text("Cancel").performClick()
         editSpace()
-        compose.onNodeWithText("Custom color", substring = true).performScrollTo().performClick()
+        compose.onNodeWithTag("space-color-custom").performScrollTo().performClick()
         compose.onNodeWithText("HEX color").performTextReplacement("#FEFE00")
         compose.onAllNodesWithText("Save").onLast().performClick()
         text("Save").performClick()
@@ -382,7 +382,7 @@ class AppearanceUiTest {
             compose.onAllNodes(isSelected() and hasAnyAncestor(isDialog())).assertCountEquals(1)
             save("${mode.name.lowercase()}-commands")
             compose.onNode(hasSetTextAction()).performKeyInput { pressKey(Key.Escape) }
-            compose.onNodeWithText("Esc").assertDoesNotExist()
+            compose.onNodeWithTag("command-close").assertDoesNotExist()
         }
     }
 

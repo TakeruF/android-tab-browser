@@ -131,7 +131,7 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithTag("settings-category-autofill").assertDoesNotExist()
         compose.selectSettingsCategory("about")
-        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
+        compose.onNodeWithText("Nagi ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
         compose.returnToBrowserFromSettings()
         compose.onNodeWithTag("sidebar").assertIsDisplayed()
         compose.waitUntil(10_000) { visibleWebViews().size == 2 }

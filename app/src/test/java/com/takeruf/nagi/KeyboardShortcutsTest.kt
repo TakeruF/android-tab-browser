@@ -4,6 +4,7 @@ import android.app.Application
 import android.view.KeyEvent
 import com.takeruf.nagi.domain.model.*
 import com.takeruf.nagi.ui.browser.*
+import com.takeruf.nagi.browser.search.BrowserCommand
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,6 +16,27 @@ import org.robolectric.annotation.Config
 class KeyboardShortcutsTest {
     private fun key(code: Int, meta: Int = KeyEvent.META_CTRL_ON, action: Int = KeyEvent.ACTION_DOWN, repeat: Int = 0) =
         KeyEvent(0, 0, action, code, repeat, meta)
+
+    @Test fun commandSettingsAdvertiseOnlySupportedControlAndCommandBindings() {
+        val bindings = listOf(
+            Triple(BrowserCommand.NEW_TAB, KeyEvent.KEYCODE_T, Shortcut.NEW_TAB),
+            Triple(BrowserCommand.RESTORE_TAB, KeyEvent.KEYCODE_T, Shortcut.RESTORE_TAB),
+            Triple(BrowserCommand.FIND, KeyEvent.KEYCODE_F, Shortcut.FIND),
+            Triple(BrowserCommand.HISTORY, KeyEvent.KEYCODE_H, Shortcut.HISTORY),
+            Triple(BrowserCommand.SETTINGS, KeyEvent.KEYCODE_COMMA, Shortcut.SETTINGS),
+        )
+        for ((command, code, action) in bindings) {
+            for (primary in listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)) {
+                val modifiers = primary or if (command == BrowserCommand.RESTORE_TAB) KeyEvent.META_SHIFT_ON else 0
+                assertEquals(action, KeyboardShortcuts.map(key(code, modifiers)))
+            }
+        }
+        assertEquals(listOf("Ctrl / Command + T", "Ctrl / Command + Shift + T", "Ctrl / Command + F",
+            "Ctrl / Command + H", "Ctrl / Command + ,"), bindings.map { it.first.shortcutLabel })
+        BrowserCommand.entries.filter { it !in bindings.map { binding -> binding.first } }.forEach {
+            assertNull(it.shortcutLabel)
+        }
+    }
 
     @Test fun allNumbersSupportControlCommandAndNumpad() {
         for (number in 1..9) for (meta in listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)) {

@@ -89,8 +89,8 @@ class SplitNewTabUiTest {
             compose.onAllNodesWithTag("browser-pane-left-$newId").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithContentDescription("Resize split view").assertDoesNotExist()
-        if (compose.onAllNodesWithText("Esc").fetchSemanticsNodes().isNotEmpty()) {
-            compose.onNodeWithText("Esc").performClick()
+        if (compose.onAllNodesWithTag("command-close").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("command-close").performClick()
         }
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("sidebar-split-group"))
         compose.onNodeWithTag("sidebar-split-group").assertExists()
@@ -224,7 +224,7 @@ class SplitNewTabUiTest {
         compose.waitUntil(10_000) {
             compose.onAllNodesWithContentDescription("Resize split view").fetchSemanticsNodes().isEmpty()
         }
-        compose.onNodeWithText("Esc").performClick()
+        compose.onNodeWithTag("command-close").performClick()
         group.assertIsNotSelected().performClick()
         assertPair()
         compose.waitUntil(10_000) {

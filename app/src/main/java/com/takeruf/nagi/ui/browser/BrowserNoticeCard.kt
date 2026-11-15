@@ -1,6 +1,5 @@
 package com.takeruf.nagi.ui.browser
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -23,7 +22,7 @@ fun BrowserNoticeCard(title: String, dismissLabel: String, onDismiss: () -> Unit
     content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier, shape = RoundedCornerShape(NagiShapes.Radius + 8.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), shadowElevation = 6.dp) {
+        shadowElevation = 6.dp) {
         Column(Modifier.padding(bottom = 8.dp)) {
             if (header != null) header() else Row(Modifier.padding(start = 16.dp, end = 8.dp)) {
                 Text(title, Modifier.weight(1f).padding(top = 16.dp), style = MaterialTheme.typography.titleSmall)

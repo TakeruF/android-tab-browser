@@ -1,12 +1,12 @@
 package com.takeruf.nagi.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -29,25 +29,42 @@ internal fun faviconSource(path: String?, siteUrl: String?): Any? {
     }.getOrNull()
 }
 
+/**
+ * True while a physical keyboard is attached. Shortcut hints such as "Ctrl L" only make sense
+ * then; LocalConfiguration updates when a keyboard is connected or removed.
+ */
+@Composable
+fun hardwareKeyboardConnected(): Boolean {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    return configuration.keyboard != android.content.res.Configuration.KEYBOARD_NOKEYS &&
+        configuration.hardKeyboardHidden == android.content.res.Configuration.HARDKEYBOARDHIDDEN_NO
+}
+
 @Composable
 fun AddressActionButton(modifier: Modifier = Modifier, enabled: Boolean = true,
     onClick: () -> Unit, content: @Composable () -> Unit) {
-    // Keep paired actions compact in both address bars.
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        IconButton(onClick = onClick, enabled = enabled,
-            modifier = modifier.width(32.dp).height(48.dp), content = content)
+    // Keep paired actions compact in both address bars: a 32 x 48dp touch area whose
+    // pressed/hover feedback is a full 32dp circle, not a stretched pill.
+    val color = LocalContentColor.current
+    Box(modifier.width(32.dp).height(48.dp)
+        .clickable(enabled = enabled, role = Role.Button, interactionSource = null,
+            indication = ripple(bounded = false, radius = 16.dp), onClick = onClick),
+        contentAlignment = Alignment.Center) {
+        CompositionLocalProvider(LocalContentColor provides if (enabled) color else color.copy(alpha = 0.38f), content = content)
     }
 }
 
 @Composable
-fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true,
+    iconSize: androidx.compose.ui.unit.Dp = 21.dp, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(21.dp))
+        Icon(icon, contentDescription = label, modifier = Modifier.size(iconSize))
     }
 }
 
 @Composable
-fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = null, fallbackText: String? = null) {
+fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = null,
+    iconSize: androidx.compose.ui.unit.Dp = 18.dp) {
     val context = LocalContext.current
     if ((context as? com.takeruf.nagi.MainActivity)?.isPrivateBrowsing == true) {
         Box(modifier.size(24.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -62,13 +79,14 @@ fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = nul
     val sharedPath = shared[origin]
     val source = remember(path, siteUrl, sharedPath) { faviconSource(sharedPath ?: path, null) }
     var loaded by remember(source) { mutableStateOf(false) }
-    Box(modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+    // Chrome-style: the favicon sits directly on its row or tile, without a backing plate.
+    Box(modifier.size(maxOf(24.dp, iconSize + 6.dp)),
         contentAlignment = androidx.compose.ui.Alignment.Center) {
-        AsyncImage(model = source, contentDescription = null, modifier = Modifier.size(18.dp),
+        AsyncImage(model = source, contentDescription = null, modifier = Modifier.size(iconSize),
             onState = { loaded = it is AsyncImagePainter.State.Success })
         if (!loaded) {
-            if (!fallbackText.isNullOrBlank()) Text(fallbackText.take(1), style = MaterialTheme.typography.titleLarge)
-            else Icon(NagiIcons.Globe, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Sites without an icon get the same globe everywhere (tabs, favorites, drag previews).
+            Icon(NagiIcons.Globe, null, modifier = Modifier.size(iconSize - 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

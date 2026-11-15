@@ -286,6 +286,15 @@ class SidebarDragTest {
         compose.onNodeWithTag("browser-pane-left-$left").assertIsDisplayed()
     }
 
+    @Test fun draggingTheShownTabOverThePageOffersNoSplitWithItself() {
+        val shown = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        drag(compose.onNodeWithTag("sidebar-tab-$shown"), compose.onNodeWithTag("split-drop-right"))
+        compose.waitForIdle()
+        compose.onNodeWithTag("browser-pane-left-$shown").assertIsDisplayed()
+        compose.onNodeWithTag("browser-pane-right-$shown").assertDoesNotExist()
+        compose.onNodeWithTag("sidebar-split-group").assertDoesNotExist()
+    }
+
     @Test fun dropOnLeftStartsSplitWithOriginalPageOnRight() {
         val originalLeft = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
         drag(compose.onNodeWithTag("sidebar-tab-$alpha"), compose.onNodeWithTag("split-drop-left"))
@@ -599,8 +608,8 @@ class SidebarDragTest {
         compose.onNode(hasText("New tab") and hasContentDescription("Tab New tab").not()).performClick()
         compose.waitUntil { runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId != previous } }
         val newId = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
-        compose.waitUntil { compose.onAllNodesWithText("Esc").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Esc").performClick()
+        compose.waitUntil { compose.onAllNodesWithTag("command-close").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("command-close").performClick()
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("sidebar-tab-$newId"))
         val homeIcon = hasContentDescription("New tab home") and hasAnyAncestor(hasTestTag("sidebar-tab-$newId"))
         compose.onNode(homeIcon, useUnmergedTree = true).assertIsDisplayed()

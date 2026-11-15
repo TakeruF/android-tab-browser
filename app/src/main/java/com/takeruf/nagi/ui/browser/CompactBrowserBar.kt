@@ -20,7 +20,7 @@ import com.takeruf.nagi.ui.theme.NagiShapes
 @Composable
 fun CompactBrowserBar(tabCount: Int, canGoBack: Boolean, canGoForward: Boolean,
     onBack: () -> Unit, onForward: () -> Unit, onNewTab: () -> Unit,
-    onSearch: () -> Unit, onTabs: () -> Unit) {
+    onSearch: (() -> Unit)?, onTabs: () -> Unit) {
     val strings = rememberNagiStrings()
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Row(Modifier.fillMaxWidth().height(56.dp).testTag("compact-browser-bar"),
@@ -34,7 +34,7 @@ fun CompactBrowserBar(tabCount: Int, canGoBack: Boolean, canGoForward: Boolean,
             IconButton(onClick = onNewTab, modifier = Modifier.weight(1f).fillMaxHeight()) {
                 Icon(NagiIcons.Plus, strings(R.string.ui_new_tab), Modifier.size(23.dp))
             }
-            IconButton(onClick = onSearch, modifier = Modifier.weight(1f).fillMaxHeight()) {
+            if (onSearch != null) IconButton(onClick = onSearch, modifier = Modifier.weight(1f).fillMaxHeight().testTag("compact-search-button")) {
                 Icon(NagiIcons.Search, strings(R.string.ui_search_or_enter_url), Modifier.size(21.dp))
             }
             IconButton(onClick = onTabs, modifier = Modifier.weight(1f).fillMaxHeight()

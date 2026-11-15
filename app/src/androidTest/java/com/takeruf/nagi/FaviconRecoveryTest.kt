@@ -23,7 +23,7 @@ class FaviconRecoveryTest {
 
     @Test fun unopenedFavoriteDiscoversSvgAfterBrokenCandidateAndSharesItAcrossPaths() {
         FixtureServer(false, "<link rel='icon' href='/not-an-image'><link rel='icon' href='/custom-icon.svg'>" + " ".repeat(300_000)).use { server ->
-            compose.setContent { MaterialTheme { Favicon("${server.origin}/broken.png", Modifier.testTag("favicon"), "${server.origin}/private?secret", "S") } }
+            compose.setContent { MaterialTheme { Favicon("${server.origin}/broken.png", Modifier.testTag("favicon"), "${server.origin}/private?secret") } }
             compose.waitUntil(20_000) {
                 val bitmap = compose.onNodeWithTag("favicon").captureToImage().asAndroidBitmap()
                 (0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.CYAN } }

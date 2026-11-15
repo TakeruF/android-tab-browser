@@ -25,7 +25,6 @@ class HumanVerificationRecoveryUiTest {
     private val failed = PageState(url = "https://example.test/login", desktopMode = true,
         humanVerification = HumanVerificationState(1, true))
     private val page = mutableStateOf(failed)
-    private val supported = mutableStateOf(true)
     private var retries = 0
 
     private fun content() = compose.setContent {
@@ -37,9 +36,9 @@ class HumanVerificationRecoveryUiTest {
         }
         NagiTheme(ThemeMode.LIGHT) {
             Box(Modifier.width(320.dp)) {
-                HumanVerificationRecoveryBar(page.value, supported.value) {
+                HumanVerificationRecoveryBar(page.value) {
                     retries++
-                    page.value = page.value.copy(desktopMode = false, deviceDefaultMode = true)
+                    page.value = page.value.copy(desktopMode = false)
                 }
             }
         }
@@ -68,14 +67,12 @@ class HumanVerificationRecoveryUiTest {
 
     @Test fun normalMobileLoadingErrorsAndGoogleRecoveryDoNotShowTheBar() {
         content()
-        for (state in listOf(failed.copy(desktopMode = false), failed.copy(deviceDefaultMode = true),
+        for (state in listOf(failed.copy(desktopMode = false),
             failed.copy(isLoading = true), failed.copy(error = "Offline"),
             failed.copy(humanVerification = HumanVerificationState(1, false)),
             failed.copy(url = "https://accounts.google.com/v3/signin/rejected"))) {
             compose.runOnIdle { page.value = state }
             compose.onNodeWithTag("human-verification-recovery-bar").assertDoesNotExist()
         }
-        compose.runOnIdle { page.value = failed; supported.value = false }
-        compose.onNodeWithTag("human-verification-recovery-bar").assertDoesNotExist()
     }
 }

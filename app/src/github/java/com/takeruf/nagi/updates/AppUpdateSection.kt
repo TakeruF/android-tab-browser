@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -18,7 +19,8 @@ fun AppUpdateSection(updates: AppUpdates, onInstall: () -> Unit, showVersion: Bo
     val state by updates.state.collectAsStateWithLifecycle()
     val strings = rememberNagiStrings()
     val busy = state.status in setOf(UpdateStatus.CHECKING, UpdateStatus.DOWNLOADING)
-    Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
+    // In Settings › About (showVersion = false) the About card list supplies the background.
+    Surface(shape = NagiShapes.Rounded, color = if (showVersion) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent,
         modifier = Modifier.fillMaxWidth().testTag("app-updates")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(strings(R.string.ui_app_updates), style = MaterialTheme.typography.titleMedium)

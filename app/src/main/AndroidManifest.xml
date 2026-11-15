@@ -33,6 +33,13 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/upload_paths" />
         </provider>
+        <!-- Moves HTTP downloads into the folder chosen in Settings; only DownloadManager may send this. -->
+        <receiver android:name=".browser.downloads.FolderDownloadReceiver" android:exported="true"
+            android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
         <service android:name=".browser.privacy.PrivateTaskService" android:exported="false"
             android:stopWithTask="false" />
         <activity android:name=".PrivateActivity" android:exported="false" android:excludeFromRecents="true"

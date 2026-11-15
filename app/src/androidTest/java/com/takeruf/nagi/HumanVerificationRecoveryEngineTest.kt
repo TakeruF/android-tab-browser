@@ -134,11 +134,12 @@ class HumanVerificationRecoveryEngineTest {
 
     @Test fun explicitRecoveryUsesTheExistingSiteChoiceAndHidesTheHint() {
         signal("fail"); awaitHint(true)
-        main { engine.setDeviceDefaultMode() }
-        runBlocking { withTimeout(15_000) { engine.state.first { !it.isLoading && it.deviceDefaultMode } } }
+        main { engine.setDesktopMode(false) }
+        runBlocking { withTimeout(15_000) { engine.state.first { !it.isLoading && !it.desktopMode } } }
         assertFalse(engine.state.value.desktopMode)
         assertFalse(engine.state.value.humanVerification.turnstileFailed)
-        assertEquals(SiteDisplayMode.DEVICE_DEFAULT, store.mode(server.origin))
+        assertEquals(SiteDisplayMode.MOBILE, store.mode(server.origin))
+        assertTrue(evaluate("navigator.userAgent.includes('Mobile')") == "true")
         assertTrue(evaluate("navigator.userAgent.includes('; wv)')") == "true")
     }
 

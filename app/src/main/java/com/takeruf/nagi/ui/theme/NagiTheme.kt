@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import android.app.Activity
+import com.takeruf.nagi.R
 import com.takeruf.nagi.domain.model.ThemeMode
 
 private val LightColors = lightColorScheme(
@@ -95,43 +96,148 @@ fun NagiTheme(mode: ThemeMode, themeColor: Long = 0xFF426B5A, content: @Composab
     MaterialTheme(colorScheme = themeColorScheme(dark, seed.toArgb().toLong()), shapes = NagiShapes.Material, content = content)
 }
 
-// Keep user colors intact in storage; adapt their displayed roles for contrast.
+/**
+ * The color the app is themed with: the current Space's, whether or not Spaces are shown.
+ * Turning Spaces off keeps using that Space, so it must not switch to another color.
+ * The app-wide [fallback] applies only before any Space exists.
+ */
+fun themeSeedColor(currentSpaceColor: Long?, fallback: Long): Long = currentSpaceColor ?: fallback
+
+// Keep user colors intact in storage; derive displayed roles from them.
+// Follows the Material 3 tonal-spot recipe used by Android dynamic color and Chrome:
+// each role is a fixed tone (perceptual lightness, CIE L*) of the Space hue at a fixed
+// chroma, so contrast between paired roles is guaranteed by their tone distance.
+// Selection uses the low-chroma secondary container rather than a saturated accent.
 internal fun themeColorScheme(dark: Boolean, themeColor: Long): ColorScheme {
     val original = if (dark) DarkColors else LightColors
-    val seed = Color(themeColor or 0xFF000000)
-    // Remove the default palette's green before applying the selected color.
-    // Preserve each role's brightness so light/dark surfaces retain their depth.
-    fun tint(color: Color, amount: Float = if (dark) 0.22f else 0.14f): Color {
-        val gray = color.red * 0.2126f + color.green * 0.7152f + color.blue * 0.0722f
-        return lerp(Color(gray, gray, gray), seed, amount)
-    }
-    val base = original.copy(
-        background = tint(original.background), surface = tint(original.surface, 0.10f),
-        surfaceVariant = tint(original.surfaceVariant), surfaceDim = tint(original.surfaceDim),
-        surfaceBright = tint(original.surfaceBright, 0.10f),
-        surfaceContainerLowest = tint(original.surfaceContainerLowest, 0.06f),
-        surfaceContainerLow = tint(original.surfaceContainerLow, 0.14f),
-        surfaceContainer = tint(original.surfaceContainer), surfaceContainerHigh = tint(original.surfaceContainerHigh),
-        surfaceContainerHighest = tint(original.surfaceContainerHighest),
-        outline = tint(original.outline), outlineVariant = tint(original.outlineVariant),
-        onBackground = tint(original.onBackground, 0f), onSurface = tint(original.onSurface, 0f),
-        onSurfaceVariant = tint(original.onSurfaceVariant, 0f),
-        inverseSurface = tint(original.inverseSurface), inverseOnSurface = tint(original.inverseOnSurface, 0f),
+    val seed = Lch.from(Color(themeColor or 0xFF000000))
+    // Near-gray seeds produce an exactly neutral scheme.
+    val chromatic = seed.chroma >= 6f
+    val hue = seed.hue
+    fun palette(chroma: Float, hueShift: Float = 0f): (Float) -> Color =
+        { tone -> Lch.toColor(tone, if (chromatic) chroma else 0f, hue + hueShift) }
+    // The seed's own chroma picks the Material variant, like Chrome's theme presets:
+    // muted seeds stay muted (neutral), mid seeds use tonal spot, vivid seeds keep a vivid accent.
+    // Selection (secondary) stays low-chroma in every variant.
+    val variant = ThemeVariant.of(seed.chroma)
+    val primary = palette(variant.primary(seed.chroma))
+    val secondary = palette(variant.secondary)
+    val tertiary = palette(variant.tertiary, 60f)
+    val neutral = palette(variant.neutral)
+    val neutralVariant = palette(variant.neutralVariant)
+    val error = { tone: Float -> Lch.toColor(tone, 60f, 30f) }
+    fun t(light: Float, darkTone: Float) = if (dark) darkTone else light
+    val scheme = original.copy(
+        primary = primary(t(40f, 80f)), onPrimary = primary(t(100f, 20f)),
+        primaryContainer = primary(t(90f, 30f)), onPrimaryContainer = primary(t(10f, 90f)),
+        inversePrimary = primary(t(80f, 40f)), surfaceTint = primary(t(40f, 80f)),
+        secondary = secondary(t(40f, 80f)), onSecondary = secondary(t(100f, 20f)),
+        secondaryContainer = secondary(t(90f, 30f)), onSecondaryContainer = secondary(t(10f, 90f)),
+        tertiary = tertiary(t(40f, 80f)), onTertiary = tertiary(t(100f, 20f)),
+        tertiaryContainer = tertiary(t(90f, 30f)), onTertiaryContainer = tertiary(t(10f, 90f)),
+        error = error(t(40f, 80f)), onError = error(t(100f, 20f)),
+        errorContainer = error(t(90f, 30f)), onErrorContainer = error(t(10f, 90f)),
+        // The app frame (sidebar and margins) sits one container step away from page surfaces.
+        background = neutral(t(94f, 12f)), onBackground = neutral(t(10f, 90f)),
+        surface = neutral(t(98f, 6f)), onSurface = neutral(t(10f, 90f)),
+        surfaceVariant = neutralVariant(t(90f, 30f)), onSurfaceVariant = neutralVariant(t(30f, 80f)),
+        surfaceDim = neutral(t(87f, 6f)), surfaceBright = neutral(t(98f, 24f)),
+        surfaceContainerLowest = neutral(t(99f, 4f)), surfaceContainerLow = neutral(t(96f, 10f)),
+        surfaceContainer = neutral(t(94f, 12f)), surfaceContainerHigh = neutral(t(92f, 17f)),
+        surfaceContainerHighest = neutral(t(90f, 22f)),
+        inverseSurface = neutral(t(20f, 90f)), inverseOnSurface = neutral(t(95f, 20f)),
+        outline = neutralVariant(t(50f, 60f)), outlineVariant = neutralVariant(t(80f, 30f)),
+        scrim = Color.Black,
     )
-    val primary = readableSpaceColor(seed, base.onSurface,
-        listOf(base.surface, base.surfaceContainerLow, base.background), minimumContrast = 5f)
-    val container = lerp(base.surface, seed, if (dark) 0.25f else 0.16f)
-    val onContainer = readableSpaceColor(base.onSurface, if (dark) Color.White else Color.Black, listOf(container), minimumContrast = 5f)
-    val onPrimary = if (primary.luminance() > 0.179f) Color.Black else Color.White
-    val surfaces = listOf(base.background, base.surface, base.surfaceVariant, base.surfaceContainerLowest,
-        base.surfaceContainerLow, base.surfaceContainer, base.surfaceContainerHigh, base.surfaceContainerHighest)
-    val foreground = if (dark) Color.White else Color.Black
-    return base.copy(onSurface = readableSpaceColor(base.onSurface, foreground, surfaces, 5f),
-        onBackground = readableSpaceColor(base.onBackground, foreground, surfaces, 5f),
-        onSurfaceVariant = readableSpaceColor(base.onSurfaceVariant, foreground, surfaces, 5f),
-        primary = primary, onPrimary = onPrimary, primaryContainer = container,
-        onPrimaryContainer = onContainer, surfaceTint = primary,
-        secondary = primary, onSecondary = onPrimary, secondaryContainer = container, onSecondaryContainer = onContainer,
-        tertiary = primary, onTertiary = onPrimary, tertiaryContainer = container, onTertiaryContainer = onContainer,
-        inversePrimary = readableSpaceColor(seed, base.inverseOnSurface, listOf(base.inverseSurface)))
+    return scheme
+}
+
+internal enum class ThemeVariant(val secondary: Float, val tertiary: Float, val neutral: Float, val neutralVariant: Float) {
+    NEUTRAL(8f, 12f, 2f, 3f), TONAL_SPOT(16f, 24f, 6f, 8f), VIBRANT(16f, 24f, 6f, 8f);
+
+    fun primary(seedChroma: Float) = when (this) {
+        NEUTRAL -> 12f
+        TONAL_SPOT -> 36f
+        VIBRANT -> seedChroma.coerceAtMost(64f)
+    }
+
+    companion object {
+        fun of(seedChroma: Float) = when {
+            seedChroma < 14f -> NEUTRAL
+            seedChroma < 48f -> TONAL_SPOT
+            else -> VIBRANT
+        }
+    }
+}
+
+/** Curated seeds for the theme color grid, ordered by hue with muted variants beside vivid ones. */
+internal enum class ThemePreset(val color: Long, val label: Int) {
+    FOREST(0xFF426B5A, R.string.ui_theme_preset_forest), SAGE(0xFF6C7B6D, R.string.ui_theme_preset_sage),
+    LEAF(0xFF577C37, R.string.ui_theme_preset_leaf), TEAL(0xFF157E81, R.string.ui_theme_preset_teal),
+    OCEAN(0xFF477F96, R.string.ui_theme_preset_ocean), BLUE(0xFF1761C0, R.string.ui_theme_preset_blue),
+    SLATE(0xFF687081, R.string.ui_theme_preset_slate), VIOLET(0xFF6C6193, R.string.ui_theme_preset_violet),
+    ORCHID(0xFF93548C, R.string.ui_theme_preset_orchid), ROSE(0xFF995C77, R.string.ui_theme_preset_rose),
+    RED(0xFFB34746, R.string.ui_theme_preset_red), AMBER(0xFFB07D47, R.string.ui_theme_preset_amber),
+    CITRON(0xFF8E862C, R.string.ui_theme_preset_citron), CLAY(0xFF867369, R.string.ui_theme_preset_clay),
+    GREY(0xFF777777, R.string.ui_theme_preset_grey);
+
+    companion object {
+        fun of(color: Long) = entries.firstOrNull { it.color == (color or 0xFF000000) }
+    }
+}
+
+/** CIE L*C*h(ab) under D65; L* is the Material 3 "tone". Pure Kotlin so JVM tests can run it. */
+internal object Lch {
+    data class Value(val lightness: Float, val chroma: Float, val hue: Float)
+
+    private const val Xn = 0.95047f
+    private const val Yn = 1f
+    private const val Zn = 1.08883f
+
+    private fun linear(c: Float) = if (c <= 0.04045f) c / 12.92f else Math.pow(((c + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
+    private fun gamma(c: Float) = if (c <= 0.0031308f) c * 12.92f else (1.055f * Math.pow(c.toDouble(), 1 / 2.4).toFloat() - 0.055f)
+    private fun f(t: Float) = if (t > 216f / 24389f) Math.cbrt(t.toDouble()).toFloat() else (24389f / 27f * t + 16f) / 116f
+    private fun fInv(t: Float) = if (t * t * t > 216f / 24389f) t * t * t else (116f * t - 16f) / (24389f / 27f)
+
+    fun from(color: Color): Value {
+        val r = linear(color.red); val g = linear(color.green); val b = linear(color.blue)
+        val x = 0.4124f * r + 0.3576f * g + 0.1805f * b
+        val y = 0.2126f * r + 0.7152f * g + 0.0722f * b
+        val z = 0.0193f * r + 0.1192f * g + 0.9505f * b
+        val fx = f(x / Xn); val fy = f(y / Yn); val fz = f(z / Zn)
+        val a = 500f * (fx - fy); val bb = 200f * (fy - fz)
+        val hue = Math.toDegrees(kotlin.math.atan2(bb, a).toDouble()).toFloat().let { if (it < 0) it + 360f else it }
+        return Value(116f * fy - 16f, kotlin.math.hypot(a, bb), hue)
+    }
+
+    /** Neutral gray at [tone], exactly r = g = b. */
+    private fun gray(tone: Float): Color {
+        val v = gamma(fInv((tone + 16f) / 116f)).coerceIn(0f, 1f)
+        return Color(v, v, v)
+    }
+
+    private fun rgb(tone: Float, chroma: Float, hue: Float): FloatArray {
+        val rad = Math.toRadians(hue.toDouble())
+        val a = chroma * kotlin.math.cos(rad).toFloat(); val b = chroma * kotlin.math.sin(rad).toFloat()
+        val fy = (tone + 16f) / 116f
+        val x = Xn * fInv(fy + a / 500f); val y = Yn * fInv(fy); val z = Zn * fInv(fy - b / 200f)
+        return floatArrayOf(
+            gamma(3.2406f * x - 1.5372f * y - 0.4986f * z),
+            gamma(-0.9689f * x + 1.8758f * y + 0.0415f * z),
+            gamma(0.0557f * x - 0.2040f * y + 1.0570f * z))
+    }
+
+    /** The color at [tone] and [hue], reducing chroma until it fits in sRGB. */
+    fun toColor(tone: Float, chroma: Float, hue: Float): Color {
+        if (chroma <= 0f) return gray(tone)
+        fun inGamut(c: FloatArray) = c.all { it in -0.0005f..1.0005f }
+        val full = rgb(tone, chroma, hue)
+        val fitted = if (inGamut(full)) full else {
+            var low = 0f; var high = chroma
+            repeat(18) { val mid = (low + high) / 2f; if (inGamut(rgb(tone, mid, hue))) low = mid else high = mid }
+            if (low < 0.01f) return gray(tone)
+            rgb(tone, low, hue)
+        }
+        return Color(fitted[0].coerceIn(0f, 1f), fitted[1].coerceIn(0f, 1f), fitted[2].coerceIn(0f, 1f))
+    }
 }

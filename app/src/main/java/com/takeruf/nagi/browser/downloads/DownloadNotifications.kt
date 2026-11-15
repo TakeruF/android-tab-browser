@@ -75,5 +75,28 @@ class DownloadNotifications(private val context: Context) {
         }
     }
 
+    /**
+     * Result of an HTTP download moved into a chosen folder. [folder] is the folder's name,
+     * "" when it fell back to Downloads, and null with a null [uri] when saving failed.
+     */
+    fun folderResult(name: String, uri: android.net.Uri?, folder: String?) {
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, strings(R.string.ui_downloads), NotificationManager.IMPORTANCE_LOW))
+        val open = if (uri != null) Intent(Intent.ACTION_VIEW).setData(uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            else Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val text = when {
+            uri == null -> strings(R.string.ui_download_failed_1_s, name)
+            folder.isNullOrEmpty() -> strings(R.string.ui_download_saved)
+            else -> strings(R.string.ui_download_saved_to_1_s, folder)
+        }
+        val builder = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(if (uri != null) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_notify_error)
+            .setContentTitle(safeDownloadName(name)).setContentText(text).setAutoCancel(true).setSilent(true)
+            .setContentIntent(PendingIntent.getActivity(context, name.hashCode(), open,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context,
+                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        try { manager.notify("folder-download-${UUID.randomUUID()}", 0, builder.build()) } catch (_: SecurityException) { }
+    }
+
     private companion object { const val CHANNEL = "page-downloads" }
 }

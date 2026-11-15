@@ -30,8 +30,9 @@ class ReleaseFeaturesUiTest {
         compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tab(tabId)?.title == "Fixture One" } }
     }
     @After fun cleanup() { runBlocking { container.spaces.delete(spaceId) }; server.close() }
-    private fun screenshot(name: String) {
-        val directory = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File) ?: return
+    private fun screenshot(name: String, directory: File? = InstrumentationRegistry.getArguments()
+        .getString("additionalTestOutputDir")?.let(::File)) {
+        if (directory == null) return
         compose.activity.getExternalFilesDir(null) // Initialize the app-scoped directory on a fresh emulator.
         directory.mkdirs()
         compose.waitForIdle()
@@ -94,15 +95,27 @@ class ReleaseFeaturesUiTest {
         }
         compose.onNodeWithTag("url-drop-$tabId").performTouchInput { click() }
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
-        compose.onNodeWithText("Esc").performClick()
+        compose.onNodeWithTag("command-close").performClick()
     }
-    @Test fun linkDragToRightAddressBarNavigatesOnlyRightPane() {
+    @Test fun linkDragToRightAddressBarNavigatesOnlyRightPane() = dragLinkToAddressBar(split = true)
+
+    @Test fun linkDragToAddressBarInDarkMode() = dragLinkToAddressBar(split = false)
+
+    private fun dragLinkToAddressBar(split: Boolean) {
+        val prefix = if (split) "link-drag-split-light" else "link-drag-single-dark"
+        val output = File(compose.activity.filesDir, "link-drag-polish")
+        if (!split) runBlocking {
+            container.settings.update { it.copy(theme = com.takeruf.nagi.domain.model.ThemeMode.DARK) }
+        }
         runBlocking { container.workspace.dao.tabs(spaceId).filter { it.id != tabId }.forEach { container.tabs.close(it.id) } }
         val sourceId = runBlocking { container.tabs.create(spaceId, "${server.origin}/features") }
         compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tab(sourceId)?.title == "Fixture Features" } }
-        compose.onNodeWithContentDescription("Page menu").performClick()
-        compose.onNodeWithText("New split view").performClick()
-        compose.onNodeWithTag("url-drop-$tabId").assertExists()
+        if (split) {
+            compose.onNodeWithContentDescription("Page menu").performClick()
+            compose.onNodeWithText("New split view").performClick()
+        }
+        val destinationId = if (split) tabId else sourceId
+        compose.onNodeWithTag("url-drop-$destinationId").assertExists()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val coordinates = kotlinx.coroutines.CompletableDeferred<String>()
         val bounds = android.graphics.Rect()
@@ -125,8 +138,8 @@ class ReleaseFeaturesUiTest {
             assertTrue(y in position[1] until position[1] + source.height)
             bounds.set(x - 1, y - 1, x + 1, y + 1)
         }
-        screenshot("link-drag-before")
-        val target = compose.onNodeWithTag("url-drop-$tabId").fetchSemanticsNode().boundsInRoot
+        screenshot("$prefix-before", output)
+        val target = compose.onNodeWithTag("url-drop-$destinationId").fetchSemanticsNode().boundsInRoot
         val downTime = android.os.SystemClock.uptimeMillis()
         fun pointer(action: Int, x: Float, y: Float) {
             val event = android.view.MotionEvent.obtain(downTime, android.os.SystemClock.uptimeMillis(), action, x, y, 0)
@@ -143,13 +156,14 @@ class ReleaseFeaturesUiTest {
                 bounds.exactCenterY() + (endY - bounds.exactCenterY()) * step / 15)
             Thread.sleep(40)
         }
+        screenshot("$prefix-hover", output)
         pointer(android.view.MotionEvent.ACTION_UP, endX, endY)
-        compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tab(tabId)?.title == "Fixture Two" } }
+        compose.waitUntil(15_000) { runBlocking { container.workspace.dao.tab(destinationId)?.title == "Fixture Two" } }
         val destinationAddress = hasText("${server.origin.removePrefix("http://")}/two") and
-            hasAnyAncestor(hasTestTag("browser-pane-right-$tabId"))
+            hasAnyAncestor(hasTestTag("browser-pane-${if (split) "right" else "left"}-$destinationId"))
         compose.waitUntil(5_000) { compose.onAllNodes(destinationAddress).fetchSemanticsNodes().isNotEmpty() }
-        assertEquals("${server.origin}/features", runBlocking { container.workspace.dao.tab(sourceId)!!.url })
-        screenshot("link-drag-right-pane")
+        if (split) assertEquals("${server.origin}/features", runBlocking { container.workspace.dao.tab(sourceId)!!.url })
+        screenshot("$prefix-after", output)
     }
 
     @Test fun clearingSiteDataRequiresConfirmationAndPreservesWorkspace() {
@@ -170,19 +184,33 @@ class ReleaseFeaturesUiTest {
         compose.selectSettingsCategory("about")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("app-updates"))
         compose.onNodeWithText("App updates").assertIsDisplayed()
-        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
+        compose.onNodeWithText("Nagi ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
         compose.onNodeWithText("Current version: ${BuildConfig.VERSION_NAME}").assertDoesNotExist()
         if (BuildConfig.APK_UPDATES_ENABLED) {
             compose.onNodeWithText("Check for updates").assertExists()
         } else {
-            compose.onNodeWithText("Open Google Play").assertExists()
+            // The whole updates row opens Google Play.
+            compose.onNodeWithText("Updates are delivered through Google Play.").assertExists()
+            compose.onNodeWithTag("app-updates").assertHasClickAction()
             compose.onNodeWithText("Check for updates").assertDoesNotExist()
             val info = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
             assertFalse(info.requestedPermissions.orEmpty().contains("android.permission.REQUEST_INSTALL_PACKAGES"))
         }
-        compose.selectSettingsCategory("privacy")
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Privacy policy"))
+        // Open-source licenses: the list opens, a bundled text is readable, and Back returns step by step.
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("open-source-licenses"))
+        compose.onNodeWithTag("open-source-licenses").performClick()
+        compose.onNodeWithTag("license-entry-0").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("license-text").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Nagi-MIT.txt").assertExists()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("licenses-list").assertExists()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("settings-list").assertExists()
+        // The privacy policy sits with the other documents in About, not among Privacy controls.
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("privacy-policy"))
         compose.onNodeWithText("Privacy policy").assertIsDisplayed()
         screenshot("release-updates")
+        compose.selectSettingsCategory("privacy")
+        compose.onNodeWithTag("privacy-policy").assertDoesNotExist()
     }
 }

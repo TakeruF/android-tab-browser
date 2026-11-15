@@ -9,9 +9,9 @@ import com.takeruf.nagi.browser.engine.PageState
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 @Composable
-fun HumanVerificationRecoveryBar(page: PageState, supported: Boolean, onRetry: () -> Unit) {
+fun HumanVerificationRecoveryBar(page: PageState, onRetry: () -> Unit) {
     var dismissed by remember(page.humanVerification.documentId, page.desktopMode) { mutableStateOf(false) }
-    if (!supported || !page.desktopMode || page.deviceDefaultMode || page.isLoading || page.error != null ||
+    if (!page.desktopMode || page.isLoading || page.error != null ||
         page.readerArticle != null || !page.humanVerification.turnstileFailed || dismissed ||
         GoogleSignInRecovery.isRejectedPage(page.url)) return
     val strings = rememberNagiStrings()

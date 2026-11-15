@@ -1,0 +1,53 @@
+<en-US>
+Added page zoom, keyboard shortcuts and resume links for pinned tabs and saved split views.
+Redesigned Settings, theme colors and the color picker.
+Choose Command Bar suggestion categories and a download folder.
+Improved download confirmations, notifications and empty-tab cleanup.
+Refined drag previews and split view; simplified mobile/desktop display choices.
+Added Spanish and French, plus an open-source licenses screen.
+</en-US>
+
+<es-ES>
+Añadimos zoom, atajos y enlaces para retomar pestañas fijadas y vistas divididas.
+Rediseñamos Ajustes, los colores y su selector.
+Elige las categorías de sugerencias y la carpeta de descargas.
+Mejoramos las confirmaciones, las notificaciones y el cierre de pestañas vacías de descarga.
+Pulimos el arrastre y la vista dividida, y simplificamos la selección móvil/escritorio.
+Añadimos español, francés y una pantalla de licencias de código abierto.
+</es-ES>
+
+<fr-FR>
+Ajout du zoom, de raccourcis et de liens pour reprendre les onglets épinglés et les vues partagées.
+Refonte des paramètres, des couleurs et de leur sélecteur.
+Choix des catégories de suggestions et du dossier de téléchargement.
+Amélioration des confirmations, des notifications et de la fermeture des onglets vides de téléchargement.
+Affichage du glisser-déposer et vue partagée affinés ; choix mobile/ordinateur simplifié.
+Ajout de l’espagnol, du français et des licences open source.
+</fr-FR>
+
+<ja-JP>
+ページズーム、キーボードショートカット、ピン留めタブ・保存済みSplitの再開機能を追加しました。
+設定画面、テーマカラー、カラーピッカーを刷新しました。
+コマンドバーの候補カテゴリと、ダウンロードの保存先を選べるようになりました。
+ダウンロードの確認・通知と、ダウンロード用の空タブの自動終了を改善しました。
+ドラッグ中の表示とSplitを整え、モバイル・PC表示の選択をシンプルにしました。
+スペイン語・フランス語と、オープンソースライセンス画面を追加しました。
+</ja-JP>
+
+<zh-CN>
+新增页面缩放、键盘快捷键，以及固定标签页和已保存分屏的继续浏览功能。
+重新设计设置界面、主题配色和颜色选择器。
+可选择命令栏建议类别及下载保存文件夹。
+改进下载确认、通知和下载空白标签页的自动关闭。
+优化拖动预览和分屏，简化手机版与电脑版的选择。
+新增西班牙语、法语及开源许可证页面。
+</zh-CN>
+
+<ko-KR>
+페이지 확대·축소, 키보드 단축키, 고정 탭과 저장된 분할 화면 이어보기를 추가했습니다.
+설정 화면, 테마 색상과 색상 선택기를 새롭게 구성했습니다.
+명령 모음의 제안 범주와 다운로드 저장 폴더를 선택할 수 있습니다.
+다운로드 확인·알림과 다운로드용 빈 탭의 자동 닫기를 개선했습니다.
+드래그 미리보기와 분할 화면을 다듬고 모바일·데스크톱 보기 선택을 간소화했습니다.
+스페인어·프랑스어와 오픈소스 라이선스 화면을 추가했습니다.
+</ko-KR>

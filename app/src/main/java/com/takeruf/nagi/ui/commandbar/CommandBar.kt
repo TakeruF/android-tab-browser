@@ -6,7 +6,6 @@ import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -23,6 +22,7 @@ import com.takeruf.nagi.ui.components.SpaceIcon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
@@ -57,13 +57,17 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
     val list = rememberLazyListState()
     val execute = {
         if (input.composition == null) {
-        val fresh = SuggestionProvider.suggestions(input.text.toString(), workspace, settings, strings::translate, splitEnabled)
-        fresh.getOrNull(selected.coerceAtMost(fresh.lastIndex))?.let { onExecute(it.action) }
-            ?: run { when (val value = InputResolver.resolve(input.text.toString(), workspace.searchEngines, settings)) {
-                is ResolvedInput.Navigate -> onExecute(SuggestionAction.Navigate(value.url))
-                is ResolvedInput.Search -> onExecute(SuggestionAction.Navigate(value.url))
-                is ResolvedInput.Invalid -> Unit
-            } }
+            val committed = input.text.toString()
+            val fresh = SuggestionProvider.suggestions(committed, workspace, settings, strings::translate, splitEnabled)
+            val suggestion = fresh.getOrNull(selected.coerceAtMost(fresh.lastIndex))
+            if (suggestion != null) onExecute(suggestion.action)
+            else if (!(settings.commandBar.showCommands && committed.trimStart().startsWith('>'))) {
+                when (val value = InputResolver.resolve(committed, workspace.searchEngines, settings)) {
+                    is ResolvedInput.Navigate -> onExecute(SuggestionAction.Navigate(value.url))
+                    is ResolvedInput.Search -> onExecute(SuggestionAction.Navigate(value.url))
+                    is ResolvedInput.Invalid -> Unit
+                }
+            }
         }
     }
     LaunchedEffect(query, selected) {
@@ -83,7 +87,11 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
         }
         // Keep taps outside the panel dismissible even though the dialog fills the window.
         Box(Modifier.matchParentSize().pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
-        Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
+        // With nothing to suggest, the bar is just the input: no divider, list or "No matches",
+        // and it takes the same pill silhouette as the address bar and new-tab search field.
+        val hasSuggestions = suggestions.isNotEmpty()
+        Surface(shape = if (hasSuggestions) RoundedCornerShape(28.dp) else NagiShapes.Pill,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.onSurface, shadowElevation = 16.dp,
             modifier = Modifier.align(if (bottomSearchBar) Alignment.BottomCenter else Alignment.Center).widthIn(max = 720.dp).fillMaxWidth(if (compact) 0.96f else 0.85f).heightIn(max = 640.dp)
                 .pointerInput(Unit) { detectTapGestures { /* Consume taps on the panel background. */ } }
@@ -118,7 +126,8 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                         TextField(state = input, shape = NagiShapes.Rounded, lineLimits = TextFieldLineLimits.SingleLine,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             onKeyboardAction = { execute() },
-                            placeholder = { Text(strings(if (compact) R.string.ui_search_or_enter_url else R.string.ui_search_enter_a_url_or_type_for_commands),
+                            placeholder = { Text(strings(if (compact || !settings.commandBar.showCommands) R.string.ui_search_or_enter_url
+                                else R.string.ui_search_enter_a_url_or_type_for_commands),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -127,27 +136,22 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                             modifier = Modifier.weight(1f).testTag("command-input").focusRequester(focus).semantics {
                                 stateDescription = if (input.composition == null) strings(R.string.ui_ready) else strings(R.string.ui_composing)
                             })
-                        if (compact) IconButton(onClick = onDismiss) {
+                        IconButton(onClick = onDismiss, modifier = Modifier.testTag("command-close")) {
                             Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings(R.string.ui_search)))
-                        } else TextButton(shape = NagiShapes.Rounded, onClick = onDismiss) { Text("Esc") }
+                        }
                     }
                 }
                 if (!bottomSearchBar) {
                     SearchInput()
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    if (hasSuggestions) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                LazyColumn(state = list, modifier = Modifier.weight(1f, fill = false).testTag("command-suggestions"), contentPadding = PaddingValues(12.dp)) {
+                if (hasSuggestions) LazyColumn(state = list, modifier = Modifier.weight(1f, fill = false).testTag("command-suggestions"), contentPadding = PaddingValues(12.dp)) {
                     itemsIndexed(suggestions, key = { _, item -> item.id }) { index, item ->
                         val active = selected == index
-                        val titleColor = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        val titleColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
                         val detailColor = if (active) titleColor else MaterialTheme.colorScheme.onSurfaceVariant
-                        if (index == 0 || suggestions[index - 1].category != item.category) {
-                            Text(strings.translate(item.category.label).uppercase(), style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp, 10.dp))
-                        }
-                        Row(Modifier.fillMaxWidth().clip(NagiShapes.Rounded).background(if (active) MaterialTheme.colorScheme.primaryContainer else
+                        Row(Modifier.fillMaxWidth().clip(NagiShapes.Rounded).background(if (active) MaterialTheme.colorScheme.secondaryContainer else
                             androidx.compose.ui.graphics.Color.Transparent, NagiShapes.Rounded)
-                            .then(if (active) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, NagiShapes.Rounded) else Modifier)
                             .testTag("suggestion:${item.id}")
                             .semantics { this.selected = active }
                             .clickable { onExecute(item.action) }.padding(12.dp).heightIn(min = 36.dp),
@@ -185,21 +189,12 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                                     Text(item.subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall,
                                         color = detailColor)
                             }
-                            if (item.category != SuggestionCategory.TABS && item.category != SuggestionCategory.HISTORY)
-                                Text(item.subtitle, style = MaterialTheme.typography.labelSmall, color = detailColor)
                         }
                     }
-                    if (suggestions.isEmpty()) item { Text(strings(R.string.ui_no_matches), Modifier.padding(16.dp)) }
                 }
                 if (bottomSearchBar) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    if (hasSuggestions) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SearchInput()
-                }
-                if (!compact) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Text(strings(R.string.ui_search_navigation_hint),
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(20.dp, 14.dp))
                 }
             }
         }

@@ -12,8 +12,9 @@ class TestIme : AutoCloseable {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val original = Settings.Secure.getString(instrumentation.targetContext.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
     init {
-        shell("ime enable com.takeruf.nagi/.testing.InputConnectionHarnessIme")
-        shell("ime set com.takeruf.nagi/.testing.InputConnectionHarnessIme")
+        val component = "${instrumentation.targetContext.packageName}/com.takeruf.nagi.testing.InputConnectionHarnessIme"
+        shell("ime enable $component")
+        shell("ime set $component")
     }
     private fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use { it.readBytes() }
     fun awaitBinding() {

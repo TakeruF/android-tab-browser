@@ -7,11 +7,12 @@ import android.os.Build
 import android.os.Environment
 import com.takeruf.nagi.browser.engine.DownloadRequest
 import com.takeruf.nagi.browser.engine.GeneratedDownload
-import android.content.ContentValues
-import android.provider.MediaStore
 import java.io.File
 
-class DownloadService(private val context: Context) {
+class DownloadService(private val context: Context, private val folder: () -> Uri? = { null }) {
+    /** The chosen folder while Nagi can still write to it; otherwise null (system Downloads). */
+    private fun usableFolder(): Uri? = folder()?.takeIf { DownloadFolder.writable(context, it) }
+
     fun enqueue(download: DownloadRequest): Long {
         val filename = download.suggestedName.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(160).ifBlank { "download" }
         val request = DownloadManager.Request(Uri.parse(download.url))
@@ -21,35 +22,35 @@ class DownloadService(private val context: Context) {
             .addRequestHeader("User-Agent", download.userAgent)
         download.cookies?.let { request.addRequestHeader("Cookie", it) }
         download.mimeType?.let(request::setMimeType)
+        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val chosen = usableFolder()
+        if (chosen != null) {
+            // DownloadManager cannot write into a SAF tree: stage the file in app storage and
+            // let FolderDownloadReceiver move it, which also posts the completion notice.
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+            request.setDestinationInExternalFilesDir(context, PENDING_DIRECTORY, "${System.nanoTime()}-$filename")
+            return manager.enqueue(request).also { id ->
+                PendingFolderDownloads.put(context, id, PendingFolderDownloads.Job(chosen, filename, download.mimeType))
+            }
+        }
         if (Build.VERSION.SDK_INT >= 29) request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
         else request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, filename)
-        return (context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+        return manager.enqueue(request)
     }
+
+    /** Name of the folder that receives downloads, or null for the system Downloads folder. */
+    fun destinationName(): String? = usableFolder()?.let { DownloadFolder.displayName(context, it) }
+
     /** Called on an IO dispatcher after the user accepts a page-generated download. */
     fun saveGenerated(download: GeneratedDownload, source: File): Uri {
         val filename = safeDownloadName(download.name)
-        if (Build.VERSION.SDK_INT >= 29) {
-            val resolver = context.contentResolver
-            val uri = requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                put(MediaStore.MediaColumns.MIME_TYPE, download.mimeType)
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }))
-            try {
-                requireNotNull(resolver.openOutputStream(uri)).use { output -> source.inputStream().use { it.copyTo(output) } }
-                resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-                return uri
-            } catch (error: Exception) { resolver.delete(uri, null, null); throw error }
+        usableFolder()?.let { chosen ->
+            runCatching { return source.inputStream().use { DownloadFolder.write(context, chosen, filename, download.mimeType, it) } }
         }
-        val directory = requireNotNull(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS))
-        var target = File(directory, filename)
-        var counter = 1
-        while (!target.createNewFile()) target = File(directory, "${counter++}-$filename")
-        try { source.inputStream().use { input -> target.outputStream().use { input.copyTo(it) } } }
-        catch (error: Exception) { target.delete(); throw error }
-        return Uri.fromFile(target)
+        return source.inputStream().use { DownloadFolder.writeToDownloads(context, filename, download.mimeType, it) }
     }
+
+    private companion object { const val PENDING_DIRECTORY = "pending-downloads" }
 }
 
 fun safeDownloadName(name: String): String = name.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")

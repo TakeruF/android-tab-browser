@@ -14,6 +14,8 @@ import com.takeruf.nagi.ui.NagiApp
 import com.takeruf.nagi.ui.browser.KeyboardShortcuts
 import com.takeruf.nagi.ui.browser.Shortcut
 import kotlinx.coroutines.flow.MutableSharedFlow
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 open class MainActivity : ComponentActivity() {
     open val isPrivateBrowsing: Boolean = false
@@ -55,6 +57,10 @@ open class MainActivity : ComponentActivity() {
         else (application as NagiApplication).container
         if (isPrivateBrowsing) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         updateInstaller = com.takeruf.nagi.updates.UpdateInstaller(this, container.updates)
+        // Downloads follow the folder chosen in Settings › General.
+        lifecycleScope.launch {
+            container.settings.settings.collect { host.downloadFolder = it.downloadFolder }
+        }
         setContent {
             com.takeruf.nagi.browser.privacy.PrivateKeyboardInput(isPrivateBrowsing) {
                 NagiApp(this, host, container, incomingUrls)

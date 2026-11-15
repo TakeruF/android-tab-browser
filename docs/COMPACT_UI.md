@@ -24,17 +24,19 @@ Resizing changes the browser UI and the default for future navigation; it does n
 
 Typing, page scrolling, same-document anchor navigation, and SPA history changes do not apply a pending mode. New tabs, address/search navigation, document links, manual reload, and document history navigation resolve the latest default/site choice at their normal navigation boundary. POST form submissions keep their original method/body and current document UA; they are not replayed as GET requests to change modes. Explicitly choosing **Use desktop site** / **Use mobile site** still switches the current page immediately. The page-menu action describes the mode of the currently loaded document. Entering the small system video PiP window keeps the preceding browser UI/default.
 
+The page menu offers **Use mobile site** and **Use desktop site**, with the current mode checked. Saved device-default choices from older versions are read as mobile choices. After a detected human-verification failure in desktop mode, the optional retry action switches that site to mobile mode and reloads only when tapped.
+
 ## Optional Spaces
 
 **Settings → General → Use Spaces** (the first setting) defaults to on, preserving existing installations. Both directions first show a confirmation dialog explaining the affected controls, search/restoration scope, colors, retained data and unaffected Favorites/pins/Split. Cancel or dismiss leaves the preference unchanged. Turning it off uses the currently selected Space as a single tab collection. Its tabs, pins, saved Split pairs, Favorites and archive remain available. Other Spaces and their tabs stay in Room and become accessible again when Spaces are enabled; disabling does not merge, move or delete tabs.
 
-Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Space switcher, creation/edit/delete controls, move-to-Space actions and horizontal Space swipes. The expanded list labels its pinned section “Pinned tabs” instead of showing a Space name/icon. The UI uses the configured theme color while Spaces are disabled. Command Bar suggestions and closed-tab restoration stay within the current Space. Shared Favorites and browsing history remain available. Changing this setting does not reload pages or destroy live WebViews, including either Split pane. The preference persists across restarts.
+Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Space switcher, creation/edit/delete controls, move-to-Space actions and horizontal Space swipes. The expanded list labels its pinned section “Pinned tabs” instead of showing a Space name/icon. The UI keeps the current Space's theme color, so turning Spaces on or off never changes the color; Settings › Appearance › Theme color edits that Space either way. Command Bar suggestions and closed-tab restoration stay within the current Space. Shared Favorites and browsing history remain available. Changing this setting does not reload pages or destroy live WebViews, including either Split pane. The preference persists across restarts.
 
 ## Settings navigation
 
 Settings uses a category-and-detail layout. At 760 dp of available settings
 content width, categories stay on the left and the selected category opens on
-the right. The usual wide window frame consumes 8 dp, so this corresponds to a
+the right. Wide windows use 8 dp of end padding, so this corresponds to a
 768 dp window without additional insets. Smaller windows show a category list;
 choosing a category opens its settings, and Back returns to the list. Selection
 survives resizing and Activity recreation.
@@ -45,6 +47,8 @@ contains browsing behavior and Spaces; default search, AI and region choices
 are grouped under Search engines. Appearance, Tabs, Video, Privacy and About
 Nagi have their own categories. Password autofill remains hidden pending the
 existing production approval gate.
+
+Settings uses a flat background continuous with the window edges.
 
 Routine toggle explanations and duplicate headings have been removed. Brief
 video trigger descriptions, camera registration instructions, privacy lifetime
@@ -100,6 +104,51 @@ Evidence and frozen Debug/test APKs are under ignored
 `artifacts/compact-single-pane-20261115/commit/`. This is selected emulator
 coverage, not a full connected suite or physical-device result. No release action
 or version bump was performed.
+
+Earlier validation of the mixed development worktree on 2026-11-15 passed the compact single-page policy in
+`CompactBrowserUiTest#savedSplitUsesOneSelectedPageInCompactAndRestoresBothLivePagesWhenWide`
+on the dedicated API-36 `Nagi_Download_QA` emulator (`emulator-5584`, WebView
+133.0.6943.137). It covers 360/599/600/1000dp windows, light/dark app themes,
+individual tab-sheet entries, no compact Split menu/commands/drop previews,
+selection of either saved member, original left/right order on widening, identical
+live WebViews, input/textarea/contenteditable drafts and a JavaScript document
+marker, one HTTP document request per page before recreation, and saved-pair
+restoration after Activity recreation. Recreation checks saved pairing,
+not restoration of arbitrary live drafts. Narrow and wide screenshots were inspected.
+
+All 195 Play Debug unit tests passed (zero failures/errors/skips), including compact
+Command Bar filtering and individual new-tab resume links. Debug/test APK assembly
+and Play Debug/Release lint passed; lint reports 0 errors and 82 warnings each.
+The first build exposed an incorrect test accessibility API call; initial device
+runs exposed title-only readiness and outer-container semantics selectors. Those
+test issues were corrected before the passing run. Evidence, source snapshots and
+frozen Debug/test APKs are under ignored `artifacts/compact-single-pane-20261115/`.
+Seven distinct selected UI cases passed across the final focused runs: the new
+compact-pair case, bottom-search placement/retention, hidden-partner navigation,
+closing either focused wide pane, dragging a whole wide pair, and replacing one
+wide pane. The first seven-case run passed six cases; the older hidden-page test
+looked for asynchronous metadata/request records too early. It now waits for the
+specific URL and selects the compact partner before checking its completed
+navigation; its final focused rerun passed. These are selected local emulator
+checks; physical devices and a full connected suite were not verified for this
+change. No version bump or release action was performed.
+
+On 2026-11-10, page zoom passed three native WebView cases, one menu case at
+1000×800 dp/dark, and two existing video regressions on `emulator-5584`
+(API 36, WebView 133.0.6943.137). The menu case also passed at approximately
+411×914 dp/light; both screenshots were inspected. Checks cover whole-page scale
+with `textZoom` unchanged, draft/document retention, rapid zoom/reset ordering,
+viewport limits, live theme/visibility changes, suspension protection and snapshot
+restoration. This provider initially restored the document at 100% after saving
+125%; the explicit restore now preserves 125%, its original reset baseline and
+nonzero scroll Y=600, then resets to the original rendered scale. The existing
+video cases preserve user zoom through repeated tab switches and shrinking viewports.
+
+After the snapshot fix, all 193 Play Debug unit tests passed with no failures or
+skips, Play Debug and Release lint each reported 0 errors/81 warnings, and both
+Debug APKs built. Logs, frozen APKs and screenshots are retained under ignored
+`artifacts/page-zoom-20261110/`. This is selected emulator coverage; physical pinch
+gestures, other WebView providers and arbitrary live sites remain unverified.
 
 On 2026-11-10, settings navigation passed two new UI cases and 16 distinct
 existing settings-related cases across focused runs on the dedicated API-36

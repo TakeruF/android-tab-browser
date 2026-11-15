@@ -333,13 +333,15 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     }
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
     BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
-    NagiTheme(state.settings.theme, if (state.settings.spacesEnabled) state.currentSpace?.color ?: state.settings.themeColor else state.settings.themeColor) {
+    NagiTheme(state.settings.theme, com.takeruf.nagi.ui.theme.themeSeedColor(state.currentSpace?.color, state.settings.themeColor)) {
         val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val displayRotation = rememberDisplayRotation()
         val contentInsets = cameraContentInsets(state.settings, landscape, displayRotation,
             WindowInsets.safeDrawing, WindowInsets.systemBars, WindowInsets.ime)
         val compactNavigation = sidebarAdaptation.compact && route == "browser"
+        val settingsOpen = route == "settings"
+        val windowColor = if (settingsOpen) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.background
         val navigationInsets = WindowInsets.navigationBars
         val navigationDensity = LocalDensity.current
         val navigationColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -364,7 +366,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 activity.window.navigationBarColor = navigationColor.toArgb()
             }
         }
-        Surface(color = MaterialTheme.colorScheme.background,
+        Surface(color = windowColor,
             contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
             if (systemPip) Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
             else if (!state.ready) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -485,7 +487,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                         val flatBottom = sidebarAdaptation.compact && route == "browser"
                         Surface(shape = if (flatBottom) NagiShapes.Top else NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
                             .padding(if (sidebarAdaptation.compact) PaddingValues(0.dp) else PaddingValues(top = 8.dp, end = 8.dp, bottom = 8.dp)),
-                            color = MaterialTheme.colorScheme.surface, shadowElevation = if (flatBottom) 0.dp else 1.dp) {
+                            color = if (settingsOpen) windowColor else MaterialTheme.colorScheme.surface,
+                            shadowElevation = if (flatBottom || settingsOpen) 0.dp else 1.dp) {
                             Box(Modifier.fillMaxSize()) {
                                 NavHost(navController = nav, startDestination = "browser") {
                                     composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
@@ -516,11 +519,16 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         val ratio = splitRatio.coerceIn(minimumRatio, 1f - minimumRatio)
                                         Row(Modifier.fillMaxSize()) {
                                             listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT).forEach { side ->
-                                                val highlighted = sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
+                                                // A tab cannot be split with itself: when the dragged tab is already the one
+                                                // shown in this pane (or the only page), offer no drop target there.
+                                                val paneTab = if (right == null || side == SidebarSection.SPLIT_LEFT) left else right
+                                                val draggedTab = sidebarDrag.item?.takeIf { !it.favorite && it.pairRight == null }?.id
+                                                val selfDrop = draggedTab != null && draggedTab == paneTab?.id
+                                                val highlighted = !selfDrop && sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
                                                 if (right != null && side == SidebarSection.SPLIT_RIGHT) Spacer(Modifier.width(24.dp))
                                                 Box(Modifier.weight(if (right == null) 1f else if (side == SidebarSection.SPLIT_LEFT) ratio else 1f - ratio).fillMaxHeight()
                                                     .testTag(if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right")
-                                                    .sidebarTarget(sidebarDrag, side.name, SidebarDestination(side))) {
+                                                    .then(if (selfDrop) Modifier else Modifier.sidebarTarget(sidebarDrag, side.name, SidebarDestination(side)))) {
                                                     if (highlighted) Box(Modifier.fillMaxSize().padding(12.dp)
                                                         .clip(NagiShapes.Rounded)
                                                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
@@ -539,7 +547,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             canGoBack = focusedPage?.readerArticle != null || focusedPage?.canGoBack == true || canCloseTabOnBack,
                             canGoForward = focusedPage?.canGoForward == true,
                             onBack = ::back, onForward = { focusedEngine?.goForward() }, onNewTab = ::newTab,
-                            onSearch = { openOmnibox() }, onTabs = { setSidebarCollapsed(false) })
+                            onSearch = if (state.settings.bottomSearchBar) null else { { openOmnibox() } },
+                            onTabs = { setSidebarCollapsed(false) })
                     }
                 }
                 if (sidebarAdaptation.compact && !sidebarCollapsed) {

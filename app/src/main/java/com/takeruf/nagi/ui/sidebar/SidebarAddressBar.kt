@@ -3,7 +3,6 @@ package com.takeruf.nagi.ui.sidebar
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,11 +34,10 @@ fun SidebarAddressBar(url: String, title: String, onOmnibox: () -> Unit) {
     val displayUrl = remember(url) {
         runCatching { URI(url).host }.getOrNull() ?: url.removePrefix("https://").removePrefix("http://").removeSuffix("/")
     }
-    Surface(onClick = onOmnibox, shape = NagiShapes.Rounded,
-        color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    Surface(onClick = onOmnibox, shape = NagiShapes.Pill,
+        color = MaterialTheme.colorScheme.surfaceBright, contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.fillMaxWidth().testTag("sidebar-address")) {
-        Row(Modifier.heightIn(min = 48.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.heightIn(min = 48.dp).padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
                 Text(if (hasPage) displayUrl else strings(R.string.ui_search_anything),
                     style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -65,7 +63,7 @@ fun SidebarAddressBar(url: String, title: String, onOmnibox: () -> Unit) {
                 }, modifier = Modifier.testTag("sidebar-share-url")) {
                     Icon(NagiIcons.Share, strings(R.string.ui_share_link), Modifier.size(16.dp))
                 }
-            } else if (!hasPage) {
+            } else if (!hasPage && hardwareKeyboardConnected()) {
                 Text("Ctrl L", Modifier.padding(end = 8.dp), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

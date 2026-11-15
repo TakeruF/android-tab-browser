@@ -74,6 +74,9 @@ class LocalizationTest {
                 val french = language.startsWith("fr")
                 assertEquals(if (french) "Personnel" else "Personal", strings.spaceName(Space("personal", "Personal")))
                 assertEquals(if (french) "Travail" else "Trabajo", strings.spaceName(Space("work", "Work")))
+                assertEquals(if (french) "0 onglet" else "0 pestañas", context.resources.getQuantityString(R.plurals.ui_tab_count, 0, 0))
+                assertEquals(if (french) "1 onglet" else "1 pestaña", context.resources.getQuantityString(R.plurals.ui_tab_count, 1, 1))
+                assertEquals(if (french) "2 onglets" else "2 pestañas", context.resources.getQuantityString(R.plurals.ui_tab_count, 2, 2))
                 assertEquals(
                     if (french) "Rechercher « 日本 & 中文 » avec Google" else "Buscar «日本 & 中文» en Google",
                     strings(R.string.ui_search_1_s_for_2_s, "Google", "日本 & 中文"),

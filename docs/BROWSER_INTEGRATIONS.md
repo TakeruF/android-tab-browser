@@ -26,6 +26,25 @@ system download notification channel must be enabled; its exact presentation
 depends on the Android version and device. Android may initially minimize this
 system notification; expand it to see its details.
 
+### Download location
+
+Settings › General › Download location keeps the system Downloads folder by
+default, so existing users are unaffected. Choosing a folder opens Android's
+folder picker; Nagi takes a persisted read/write grant and stores only the tree
+URI in DataStore (`download_folder`). Replacing the folder or returning to the
+default releases the previous grant. The row shows the folder's name, or notes
+when the folder has become unavailable.
+
+Page-generated files are written straight into the chosen folder. DownloadManager
+cannot write into a Storage Access Framework folder, so HTTP(S) downloads bound
+for it are staged in app storage with an ongoing-only system notification;
+`FolderDownloadReceiver` (protected by `SEND_DOWNLOAD_COMPLETED_INTENTS`) moves
+the file on completion, removes the staged copy and posts Nagi's own completion
+or failure notification. A pending move is recorded per download ID outside
+DataStore and handed out once, so a repeated broadcast cannot copy twice. If the
+grant was revoked or the folder removed, the file is saved to Downloads instead;
+the staged copy is kept only when neither location accepts it.
+
 A tab opened by a live page (including `target="_blank"`, supported popups,
 the new-tab link setting and link context actions) is closed automatically after
 the user confirms an HTTP(S) download and DownloadManager accepts it, provided
@@ -58,6 +77,13 @@ This channel exposes no app-file read method or arbitrary native calls. It is no
 The main manifest declares AndroidX WebKit's non-exported, URI-granting `DropDataContentProvider`. In native page-drag mode, Nagi supplies the destination URL explicitly for link drags, and leaves image/text drag handling to WebView so Android can transfer actual image data. Right-click retains Nagi's context actions. The persisted “Drag links and images” setting can restore the previous long-press menu.
 
 Native Android drop receivers in pane address bars and blank pages accept HTTP(S) URL drops, highlight while entered, and navigate the receiving pane. They ignore file/content URIs and executable schemes. Website content retains WebView's own drop handling for fields and supported upload controls. Support for arbitrary web applications and external destination apps depends on their own drop handling.
+
+Link drags show a rounded host-name card with the existing Lucide link icon,
+a soft shadow, and the current Space's light/dark surface colors. The card sits
+above the touch point. Address-bar drop feedback follows the bar's pill shape
+with a thin outline and subtle tint; blank-page targets keep their rounded shape.
+WebView-started drags use the same card while preserving their original payload.
+Their preview fits the native drag surface, which can reduce its size.
 
 ## Sleeping tabs
 
