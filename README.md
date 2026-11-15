@@ -74,7 +74,7 @@ The development APK is `app/build/outputs/apk/play/debug/app-play-debug.apk`. Bu
 
 The legacy `github` source set remains for historical reproducibility and regression checks; it is no longer an official release channel. Local Debug builds use a separate signing identity and are not Play updates.
 
-Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), also available from Settings in all four interface languages.
+Privacy policy: [takeruf.com/nagi/privacy](https://takeruf.com/nagi/privacy), with English, Japanese, Korean and Simplified Chinese text. Spanish and French interfaces link to the English policy.
 
 ## Using Nagi
 
@@ -133,7 +133,7 @@ Archive runs on launch and on manual request.
 
 Search templates must use HTTPS and `{query}`. The 15 built-in engines include Baidu (`bd`), Sogou (`sg`), 360 (`360`), Douyin (`dy`), Shenma (`sm`), Qwen (`qwen`), and Perplexity (`pplx`). Qwen includes the mainland-China region label in Settings and a shorter name in suggestions.
 
-The interface supports English, Japanese, Korean, and Simplified Chinese, following the device language. Android 13+ also supports per-app language selection. See [localization and search engines](docs/LOCALIZATION.md).
+The interface supports English, Spanish, French, Japanese, Korean, and Simplified Chinese, following the device language. Android 13+ also supports per-app language selection. The Spanish/French addition is unreleased development work and is not included in the already submitted 1.3.0/code-18 bundle. See [localization and search engines](docs/LOCALIZATION.md).
 
 Fresh installs enable automatic search by region. Existing saved defaults remain unchanged until automatic mode is enabled. An IP country code of `CN` selects Baidu; other countries select Google. Lookup does not block startup. Fallback order is mobile network, SIM, then device region; language alone does not imply mainland China. IP results are cached for 24 hours, fallback/failures for one hour, with checks on launch/foreground and “Check again” in Settings. Manual engine selection disables automatic mode. Deleted engines are not recreated; missing required engines leave the current choice intact.
 

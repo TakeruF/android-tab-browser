@@ -53,11 +53,24 @@ class LocalizationUiTest {
         context.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(language)
         scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity { activity = it }
-        compose.waitUntil(15_000) { compose.onAllNodesWithText(home).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) {
+            val configuration = activity.resources.configuration
+            val label = if (configuration.screenWidthDp < 600) activity.getString(R.string.ui_search) else home
+            configuration.locales[0].language == language.substringBefore('-') &&
+                compose.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty()
+        }
         val strings = NagiStrings(activity)
-        compose.onNodeWithContentDescription(strings(R.string.ui_tab_1_s, strings(R.string.ui_new_tab))).assertIsDisplayed()
-        compose.onAllNodesWithText("Language QA 日本 한국 中文").onFirst().assertIsDisplayed()
         screenshot("$language-home")
+        val tabDescription = strings(R.string.ui_tab_1_s, strings(R.string.ui_new_tab))
+        if (compose.onAllNodesWithContentDescription(tabDescription).fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithContentDescription(strings(R.string.ui_tabs)).performClick()
+        }
+        compose.onNodeWithContentDescription(tabDescription).assertIsDisplayed()
+        compose.onAllNodesWithText("Language QA 日本 한국 中文").onFirst().assertIsDisplayed()
+        screenshot("$language-tabs")
+        if (compose.onAllNodesWithContentDescription(strings(R.string.ui_settings)).fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithContentDescription(strings(R.string.ui_tabs)).performClick()
+        }
         compose.onNodeWithContentDescription(strings(R.string.ui_settings)).performClick()
         compose.onNodeWithText(strings(R.string.ui_settings)).assertIsDisplayed()
         compose.selectSettingsCategory("search")
@@ -87,15 +100,25 @@ class LocalizationUiTest {
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().theme == ThemeMode.DARK } }
         screenshot("$language-settings")
         compose.returnToBrowserFromSettings()
-        compose.onNodeWithText(strings(R.string.ui_search_anything)).performClick()
+        if (activity.resources.configuration.screenWidthDp < 600) {
+            compose.onNodeWithContentDescription(strings(R.string.ui_search_or_enter_url)).performClick()
+        } else {
+            compose.onNodeWithText(strings(R.string.ui_search_anything)).performClick()
+        }
         compose.onNode(hasSetTextAction()).performTextReplacement(">" + strings(R.string.ui_open_settings))
         compose.onNodeWithText(strings(R.string.ui_open_settings)).assertIsDisplayed()
         screenshot("$language-commands")
-        compose.onNodeWithText("Esc").performClick()
+        if (compose.onAllNodesWithText("Esc").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Esc").performClick()
+        } else {
+            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        }
         assertEquals(language.substringBefore('-'), activity.resources.configuration.locales[0].language)
     }
     @Test fun english() = verify("en", "Where would you like to go?")
     @Test fun japanese() = verify("ja", "どこを開きますか？")
     @Test fun korean() = verify("ko", "어디로 이동할까요?")
     @Test fun chinese() = verify("zh-CN", "想去哪里？")
+    @Test fun spanish() = verify("es", "¿Adónde quieres ir?")
+    @Test fun french() = verify("fr", "Où souhaitez-vous aller ?")
 }

@@ -29,11 +29,11 @@ The [1.1.1 preflight](RELEASE_1.1.1_VERIFICATION.md) records the tested working-
 
 ## Preparation and publication
 
-1. Increment versionName/versionCode and prepare release notes in English, Japanese, Simplified Chinese and Korean.
+1. Increment versionName/versionCode and prepare release notes in English, Spanish, French, Japanese, Simplified Chinese and Korean. Preserve historical releases’ submitted notes and language scope.
 2. Verify relevant unit, instrumentation, lint and signed runtime checks. Review the complete candidate diff and preserve unrelated work.
 3. Commit the intended source; rebuild the Play AAB from the selected clean revision and record its hash/signature. Create an immutable source tag `v<versionName>` on that revision. Never move old release tags.
 4. Keep new GitHub release notes as a draft until their publication state is appropriate. Link to Play and clearly separate source version from store availability. Do not attach the AAB or publish a new APK/updater manifest.
-5. In Play Console, inspect the current app, signing, version codes, track and pending changes. Upload the AAB, add four-language notes, retain intended countries/device support and resolve validation errors.
+5. In Play Console, inspect the current app, signing, version codes, track and pending changes. Upload the AAB, add six-language notes for new releases, retain intended countries/device support and resolve validation errors.
 6. Save the production release as a draft. Check Publishing overview and record the exact remaining action. If the request is preparation only, stop before sending changes for review, starting a rollout or publishing. When the user explicitly authorizes a release, submit the verified change for review and complete the authorized rollout steps; report pending review separately from actual store availability.
 7. Separately report local source/tag, GitHub draft, website/profile deployment, accepted bundle, Console saved draft, review submission and actual store availability. Preparation proves only the stages reached.
 

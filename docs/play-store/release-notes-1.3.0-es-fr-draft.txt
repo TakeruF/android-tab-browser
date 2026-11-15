@@ -1,0 +1,13 @@
+<es-ES>
+Se añadieron zoom de página y atajos para zoom, historial, ajustes y navegación privada.
+Retoma pestañas fijadas y vistas divididas guardadas desde una nueva pestaña.
+Los ajustes se organizan en categorías adaptadas al tamaño de la ventana.
+Se mejoraron la confirmación de descarga y las notificaciones de progreso. Las pestañas vacías abiertas para descargar se cierran al iniciar la descarga.
+</es-ES>
+
+<fr-FR>
+Ajout du zoom des pages et de raccourcis pour le zoom, l’historique, les paramètres et la navigation privée.
+Reprenez les onglets épinglés et les vues partagées enregistrées depuis un nouvel onglet.
+Les paramètres sont organisés en catégories adaptées à la taille de la fenêtre.
+Confirmation des téléchargements et notifications de progression améliorées. Les onglets vides ouverts pour un téléchargement se ferment au démarrage de celui-ci.
+</fr-FR>

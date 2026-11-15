@@ -16,8 +16,12 @@ import java.util.Locale
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class LocalizationTest {
-    @Test fun resourcesFormatAndCommandsMatchInAllFourLanguages() {
-        for ((language, label) in listOf("en" to "New tab", "ja" to "新しいタブ", "ko" to "새 탭", "zh-CN" to "新标签页")) {
+    @Test fun resourcesFormatAndCommandsMatchInAllSupportedLanguages() {
+        for ((language, label) in listOf(
+            "en" to "New tab", "ja" to "新しいタブ", "ko" to "새 탭", "zh-CN" to "新标签页",
+            "es" to "Nueva pestaña", "es-MX" to "Nueva pestaña",
+            "fr" to "Nouvel onglet", "fr-CA" to "Nouvel onglet",
+        )) {
             val configuration = Configuration().apply { setLocale(Locale.forLanguageTag(language)) }
             val context = RuntimeEnvironment.getApplication().createConfigurationContext(configuration)
             val strings = NagiStrings(context)
@@ -27,6 +31,8 @@ class LocalizationTest {
             val settingsName = when (language) {
                 "ja", "zh-CN" -> "千问（中国大陆）"
                 "ko" -> "Qwen (중국 본토)"
+                "es", "es-MX" -> "Qwen (China continental)"
+                "fr", "fr-CA" -> "Qwen (Chine continentale)"
                 else -> "Qwen (China Mainland)"
             }
             assertEquals(shortName, strings.engineName(qwen))
@@ -47,6 +53,8 @@ class LocalizationTest {
                     "ja" -> "${name}に「日本 & 中文」を聞く"
                     "zh-CN" -> "向 $name 提问：“日本 & 中文”"
                     "ko" -> "${name}에 “日本 & 中文” 질문하기"
+                    "es", "es-MX" -> "Preguntar a $name sobre «日本 & 中文»"
+                    "fr", "fr-CA" -> "Demander à $name : « 日本 & 中文 »"
                     else -> "Ask $name about “日本 & 中文”"
                 }
                 assertEquals(expected, aiSuggestions.first { it.id == id }.title)
@@ -61,6 +69,16 @@ class LocalizationTest {
             assertEquals(label, strings.tabTitle(tab))
             assertEquals("User's name", strings.spaceName(Space("custom", "User's name")))
             assertEquals("User's name", strings.spaceName(Space("personal", "User's name")))
+            assertEquals("Saved page title", strings.tabTitle(tab.copy(url = "https://example.com", title = "Saved page title")))
+            if (language.startsWith("es") || language.startsWith("fr")) {
+                val french = language.startsWith("fr")
+                assertEquals(if (french) "Personnel" else "Personal", strings.spaceName(Space("personal", "Personal")))
+                assertEquals(if (french) "Travail" else "Trabajo", strings.spaceName(Space("work", "Work")))
+                assertEquals(
+                    if (french) "Rechercher « 日本 & 中文 » avec Google" else "Buscar «日本 & 中文» en Google",
+                    strings(R.string.ui_search_1_s_for_2_s, "Google", "日本 & 中文"),
+                )
+            }
             val command = SuggestionProvider.suggestions(">" + label, WorkspaceSnapshot(), BrowserSettings(), strings::translate)
             assertTrue(command.any { it.action == SuggestionAction.Command(BrowserCommand.NEW_TAB) && it.title == label })
             val search = SuggestionProvider.suggestions("dy 日英 한국 中文", WorkspaceSnapshot(searchEngines = DefaultSearchEngines.all),

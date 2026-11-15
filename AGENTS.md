@@ -44,7 +44,7 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest --no-p
 
 ## Localization and feature boundaries
 
-- Update user-facing strings together in `app/src/main/res/values/strings.xml`, `values-ja/strings.xml`, `values-ko/strings.xml`, and `values-zh/strings.xml`. Preserve numbered placeholders and provide accessibility descriptions for new controls.
+- Update user-facing strings together in `app/src/main/res/values/strings.xml`, `values-es/strings.xml`, `values-fr/strings.xml`, `values-ja/strings.xml`, `values-ko/strings.xml`, and `values-zh/strings.xml`. Preserve numbered placeholders and provide accessibility descriptions for new controls.
 - Check `docs/LOCALIZATION.md` for display-time translation and persisted-name behavior. Do not rewrite user-defined or saved values merely because the language changes.
 - Read `docs/PASSWORD_AUTOFILL.md` and `docs/PASSKEYS.md` before modifying authentication integrations. Synthetic providers, a reached password screen, or successful URL handoff do not prove completed provider login or production feature availability.
 - Keep debug-only IME/autofill test providers out of release variants. Preserve production approval gates unless the task explicitly changes them.
@@ -57,7 +57,7 @@ ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedPlayDebugAndroidTest --no-p
 - Increase the integer `versionCode` for each new Play upload artifact. Check the highest code already uploaded across Play tracks, including drafts/testing tracks; the new code must exceed it. Do not reuse an uploaded code or infer the next code solely from the local file.
 - Keep the Gradle version, `docs/releases/<version>.md`, `docs/play-store/release-notes-<version>.txt`, and any version references changed for that release consistent. Use `v<versionName>` for the source tag.
 - Developer-facing release notes live in `docs/releases/<version>.md`; state the version/code, concrete user-visible changes, material limitations, and actual release status. Keep verification evidence separate from store availability.
-- Play notes live in `docs/play-store/release-notes-<version>.txt`, with `<en-US>`, `<ja-JP>`, `<zh-CN>`, and `<ko-KR>` blocks. Keep the four languages equivalent, concise, and within Console limits; validate the exact text before submission. Describe shipped behavior without internal implementation chatter or unverified claims.
+- Play notes live in `docs/play-store/release-notes-<version>.txt`, with `<en-US>`, `<es-ES>`, `<fr-FR>`, `<ja-JP>`, `<zh-CN>`, and `<ko-KR>` blocks for new releases. Keep the six languages equivalent, concise, and within Console limits; validate the exact text before submission. Preserve historical submitted notes and their recorded language scope. Describe shipped behavior without internal implementation chatter or unverified claims.
 - Preserve user-supplied or approved release-note wording unless a change is requested. Do not copy an earlier release's approval or publication status into a new release.
 
 ## Secrets
