@@ -3,6 +3,7 @@ package com.takeruf.nagi.ui.settings
 import com.takeruf.nagi.ui.components.hardwareKeyboardConnected
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
@@ -123,11 +124,6 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
     var customizingEngines by rememberSaveable { mutableStateOf(false) }
     var showingLicenses by rememberSaveable { mutableStateOf(false) }
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
-    BackHandler(enabled = customizingEngines) { customizingEngines = false }
-    if (customizingEngines) {
-        SearchEnginesScreen(state, vm, onBack = { customizingEngines = false })
-        return
-    }
     var customizingNewTab by remember { mutableStateOf(false) }
     var editingThemeColor by remember { mutableStateOf(false) }
     if (customizingNewTab) NewTabAppearanceDialog(state.settings, vm) { customizingNewTab = false }
@@ -160,11 +156,15 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
         LaunchedEffect(wide) { if (wide && selectedCategory == null) selectedCategory = SettingsCategory.GENERAL.name }
         BackHandler(enabled = !wide && selectedCategory != null) { selectedCategory = null }
         val showCategories = !wide && selectedCategory == null
-        // Licenses are a sub-page of About shown in the content pane, so the category list stays.
-        LaunchedEffect(category) { if (category != SettingsCategory.ABOUT) showingLicenses = false }
+        // Sub-pages stay inside their category's content pane, beside the wide category list.
+        LaunchedEffect(category) {
+            if (category != SettingsCategory.ABOUT) showingLicenses = false
+            if (category != SettingsCategory.SEARCH) customizingEngines = false
+        }
         val licensesOpen = showingLicenses && category == SettingsCategory.ABOUT && !showCategories
+        val searchEnginesOpen = customizingEngines && category == SettingsCategory.SEARCH && !showCategories
         Column(Modifier.fillMaxSize()) {
-            if (!(licensesOpen && !wide)) Row(Modifier.fillMaxWidth().padding(horizontal = if (wide) 24.dp else 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!((licensesOpen || searchEnginesOpen) && !wide)) Row(Modifier.fillMaxWidth().padding(horizontal = if (wide) 24.dp else 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(if (wide || showCategories) R.string.ui_back_to_browser else R.string.ui_back_to_settings),
                     onClick = { if (wide || showCategories) onBack() else selectedCategory = null })
                 Text(strings(if (wide || showCategories) R.string.ui_settings else category.title), Modifier.padding(start = 12.dp),
@@ -185,6 +185,8 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 }
                 if (licensesOpen) Column(Modifier.weight(1f).fillMaxHeight()) {
                     LicensesPane(wide, onBack = { showingLicenses = false })
+                } else if (searchEnginesOpen) Column(Modifier.weight(1f).fillMaxHeight()) {
+                    SearchEnginesPane(state, vm, wide, onBack = { customizingEngines = false })
                 } else if (!showCategories) Column(Modifier.weight(1f).fillMaxHeight()) {
                     if (wide) Text(strings(category.title), Modifier.padding(start = 32.dp, top = 8.dp, bottom = 20.dp),
                         style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
@@ -213,8 +215,8 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                         Modifier.testTag("command-bar-show-tabs")) { value -> vm.updateSettings { it.copy(commandBar = it.commandBar.copy(showTabs = value)) } }
                                     SettingToggle(strings(R.string.ui_history), null, prefs.commandBar.showHistory,
                                         Modifier.testTag("command-bar-show-history")) { value -> vm.updateSettings { it.copy(commandBar = it.commandBar.copy(showHistory = value)) } }
-                                    SettingToggle(strings(R.string.ui_spaces), null, prefs.commandBar.showSpaces,
-                                        Modifier.testTag("command-bar-show-spaces")) { value -> vm.updateSettings { it.copy(commandBar = it.commandBar.copy(showSpaces = value)) } }
+                                    SettingToggle(strings(R.string.ui_spaces), null, prefs.spacesEnabled && prefs.commandBar.showSpaces,
+                                        Modifier.testTag("command-bar-show-spaces"), enabled = prefs.spacesEnabled) { value -> vm.updateSettings { it.copy(commandBar = it.commandBar.copy(showSpaces = value)) } }
                                     SettingToggle(strings(R.string.ui_commands), null, prefs.commandBar.showCommands,
                                         Modifier.testTag("command-bar-show-commands")) { value -> vm.updateSettings { it.copy(commandBar = it.commandBar.copy(showCommands = value)) } }
                                 } }
@@ -320,6 +322,13 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
                                     }
+                                }
+                                val pageDarkeningSupported = remember { com.takeruf.nagi.browser.engine.PageDarkening.supported }
+                                SettingToggle(strings(R.string.ui_adaptive_dark_mode),
+                                    strings(if (pageDarkeningSupported) R.string.ui_adaptive_dark_mode_description else R.string.ui_adaptive_dark_mode_unavailable),
+                                    prefs.adaptiveDarkMode, modifier = Modifier.testTag("settings-adaptive-dark-mode"),
+                                    enabled = pageDarkeningSupported) { enabled ->
+                                    vm.updateSettings { it.copy(adaptiveDarkMode = enabled) }
                                 }
                                 // The theme belongs to the current Space even while Spaces are hidden, so turning
                                 // Spaces on or off never changes the color. The caption names the Space only when shown.
@@ -447,7 +456,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
 }
 
 @Composable
-private fun SearchEnginesScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit) {
+private fun SearchEnginesPane(state: BrowserUiState, vm: BrowserViewModel, wide: Boolean, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
     val prefs = state.settings
     val commonIds = CommonSearchEngines.ids(prefs)
@@ -457,16 +466,35 @@ private fun SearchEnginesScreen(state: BrowserUiState, vm: BrowserViewModel, onB
     ) { it }
     var editing by remember { mutableStateOf<SearchEngine?>(null) }
     var adding by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
-        Row(Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_settings), onClick = onBack)
-            Column(Modifier.padding(start = 12.dp)) {
-                Text(strings(R.string.ui_customize_search_engines), style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold)
+    BackHandler(onBack = onBack)
+    val gutter = if (wide) 32.dp else 16.dp
+    Column(Modifier.fillMaxSize().testTag("search-engines-screen")) {
+        if (wide) {
+            Row(Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp, bottom = 20.dp)
+                .testTag("search-engines-breadcrumb"), verticalAlignment = Alignment.CenterVertically) {
+                Text(strings(R.string.ui_search_engines), Modifier.clip(NagiShapes.Rounded)
+                    .clickable(role = Role.Button, onClick = onBack)
+                    .semantics { contentDescription = strings(R.string.ui_back_to_settings) },
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Icon(NagiIcons.ChevronRight, null, Modifier.padding(horizontal = 6.dp).size(22.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings(R.string.ui_customize_search_engines), Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+        } else {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_settings), onClick = onBack)
+                Text(strings(R.string.ui_customize_search_engines), Modifier.padding(start = 12.dp),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
         }
-        LazyColumn(Modifier.weight(1f).testTag("search-engines-list"), contentPadding = PaddingValues(32.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("search-engines-list"),
+            contentPadding = PaddingValues(start = gutter, end = gutter, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { SettingsSection(strings(R.string.ui_common_search_engines), NagiIcons.Search) {
             Text(strings(R.string.ui_common_search_engines_description), Modifier.padding(16.dp),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -495,28 +523,41 @@ private fun SearchEnginesScreen(state: BrowserUiState, vm: BrowserViewModel, onB
                     val isAi = id in AiSearchEngines.ids
                     val isDefault = id == if (isAi) AiSearchEngines.defaultId(prefs) else prefs.defaultSearchEngineId
                     val name = strings.engineName(engine, inSettings = true)
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp).heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = id in commonIds, enabled = !isDefault,
-                            onCheckedChange = { enabled -> vm.updateSettings { CommonSearchEngines.select(it, id, enabled) } },
-                            modifier = Modifier.testTag("common-engine:$id").semantics {
-                                contentDescription = strings(R.string.ui_include_common_engine, name)
-                            })
-                        Column(Modifier.weight(1f)) {
-                            SearchEngineTitle(name, isAi, isDefault)
-                            Text("${engine.keyword}  ·  ${engine.urlTemplate}", style = MaterialTheme.typography.bodySmall, maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    BoxWithConstraints(Modifier.fillMaxWidth().testTag("search-engine-row:$id")) {
+                        val stacked = maxWidth < 600.dp
+                        @Composable
+                        fun RowScope.EngineActions() {
+                            TextButton(shape = NagiShapes.Rounded, enabled = !isDefault,
+                                modifier = (if (stacked) Modifier.weight(1f, fill = false) else Modifier)
+                                    .testTag("make-default:$id").semantics {
+                                    contentDescription = strings(if (isAi) R.string.ui_make_ai_default_named else R.string.ui_make_1_s_default, name)
+                                }, onClick = {
+                                    if (isAi) vm.defaultAiEngine(id) else vm.defaultEngine(id)
+                                }) {
+                                Text(strings(if (isAi) R.string.ui_make_ai_default else R.string.ui_make_search_default),
+                                    maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                            if (id != CommonSearchEngines.CHATGPT) {
+                                ToolButton(NagiIcons.Pencil, strings(R.string.ui_edit_1_s, name)) { editing = engine }
+                                ToolButton(NagiIcons.Trash2, strings(R.string.ui_delete_1_s_48c860, name), state.workspace.searchEngines.size > 1) { vm.deleteEngine(id) }
+                            }
                         }
-                        TextButton(shape = NagiShapes.Rounded, enabled = !isDefault,
-                            modifier = Modifier.testTag("make-default:$id").semantics {
-                                contentDescription = strings(if (isAi) R.string.ui_make_ai_default_named else R.string.ui_make_1_s_default, name)
-                            }, onClick = {
-                                if (isAi) vm.defaultAiEngine(id) else vm.defaultEngine(id)
-                            }) {
-                            Text(strings(if (isAi) R.string.ui_make_ai_default else R.string.ui_make_search_default))
-                        }
-                        if (id != CommonSearchEngines.CHATGPT) {
-                            ToolButton(NagiIcons.Pencil, strings(R.string.ui_edit_1_s, name)) { editing = engine }
-                            ToolButton(NagiIcons.Trash2, strings(R.string.ui_delete_1_s_48c860, name), state.workspace.searchEngines.size > 1) { vm.deleteEngine(id) }
+                        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp)) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = id in commonIds, enabled = !isDefault,
+                                    onCheckedChange = { enabled -> vm.updateSettings { CommonSearchEngines.select(it, id, enabled) } },
+                                    modifier = Modifier.testTag("common-engine:$id").semantics {
+                                        contentDescription = strings(R.string.ui_include_common_engine, name)
+                                    })
+                                Column(Modifier.weight(1f)) {
+                                    SearchEngineTitle(name, isAi, isDefault)
+                                    Text("${engine.keyword}  ·  ${engine.urlTemplate}", style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (!stacked) EngineActions()
+                            }
+                            if (stacked) Row(Modifier.fillMaxWidth().padding(start = 48.dp),
+                                horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { EngineActions() }
                         }
                     }
                 }
@@ -556,8 +597,9 @@ private fun CommonSearchEngineToggle(
 @Composable
 private fun SearchEngineTitle(title: String, isAi: Boolean, isDefault: Boolean) {
     val strings = rememberNagiStrings()
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleSmall,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         if (isAi || isDefault) {
             Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
@@ -641,14 +683,15 @@ private fun SettingsInfo(title: String, value: String) {
 }
 
 @Composable
-private fun SettingToggle(title: String, subtitle: String?, value: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
-    Row(modifier.fillMaxWidth().toggleable(value = value, role = Role.Switch, onValueChange = onChange)
+private fun SettingToggle(title: String, subtitle: String?, value: Boolean, modifier: Modifier = Modifier,
+    enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Row(modifier.fillMaxWidth().toggleable(value = value, enabled = enabled, role = Role.Switch, onValueChange = onChange)
         .heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 20.dp)) {
+        Column(Modifier.weight(1f).padding(end = 20.dp).alpha(if (enabled) 1f else 0.38f)) {
             Text(title)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = value, onCheckedChange = null)
+        Switch(checked = value, onCheckedChange = null, enabled = enabled)
     }
 }
 

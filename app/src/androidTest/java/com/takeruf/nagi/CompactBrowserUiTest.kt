@@ -212,6 +212,10 @@ class CompactBrowserUiTest {
         for (width in listOf(320, 480, 1000, 360)) {
             resize(width)
             assertSame(view, webViews().single())
+            compose.onNodeWithContentDescription("Page menu").performClick()
+            compose.onNodeWithText("Forward").assertDoesNotExist()
+            if (width < 600) compose.onNodeWithText("Reload").assertIsDisplayed()
+            shell("input keyevent 4"); compose.waitForIdle()
             compose.waitUntil(10_000) {
                 var restored = false
                 compose.runOnIdle { restored = view.progress == 100 && view.scrollY == originalScroll }
@@ -262,6 +266,7 @@ class CompactBrowserUiTest {
         compose.onNodeWithText("New split view").assertDoesNotExist()
         compose.onNodeWithText("Swap panes").assertDoesNotExist()
         compose.onNodeWithText("Close split view").assertDoesNotExist()
+        compose.onNodeWithText("Forward").assertDoesNotExist()
         shell("input keyevent 4"); compose.waitForIdle()
         compose.onNodeWithTag("compact-tabs-button").performClick()
         compose.onNodeWithTag("sidebar-split-group").assertDoesNotExist()
@@ -300,6 +305,10 @@ class CompactBrowserUiTest {
                 assertEquals(setOf(left, right), webViews().toSet())
                 compose.onNodeWithContentDescription("Resize split view").assertIsDisplayed()
                 compose.onNodeWithTag("split-title-$second").assertIsSelected()
+                compose.onNode(hasContentDescription("Page menu") and
+                    hasAnyAncestor(hasTestTag("browser-pane-right-$second"))).performClick()
+                compose.onNodeWithText("Forward").performScrollTo().assertIsDisplayed()
+                shell("input keyevent 4"); compose.waitForIdle()
             }
             assertPairSaved()
             assertDraft(left); assertDraft(right)

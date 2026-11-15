@@ -131,6 +131,7 @@ class CommandBarSettingsUiTest {
         before.forEach { js(it, "window.commandBarToken='retained';document.getElementById('draft').value='未送信 日本語';true") }
         openSettings()
         scrollTo("command-bar-show-search").assertIsOn()
+        assertSpacesSuggestionFollowsFeatureSetting(width, theme)
         capture("$width-categories-$theme")
         // Commands are shown or hidden together; there are no per-command switches.
         compose.onAllNodesWithTag("command-bar-command-new_tab").assertCountEquals(0)
@@ -187,5 +188,34 @@ class CommandBarSettingsUiTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("command-input").fetchSemanticsNodes().isEmpty() }
         compose.waitUntil(15_000) { server.requests.any { it.path == "/two" } }
         assertFalse(prefs().commandBar.showCommands)
+    }
+
+    private fun assertSpacesSuggestionFollowsFeatureSetting(width: Int, theme: ThemeMode) {
+        fun setSpacesEnabled(enabled: Boolean) {
+            compose.selectSettingsCategory("general")
+            compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Use Spaces"))
+            compose.onNodeWithText("Use Spaces").performClick()
+            compose.onNodeWithTag("confirm-spaces-change").performClick()
+            waitForSettings { it.spacesEnabled == enabled }
+            compose.selectSettingsCategory("command_bar")
+        }
+
+        scrollTo("command-bar-show-spaces").assertIsOn().assertIsEnabled()
+        setSpacesEnabled(false)
+        scrollTo("command-bar-show-spaces").assertIsOff().assertIsNotEnabled()
+            .performTouchInput { click() }
+        assertTrue(prefs().commandBar.showSpaces)
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
+        scrollTo("command-bar-show-spaces").assertIsOff().assertIsNotEnabled()
+        capture("$width-spaces-disabled-$theme")
+        setSpacesEnabled(true)
+        scrollTo("command-bar-show-spaces").assertIsOn().assertIsEnabled().performClick()
+        waitForSettings { !it.commandBar.showSpaces }
+        setSpacesEnabled(false)
+        scrollTo("command-bar-show-spaces").assertIsOff().assertIsNotEnabled()
+        setSpacesEnabled(true)
+        scrollTo("command-bar-show-spaces").assertIsOff().assertIsEnabled().performClick()
+        waitForSettings { it.commandBar.showSpaces }
     }
 }

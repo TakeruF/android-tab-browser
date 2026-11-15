@@ -50,9 +50,9 @@ Video surfaces fit the visual viewport's dimensions and offsets rather than assu
 
 Physical devices/fold transitions, manufacturer IMEs and trackpad drivers, real camera/microphone/location hardware, Android 8–15 runtime behavior, mainland-China networking, general production video compatibility, DRM, and embedded players in closed shadow roots remain unverified. Retaining a live WebView does not establish DOM/form recovery after process death. Updater Robolectric coverage on API 26 and 35 is separate from device proof.
 
-WebView keeps its ordinary white canvas when the app theme changes. A pixel regression checks a transparent page after a live dark-theme switch, then confirms that an explicitly authored dark background survives both app themes.
+With Adaptive dark mode off (the default), WebView keeps its ordinary white canvas when the app theme changes. A pixel regression checks a transparent page after a live dark-theme switch, then confirms that an explicitly authored dark background survives both app themes.
 
-Website color preference follows the effective app theme (System, Light, or Dark). Each engine uses an isolated native theme context; changes dispatch WebView configuration updates without navigation, JavaScript media-query shims, or forced color inversion. `WebViewEngineTest#websiteColorSchemeChangesWithoutReloadingOrLosingPageState` checks initial dark preference, live light/dark matchMedia events, actual CSS media-query colors, preserved JavaScript state, and a single document request.
+Website color preference follows the effective app theme (System, Light, or Dark). Each engine uses an isolated native theme context; changes dispatch WebView configuration updates without navigation or JavaScript media-query shims. Optional native algorithmic darkening is controlled separately in Appearance settings. `WebViewEngineTest#websiteColorSchemeChangesWithoutReloadingOrLosingPageState` checks initial dark preference, live light/dark matchMedia events, actual CSS media-query colors, preserved JavaScript state, and a single document request.
 
 Password autofill is disabled in the production configuration pending approval. Regression checks assert that native WebView autofill is excluded, direct manual requests return awaiting-approval status, the entire Settings section and page-menu action are absent, and no awaiting-approval notice is shown in the normal UI. Retained synthetic-provider tests explicitly opt in to the implementation and are not evidence that the production feature is available.
 
@@ -289,3 +289,22 @@ No version bump or release action was performed.
 Generated output belongs in Git-ignored `artifacts/` or `app/build/`. Keep the latest and previous signed release APK/AAB, checksums/update metadata, and compact final verification evidence. Remove superseded Debug APKs, repeated downloads, build intermediates, raw logcat/build logs, interrupted runs, and obsolete screenshots after their useful results are recorded.
 
 The 2026-10-11 cleanup removed older local runs and chronological development reports. Source tests, reusable scripts, branding/store assets, README images, and release notes remain. Earlier tracked records can be recovered from Git history; ignored raw outputs are not retained.
+
+## Adaptive dark mode checks
+
+- `PageDarkeningSettingsTest` covers the upgrade default (off), atomic concurrent
+  theme/exception updates, persistence after reopening, and retained exclusions
+  while disabled.
+- `EnginePoolTest#darkeningPolicyReachesBothPanesBackgroundNewAndResumedEnginesWithoutReloads`
+  covers live panes, background engines, new sessions and suspended restoration.
+- `PageDarkeningEngineTest` uses local HTTP fixtures and native screenshot pixels:
+  default off, dark-theme opt-in, light-theme inactivity, live site/global
+  switches, drafts and scroll without reload, destination-host policy through
+  redirects/history, authored dark colors and author opt-out.
+- `SettingsNavigationUiTest#adaptiveDarkModeSettingAndSiteMenuUpdateLiveSplitAndSurviveRecreation`
+  exercises the actual Appearance toggle and page-menu actions at 1000dp and
+  411dp, both themes, two live Split WebViews, site-specific exclusions,
+  re-enabling and Activity recreation. Screenshots are kept in ignored artifacts.
+
+These checks use the dedicated API 36 QA emulator. Other WebView versions,
+physical devices and arbitrary public websites remain separate verification.

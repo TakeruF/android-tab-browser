@@ -455,4 +455,9 @@
     <string name="ui_download_location_choose">"폴더 선택…"</string>
     <string name="ui_download_location_unavailable">"%1$s을(를) 사용할 수 없어 다운로드 폴더에 저장합니다"</string>
     <string name="ui_download_saved_to_1_s">"%1$s에 저장했습니다"</string>
+    <string name="ui_adaptive_dark_mode">웹페이지 자동 다크 모드</string>
+    <string name="ui_adaptive_dark_mode_description">Nagi가 다크 모드일 때 웹페이지를 어둡게 표시합니다. 일부 사이트의 색상과 대비가 달라질 수 있습니다.</string>
+    <string name="ui_adaptive_dark_mode_unavailable">현재 Android System WebView 버전은 웹페이지 자동 다크 모드를 지원하지 않습니다.</string>
+    <string name="ui_disable_site_dark_mode">이 사이트의 자동 다크 모드 끄기</string>
+    <string name="ui_enable_site_dark_mode">이 사이트의 자동 다크 모드 켜기</string>
 </resources>

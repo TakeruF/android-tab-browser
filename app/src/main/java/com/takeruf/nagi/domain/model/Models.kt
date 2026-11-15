@@ -91,6 +91,8 @@ data class BrowserSettings(
     val cameraLeftRotation: Int? = null,
     val spacesEnabled: Boolean = true,
     val commandBar: CommandBarSettings = CommandBarSettings(),
+    val adaptiveDarkMode: Boolean = false,
+    val darkModeExcludedHosts: Set<String> = emptySet(),
 )
 
 data class WorkspaceSnapshot(

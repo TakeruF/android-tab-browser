@@ -23,6 +23,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val cameraSideMargin = intPreferencesKey("camera_side_margin")
         val bottomSearchBar = booleanPreferencesKey("bottom_search_bar")
         val downloadFolder = stringPreferencesKey("download_folder")
+        val adaptiveDarkMode = booleanPreferencesKey("adaptive_dark_mode")
+        val darkModeExcludedHosts = stringSetPreferencesKey("dark_mode_excluded_hosts")
         val theme = stringPreferencesKey("theme")
         // Keep the original storage key so existing color choices survive this rename.
         val themeColor = longPreferencesKey("accent_color")
@@ -70,6 +72,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         newTabPhoto = p[Keys.newTabPhoto],
         translationTargetLanguage = p[Keys.translationTargetLanguage],
         alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]),
+        adaptiveDarkMode = p[Keys.adaptiveDarkMode] ?: false,
+        darkModeExcludedHosts = p[Keys.darkModeExcludedHosts] ?: emptySet(),
         theme = enumOrDefault(p[Keys.theme], ThemeMode.SYSTEM),
         sidebarWidth = (p[Keys.width] ?: 264f).coerceIn(220f, 380f),
         sidebarCollapsed = p[Keys.collapsed] ?: false,
@@ -110,6 +114,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
                 spacesEnabled = p[Keys.spacesEnabled] ?: true,
                 commandBar = commandBarSettings(p),
+                adaptiveDarkMode = p[Keys.adaptiveDarkMode] ?: false,
+                darkModeExcludedHosts = p[Keys.darkModeExcludedHosts] ?: emptySet(),
                 bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
                 downloadFolder = p[Keys.downloadFolder],
                 avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
@@ -127,6 +133,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
                 translationTargetLanguage = p[Keys.translationTargetLanguage],
                 alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
             val next = change(current)
+            p[Keys.adaptiveDarkMode] = next.adaptiveDarkMode
+            p[Keys.darkModeExcludedHosts] = next.darkModeExcludedHosts
             p[Keys.spacesEnabled] = next.spacesEnabled
             p[Keys.commandBarSearch] = next.commandBar.showSearch
             p[Keys.commandBarTabs] = next.commandBar.showTabs

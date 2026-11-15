@@ -455,4 +455,9 @@
     <string name="ui_download_location_choose">"フォルダを選択…"</string>
     <string name="ui_download_location_unavailable">"%1$s を使用できないため、ダウンロード フォルダに保存します"</string>
     <string name="ui_download_saved_to_1_s">"%1$s に保存しました"</string>
+    <string name="ui_adaptive_dark_mode">ウェブページの自動ダークモード</string>
+    <string name="ui_adaptive_dark_mode_description">Nagiがダークモードのときにウェブページを暗くします。サイトによって色やコントラストが変わる場合があります。</string>
+    <string name="ui_adaptive_dark_mode_unavailable">このAndroid System WebViewはウェブページの自動ダークモードに対応していません。</string>
+    <string name="ui_disable_site_dark_mode">このサイトの自動ダークモードをオフ</string>
+    <string name="ui_enable_site_dark_mode">このサイトの自動ダークモードをオン</string>
 </resources>

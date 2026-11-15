@@ -94,6 +94,9 @@ class WebViewBrowserEngine(
         }
     }
     private var darkTheme = false
+    private var pageDarkeningEnabled = false
+    private var darkModeExcludedHosts = emptySet<String>()
+    override val supportsPageDarkening = PageDarkening.supported
     private var dragPreviewColors: LinkDragPreviewColors? = null
     private val cookies = if (privateProfileName == null) CookieManager.getInstance()
         else PrivateProfiles.attach(webView, privateProfileName)
@@ -291,6 +294,7 @@ class WebViewBrowserEngine(
                         }
                         return true
                     }
+                    applyPageDarkening(view, url)
                     // POST navigations keep their method/body and the current document UA.
                     return false
                 }
@@ -300,6 +304,7 @@ class WebViewBrowserEngine(
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
+                applyPageDarkening(view, url)
                 cancelZoomWork()
                 if (url != "about:blank" && restoredZoomUrl?.substringBefore('#')?.let { it != url.substringBefore('#') } == true) cancelSnapshotPresentationRestore()
                 if (fullscreenActive) fullscreenHost.hideVideo(tabId)
@@ -328,6 +333,7 @@ class WebViewBrowserEngine(
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 if (url == downloadUrl) return
+                applyPageDarkening(view, url)
                 if (url != state.value.url) humanVerification.locationChanged()
                 update { it.copy(url = url, visitBlockingExceptionSite = visitExceptionFor(url), canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 metadata()
@@ -422,6 +428,7 @@ class WebViewBrowserEngine(
                         WebSettingsCompat.getUserAgentMetadata(view.settings))
                 }
                 cookies.setAcceptThirdPartyCookies(popup, cookies.acceptThirdPartyCookies(view))
+                applyPageDarkening(popup, state.value.url)
                 popupViews.add(popup)
                 popup.postDelayed({ if (popupViews.remove(popup)) {
                     popup.destroy(); host.showMessage(strings(R.string.ui_blank_script_generated_popups_are_not_supported_in_this_mvp))
@@ -768,6 +775,7 @@ class WebViewBrowserEngine(
         blockingDocument = BlockingDocument(url)
         pageTranslation.reset(restore = true)
         applySiteDisplayMode(url)
+        applyPageDarkening(webView, url)
         restoringScroll = null
         downloadUrl = null
         navigationGeneration++
@@ -821,6 +829,7 @@ class WebViewBrowserEngine(
         translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(-1)
+        historyUrl(-1)?.let { applyPageDarkening(webView, it) }
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
     } }
     override fun goForward() { if (canGoForward()) {
@@ -828,6 +837,7 @@ class WebViewBrowserEngine(
         translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(1)
+        historyUrl(1)?.let { applyPageDarkening(webView, it) }
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goForward()
     } }
     override fun canGoBack() = !destroyed && (state.value.readerArticle != null || webView.canGoBack())
@@ -906,7 +916,7 @@ class WebViewBrowserEngine(
     }
 
     override fun setDarkTheme(dark: Boolean) {
-        if (darkTheme == dark) return
+        if (destroyed || darkTheme == dark) return
         darkTheme = dark
         // WebView reads isLightTheme on configuration changes and updates native
         // prefers-color-scheme, including CSS, matchMedia listeners and child frames.
@@ -921,7 +931,28 @@ class WebViewBrowserEngine(
             // Keep the default canvas white for pages that leave their background
             // transparent. Authors control their own dark backgrounds through CSS.
             view.dispatchConfigurationChanged(configuration)
+            applyPageDarkening(view, state.value.url)
         }
+    }
+
+    override fun configurePageDarkening(enabled: Boolean, excludedHosts: Set<String>) {
+        if (destroyed || (pageDarkeningEnabled == enabled && darkModeExcludedHosts == excludedHosts)) return
+        pageDarkeningEnabled = enabled
+        darkModeExcludedHosts = excludedHosts.toSet()
+        (listOf(webView) + popupViews).forEach { applyPageDarkening(it, state.value.url) }
+    }
+
+    private fun applyPageDarkening(view: WebView, url: String) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) return
+        val host = SiteDisplayModeStore.siteHost(url)
+        val allowed = darkTheme && pageDarkeningEnabled && host != null && host !in darkModeExcludedHosts
+        if (WebSettingsCompat.isAlgorithmicDarkeningAllowed(view.settings) != allowed) {
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, allowed)
+        }
+    }
+
+    private fun historyUrl(offset: Int): String? = webView.copyBackForwardList().let {
+        it.getItemAtIndex(it.currentIndex + offset)?.url
     }
 
     override fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {
@@ -1121,6 +1152,7 @@ class WebViewBrowserEngine(
         restoredZoomPercent = snapshot.zoomPercent
         restoredZoomUrl = snapshot.url
         if (snapshot.zoomBaseScale > 0f) zoomBaseScale = snapshot.zoomBaseScale
+        applyPageDarkening(webView, snapshot.url)
         val restored = runCatching { webView.restoreState(snapshot.bundle) != null }.getOrDefault(false)
         if (!restored) { restoringScroll = null; restoredZoomBaseScale = null; restoredZoomPercent = null; restoredZoomUrl = null }
         if (restored) {

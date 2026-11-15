@@ -119,12 +119,12 @@ class AppearanceUiTest {
         contrast(text("Search anything"))
         contrast(text("Keep your everyday tabs here"))
         contrast(text("Where would you like to go?"))
-        contrast(text("Z"))
+        contrast(compose.onNodeWithContentDescription("Favorite Zebra QA"), 3.0)
         contrast(compose.onNodeWithContentDescription("Settings", useUnmergedTree = true), 3.0)
         compose.onNodeWithContentDescription("Tab New tab").assertIsSelected().assertHasClickAction()
         compose.onAllNodesWithText(spaceName, useUnmergedTree = true).also { nodes ->
-            assertEquals(2, nodes.fetchSemanticsNodes().size)
-            contrast(nodes[0]); contrast(nodes[1])
+            assertEquals(1, nodes.fetchSemanticsNodes().size)
+            contrast(nodes[0])
         }
         save("${mode.name.lowercase()}-home")
     }
@@ -175,6 +175,10 @@ class AppearanceUiTest {
         drag(70f)
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().sidebarWidth > 300f } }
         val savedWidth = runBlocking { container.settings.settings.first().sidebarWidth }
+        compose.onNodeWithTag("sidebar-resize-indicator").assertDoesNotExist()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("sidebar-resize-handle").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(savedWidth.dp)
         drag(-180f)
         compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().sidebarCollapsed } }
         compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(72.dp)
@@ -192,13 +196,67 @@ class AppearanceUiTest {
             moveTo(center + androidx.compose.ui.geometry.Offset(100f, 0f)); release(MouseButton.Secondary)
         }
         edge.performTouchInput {
-            down(center); moveBy(androidx.compose.ui.geometry.Offset(-100f, 0f)); cancel()
+            down(center); moveBy(androidx.compose.ui.geometry.Offset(-100f, 0f))
         }
+        compose.onNodeWithTag("sidebar-resize-indicator").assertIsDisplayed()
+        edge.performTouchInput { cancel() }
         compose.waitForIdle()
+        compose.onNodeWithTag("sidebar-resize-indicator").assertDoesNotExist()
         val saved = runBlocking { container.settings.settings.first() }
         assertEquals(264f, saved.sidebarWidth)
         assertFalse(saved.sidebarCollapsed)
         compose.onNodeWithTag("sidebar").assertWidthIsEqualTo(264.dp)
+    }
+
+    @Test fun boundaryExpandedTouchTargetShowsNeutralGuideOnlyWhileDragging() {
+        val edge = compose.onNodeWithTag("sidebar-resize-handle")
+        val guide = compose.onNodeWithTag("sidebar-resize-indicator")
+        val density = compose.activity.resources.displayMetrics.density
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            theme(mode)
+            edge.assertWidthIsEqualTo(24.dp)
+            val sidebar = compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot
+            val bounds = edge.fetchSemanticsNode().boundsInRoot
+            assertEquals(sidebar.right + 4f * density, bounds.center.x, 1f)
+            guide.assertDoesNotExist()
+            edge.performMouseInput { moveTo(center) }
+            guide.assertDoesNotExist()
+            edge.performMouseInput { press() }
+            guide.assertDoesNotExist()
+            edge.performMouseInput { release() }
+            guide.assertDoesNotExist()
+            // Both starts are outside the former 8dp gutter, on opposite sides.
+            for (leftEdge in listOf(true, false)) {
+                val target = edge.fetchSemanticsNode().boundsInRoot
+                val start = androidx.compose.ui.geometry.Offset(
+                    if (leftEdge) target.left + 2f * density else target.right - 2f * density, target.center.y)
+                val delta = (if (leftEdge) 40f else -40f) * density
+                val savedWidth = runBlocking { container.settings.settings.first().sidebarWidth }
+                compose.onRoot().performTouchInput { down(start) }
+                guide.assertDoesNotExist()
+                compose.onRoot().performTouchInput {
+                    moveTo(start + androidx.compose.ui.geometry.Offset(delta, 0f), delayMillis = 100)
+                }
+                guide.assertIsDisplayed()
+                val pixel = image(guide).let { it.getPixel(it.width / 2, it.height / 2) }
+                assertEquals(android.graphics.Color.red(pixel), android.graphics.Color.green(pixel))
+                assertEquals(android.graphics.Color.green(pixel), android.graphics.Color.blue(pixel))
+                assertEquals(savedWidth, runBlocking { container.settings.settings.first().sidebarWidth })
+                save("sidebar-resize-${mode.name.lowercase()}-${if (leftEdge) "left" else "right"}")
+                compose.onRoot().performTouchInput { up() }
+                compose.waitUntil(10_000) {
+                    runBlocking { kotlin.math.abs(container.settings.settings.first().sidebarWidth - savedWidth) > 30f }
+                }
+                guide.assertDoesNotExist()
+            }
+        }
+        // The enlarged boundary must leave the neighboring tab-close button usable.
+        val activeId = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        compose.onNodeWithContentDescription("Close New tab").performTouchInput {
+            click(centerRight - androidx.compose.ui.geometry.Offset(2f * density, 0f))
+        }
+        compose.waitUntil(10_000) { runBlocking { container.workspace.dao.tab(activeId)?.closedAt != null } }
+        guide.assertDoesNotExist()
     }
 
     private fun editSpace() {

@@ -13,7 +13,8 @@ Video/audio recording and folder selection are outside this first implementation
 HTTP(S) and generated-file confirmations use the same rounded, bordered notice
 card as page translation, following the active Space color and light/dark theme.
 Two equal-width, at least 48dp-tall buttons provide an outlined Cancel action
-and a filled Download action. The card remains modal while awaiting a decision.
+and a filled Download action. Cancel is the only dismiss button; the header
+has no duplicate close icon. The card remains modal while awaiting a decision.
 The filename and source remain visible, with size shown for generated files.
 Cancel, Back and outside dismissal do not start a transfer.
 
@@ -121,3 +122,31 @@ On 2026-10-06, GitHub and Play Debug APK builds, Play Release Kotlin compilation
 Sources: [WebView file chooser and capture](https://developer.android.com/reference/android/webkit/WebChromeClient.FileChooserParams), [WebView image drag provider](https://developer.android.com/reference/androidx/webkit/DropDataContentProvider), [Android drop targets](https://developer.android.com/develop/ui/views/touch-and-input/drag-drop/view), [WebView message APIs](https://developer.android.com/reference/androidx/webkit/WebViewCompat).
 
 These integrations are included in Nagi 0.1.2. See [0.1.2 release validation](VALIDATION.md#2026-10-06--012-release-validation) for the current release checks.
+
+## Adaptive dark mode
+
+Settings → Appearance → Adaptive dark mode is off by default, including upgrades.
+When enabled, it allows native WebView algorithmic darkening only while the
+**effective app theme is dark** (including System mode when the system is dark).
+Light mode retains the site's normal appearance. Providers without
+`WebViewFeature.ALGORITHMIC_DARKENING` show a disabled setting with an explanation.
+Nagi uses [AndroidX WebKit's supported darkening API](https://developer.android.com/develop/ui/views/layout/webapps/dark-theme),
+without injecting a color-inversion script. Authored dark themes and explicit
+website opt-outs remain under the site's control; colors and contrast can vary.
+
+While this setting and the dark app theme are both active, an HTTP(S) page's
+menu includes “Turn off adaptive dark mode for this site”, or “Turn on…” for an
+excluded site. Exceptions use the canonical hostname (case/IDN normalized,
+trailing dot and port removed), shared across tabs and Spaces. They are saved
+atomically in DataStore and retained when the global setting or app theme is
+changed. Different subdomains remain separate sites. The site switch affects
+Nagi's automatic adaptation; a site's own dark theme remains intact.
+
+`EnginePool` distributes the setting and exclusions to live engines and applies
+current values before loading/restoring new or suspended engines. Each engine
+applies the destination hostname's policy for links, redirects, history and
+restored documents. Theme, global and site switches update the native setting
+in place, preserving the live document, drafts, scroll and Split pairing.
+Reader mode uses its own app-themed presentation. Private browsing inherits the
+initial normal-workspace choices, then keeps its settings and site exceptions
+in memory for the private task lifetime.

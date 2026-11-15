@@ -35,6 +35,7 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 onResumeTab = { id -> onFocusRight(false); vm.selectTab(id) },
                 onTranslationOptions = { onTranslationOptions(tab, engine) },
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap, compactWindow = compactWindow,
+                onSiteDarkModeChange = vm::setSiteDarkMode,
                 onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->
                     engine.configureContentBlocking(prefs.adBlockingEnabled, prefs.adBlockExcludedHosts)
                     if (com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(engine.state.value.url) == host) {

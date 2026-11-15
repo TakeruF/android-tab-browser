@@ -6,9 +6,19 @@ Compact mode uses a single boundary: the current Nagi window is compact below 60
 
 The previous 600dp-entry/640dp-exit hysteresis allowed both layouts at 600–639dp depending on resize history; it has been removed. The wide sidebar's width and collapsed preference remain independent of the temporary compact sheet. Resizing to a wide window dismisses the sheet and restores that preference.
 
+The wide sidebar boundary has a transparent 24dp drag target centered on the
+existing 8dp gap. A neutral gray guide appears only after resizing starts,
+and disappears on release or cancellation; hovering or pressing alone does
+not reveal it. Dragging still collapses at the minimum width, reopens a
+collapsed sidebar, and saves the width only on release.
+
 **Settings → Appearance → Search bar at bottom** optionally moves the address/search bar below the page, just above the compact navigation controls. The choice persists across launches and applies only below 600dp; wide windows retain the top address bar. With this option enabled, search suggestions appear above the input and the input stays above the keyboard. The default remains the top address bar.
 
 Compact page headers move Back/Forward to the bottom bar and Reload into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split is available only in wide windows. Below 600dp, the selected tab fills the page, including either member of a saved pair. The tab sheet lists both members individually; page/tab menus, Command Bar commands, and drag targets do not offer Split creation, replacement, swapping or closing. New-tab resume links also open individual pages in compact mode.
+
+The page menu omits Forward when the top toolbar or compact bottom bar already
+provides it. Split and narrow wide-window panes keep the menu action because
+their address bar has no Forward button.
 
 Narrowing a window never detaches a saved pair or closes its partner. Both live engines remain protected from suspension and archiving while the pair is selected, including across Settings. Widening the window restores both panes with their original left/right order and selected side. Explicit tab close, move and reorder actions retain their existing repository semantics. This does not add vertical splitting or hinge/posture handling.
 
@@ -40,6 +50,14 @@ the right. Wide windows use 8 dp of end padding, so this corresponds to a
 768 dp window without additional insets. Smaller windows show a category list;
 choosing a category opens its settings, and Back returns to the list. Selection
 survives resizing and Activity recreation.
+
+Search-engine customization opens inside the Search engines content pane,
+with the same wide category menu and breadcrumb layout as Open-source licenses.
+Its breadcrumb and system Back return to Search engines. Narrow windows show
+one back button above customization; the open sub-page survives resizing and
+Activity recreation. Selecting another category closes the sub-page.
+When its content pane is narrow, engine actions use a second row so the name
+and URL retain enough space.
 
 The browser sidebar is hidden while Settings is open. Returning to browsing
 restores the existing sidebar preference and live tab/Split sessions. General

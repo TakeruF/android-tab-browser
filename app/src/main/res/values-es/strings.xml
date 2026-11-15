@@ -457,4 +457,9 @@
     <string name="ui_download_location_choose">"Elegir una carpeta…"</string>
     <string name="ui_download_location_unavailable">"%1$s no está disponible, así que los archivos se guardan en Descargas"</string>
     <string name="ui_download_saved_to_1_s">"Guardado en %1$s"</string>
+    <string name="ui_adaptive_dark_mode">Modo oscuro adaptativo</string>
+    <string name="ui_adaptive_dark_mode_description">Oscurece los sitios cuando Nagi está en modo oscuro. Los colores y el contraste pueden variar en algunos sitios.</string>
+    <string name="ui_adaptive_dark_mode_unavailable">Esta versión de Android System WebView no admite el modo oscuro adaptativo.</string>
+    <string name="ui_disable_site_dark_mode">Desactivar el modo oscuro adaptativo para este sitio</string>
+    <string name="ui_enable_site_dark_mode">Activar el modo oscuro adaptativo para este sitio</string>
 </resources>

@@ -47,6 +47,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onOmnibox: () -> Unit, onOpen: (String) -> Unit,
     onSplit: () -> Unit, onCloseSplit: () -> Unit, onCloseTab: () -> Unit, onSwap: () -> Unit,
     onAdBlockingChange: (String, Boolean) -> Unit = { _, _ -> },
+    onSiteDarkModeChange: (String, Boolean) -> Unit = { _, _ -> },
     onVisitBlockingChange: (Boolean) -> Unit = {}, onCustomizeNewTab: () -> Unit = {}, compactWindow: Boolean = false,
     onTranslationOptions: () -> Unit = {}, onResumeTab: (String) -> Unit = {}) {
     val strings = rememberNagiStrings()
@@ -72,6 +73,9 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
         }, strings(R.string.ui_share_link)))
     }
     var pageMenu by remember { mutableStateOf(false) }
+    val siteHost = com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url)
+    val darkTheme = state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.DARK ||
+        state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.SYSTEM && isSystemInDarkTheme()
     val bottomSearchBar = compactWindow && state.settings.bottomSearchBar
     Surface(shape = if (compactWindow) NagiShapes.Top else NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
         border = if (split && focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
@@ -182,6 +186,14 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                 text = { Text(strings(R.string.ui_use_desktop_site)) }, enabled = !page.desktopMode,
                                 modifier = Modifier.testTag("display-mode:desktop").semantics { selected = page.desktopMode },
                                 onClick = { engine.setDesktopMode(true); pageMenu = false })
+                            if (darkTheme && state.settings.adaptiveDarkMode && engine.supportsPageDarkening &&
+                                siteHost != null && page.readerArticle == null) {
+                                val siteDarkMode = siteHost !in state.settings.darkModeExcludedHosts
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Moon, null) },
+                                    text = { Text(strings(if (siteDarkMode) R.string.ui_disable_site_dark_mode else R.string.ui_enable_site_dark_mode)) },
+                                    modifier = Modifier.testTag("site-dark-mode"),
+                                    onClick = { onSiteDarkModeChange(siteHost, !siteDarkMode); pageMenu = false })
+                            }
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.BookOpen, null) },
                                 text = { Text(strings(if (page.readerArticle != null) R.string.ui_exit_reader else R.string.ui_reader_mode)) },
                                 modifier = Modifier.testTag("reader-mode"), enabled = canShareLink && !page.isLoading && !page.readerLoading,
@@ -191,7 +203,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                     modifier = Modifier.testTag("open-private-mode"),
                                     onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenu = false })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenu = false })
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
+                            // Split and narrow wide-window panes have no separate Forward button.
+                            if (!compactWindow && (split || compact)) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
                             if (!compactWindow && !split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
                             else if (!compactWindow) {
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenu = false })
@@ -233,9 +246,10 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
                     val tabs = state.visibleTabs
                     val shortcuts = remember(tabs, tab.id, compactWindow) { newTabShortcuts(tabs, tab.id, compactWindow) }
-                    NewTabPage(state.currentSpace?.let(strings::spaceName) ?: strings(R.string.ui_your_space),
-                        { onFocus(); onOmnibox() }, compactWindow, state.settings, onCustomizeNewTab,
-                        shortcuts = shortcuts, onResumeTab = onResumeTab)
+                    key(tab.id) {
+                        NewTabPage({ onFocus(); onOmnibox() }, compactWindow, state.settings, onCustomizeNewTab,
+                            shortcuts = shortcuts, onResumeTab = onResumeTab, requestInitialFocus = focused)
+                    }
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(if (compactWindow) RectangleShape else NagiShapes.Bottom), onFocus)

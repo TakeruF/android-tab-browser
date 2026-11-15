@@ -38,7 +38,9 @@ fun DownloadConfirmationDialog(request: DownloadConfirmation, onConfirm: () -> U
         BrowserNoticeCard(strings(R.string.ui_download_file), strings(R.string.ui_cancel), onDismiss,
             modifier = Modifier.padding(24.dp).widthIn(max = 360.dp).fillMaxWidth()
                 .heightIn(max = maxHeight.coerceAtLeast(160.dp))
-                .testTag("download-confirmation")) {
+                .testTag("download-confirmation"),
+            header = { Text(strings(R.string.ui_download_file), Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                style = MaterialTheme.typography.titleSmall) }) {
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(request.name, style = MaterialTheme.typography.bodyLarge)

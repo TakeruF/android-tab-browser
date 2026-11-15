@@ -13,11 +13,20 @@ class EnginePoolTest {
         override val events = emptyFlow<EngineEvent>()
         var destroyed = false; var displayed = false; var restored = false
         var loadCount = 0; var reloadCount = 0; var destroyCount = 0
+        var darkThemeActive = false
+        var darkening = false
+        var darkeningExcluded = emptySet<String>()
+        var configuredBeforeLoad = false
+        private var darkeningConfigured = false
+        override fun setDarkTheme(dark: Boolean) { darkThemeActive = dark }
+        override fun configurePageDarkening(enabled: Boolean, excludedHosts: Set<String>) {
+            darkening = enabled; darkeningExcluded = excludedHosts; darkeningConfigured = true
+        }
         var safeToSuspend = true
         var deferredCheck: ((Boolean) -> Unit)? = null
         var deferCheck = false
         override fun canSuspend(result: (Boolean) -> Unit) { if (deferCheck) deferredCheck = result else result(safeToSuspend) }
-        override fun loadUrl(url: String) { loadCount++; state.value = state.value.copy(url = url, visitBlockingExceptionSite =
+        override fun loadUrl(url: String) { configuredBeforeLoad = darkeningConfigured; loadCount++; state.value = state.value.copy(url = url, visitBlockingExceptionSite =
             com.takeruf.nagi.browser.blocking.blockingSite(url)?.takeIf { it in visitSites }) }
         private var visitSites = emptySet<String>()
         override fun configureVisitBlockingExceptions(sites: Set<String>) {
@@ -37,6 +46,31 @@ class EnginePoolTest {
         }
         override fun destroy() { destroyed = true; destroyCount++ }
     }
+    @Test fun darkeningPolicyReachesBothPanesBackgroundNewAndResumedEnginesWithoutReloads() {
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() })
+        val left = pool.acquire("left", "https://a.com", false) as FakeEngine
+        val right = pool.acquire("right", "https://b.com", false) as FakeEngine
+        val background = pool.acquire("background", "https://c.com", false) as FakeEngine
+        pool.setVisible(setOf("left", "right"))
+        pool.setDarkTheme(true)
+        pool.configurePageDarkening(true, setOf("a.com"))
+        listOf(left, right, background).forEach {
+            assertTrue(it.darkening); assertTrue(it.darkThemeActive)
+            assertEquals(setOf("a.com"), it.darkeningExcluded)
+            assertEquals(1, it.loadCount); assertEquals(0, it.reloadCount)
+        }
+        pool.suspendBackground(maxLive = 2, idleMillis = 0)
+        assertTrue(background.destroyed)
+        pool.configurePageDarkening(false, setOf("b.com"))
+        val resumed = pool.acquire("background", "stale", false) as FakeEngine
+        assertTrue(resumed.restored); assertTrue(resumed.configuredBeforeLoad)
+        assertFalse(resumed.darkening); assertEquals(setOf("b.com"), resumed.darkeningExcluded)
+        val new = pool.acquire("new", "https://d.com", false) as FakeEngine
+        assertTrue(new.configuredBeforeLoad); assertFalse(new.darkening)
+        assertEquals(setOf("b.com"), new.darkeningExcluded)
+        pool.destroyAll()
+    }
+
     @Test fun switchingManyTabsPreservesLivePageWithoutReloadOrRestore() {
         val created = mutableListOf<FakeEngine>()
         val pool = EnginePool(factory = { _, _ -> FakeEngine().also { created += it } })

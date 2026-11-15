@@ -1,4 +1,4 @@
-Nagi 0.1.0 — Third-party notices
+Nagi — Third-party notices
 Dependency snapshot: releaseRuntimeClasspath, 2026-10-04
 
 Page translation additions (2026-10-27): Google ML Kit Translation 17.0.3 and

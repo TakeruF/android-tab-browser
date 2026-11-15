@@ -56,6 +56,8 @@ interface BrowserEngine {
     fun findNext(forward: Boolean)
     fun clearFind()
     fun setDarkTheme(dark: Boolean) {}
+    val supportsPageDarkening: Boolean get() = false
+    fun configurePageDarkening(enabled: Boolean, excludedHosts: Set<String>) {}
     fun configureContentBlocking(enabled: Boolean, excludedHosts: Set<String>) {}
     fun configureVisitBlockingExceptions(sites: Set<String>) {}
     fun toggleReader() {}
