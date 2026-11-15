@@ -12,7 +12,8 @@ class TestIme : AutoCloseable {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val original = Settings.Secure.getString(instrumentation.targetContext.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
     init {
-        val component = "${instrumentation.targetContext.packageName}/com.takeruf.nagi.testing.InputConnectionHarnessIme"
+        val component = android.content.ComponentName(instrumentation.targetContext.packageName,
+            "com.takeruf.nagi.testing.InputConnectionHarnessIme").flattenToShortString()
         shell("ime enable $component")
         shell("ime set $component")
     }
