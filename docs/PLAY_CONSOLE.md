@@ -2,6 +2,23 @@
 
 ## Latest production submission — 2026-11-15
 
+**1.3.1 / code 20** is accepted and submitted for full production rollout with
+six equivalent note blocks describing optional adaptive webpage darkening and
+minor fixes. The Japanese sentence “複数の些細な問題を修正しました。” is preserved.
+Console Publishing overview shows **Changes in review → Production →
+20 (1.3.1) → Start full rollout**, with **Managed publishing off**. Approval is
+configured to publish automatically; public code-20 availability is not yet
+confirmed. Code 19 was independently shown as Available on Google Play before
+this submission.
+
+Source `81a19825d42df4b9d31404833d65a178815fc988`, immutable tag `v1.3.1`.
+The accepted AAB digest matches the verified clean-source file. Existing country
+availability, device/permission declarations and six store listings were retained.
+See [1.3.1 verification](RELEASE_1.3.1_VERIFICATION.md) and the exact
+[six-language notes](play-store/release-notes-1.3.1.txt).
+
+## Historical production submission — 2026-11-15
+
 **1.3.0 / code 19** is accepted and submitted for full production rollout with the
 user-approved notes in en-US, es-ES, fr-FR, ja-JP, zh-CN and ko-KR. Spanish and
 French store listings were added; existing descriptions now list all six interface

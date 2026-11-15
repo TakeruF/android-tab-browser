@@ -41,9 +41,46 @@ reread after saving. Japanese preserves the approved minor-fixes sentence.
 
 These are selected local emulator checks, not a full instrumentation suite,
 physical-device checks or proof of arbitrary website/provider compatibility.
-The source will be committed before building the signed Play artifact. Evidence
-is retained under ignored `artifacts/1.3.1/` in the development checkout.
+The source was committed and merged through [PR #16](https://github.com/TakeruF/android-tab-browser/pull/16)
+before the clean signed build. Evidence is retained under ignored
+`artifacts/1.3.1/` in the development checkout.
 
 ## Current release state
 
-Preparing; no code-20 upload, review submission or public availability is claimed.
+Google Play accepted code **20 (1.3.1)** and the exact verified bundle digest.
+The six note blocks were reread through an independent Publisher edit and match
+the approved canonical file exactly. Country availability and all six saved
+store listings match the pre-upload snapshots unchanged. The production edit
+was validated and committed for full rollout; live Console Publishing overview
+shows **Changes in review → Production → 20 (1.3.1) → Start full rollout**.
+Managed publishing is **off**; approval is configured to publish automatically.
+**Code-20 approval and public availability are not yet confirmed.**
+
+Before this submission, Console showed code 19 (1.3.0) as Available on Google
+Play. A Publisher track's `completed` status is not used as publication proof.
+
+## Source and signed artifacts
+
+- Clean source `81a19825d42df4b9d31404833d65a178815fc988`, immutable tag `v1.3.1`; tag remains on the exact built
+  revision. Later documentation commits only record release evidence.
+- Accepted Play AAB SHA-256: `1e3523bd022545d85a0deaf7dc38e2df0171ca00b8a7ff143673a4e640e0cea3`.
+- Local upload-key-signed Release APK SHA-256: `f6a8021fee9e73705df97d170f67fa63bed172eb26124cd43ded02e8ddd1902a`.
+- Bundletool 1.18.3 validation, bundle/APK signatures, upload-certificate match,
+  package/version/non-debuggable metadata, 16KB ZIP/bundle packaging and all
+  arm64-v8a/x86_64 ELF load alignments passed. The initial local checker also
+  applied the 64-bit 16KB threshold to 32-bit libraries; the corrected check
+  follows [Android's ABI-specific guidance](https://developer.android.com/guide/practices/page-sizes)
+  and records the unchanged 4KB 32-bit alignments separately. This establishes
+  packaging/alignment, not execution on a 16KB-page device.
+- SDK, required features, permissions and screen-support declarations match the
+  code-19 bundle. The Play manifest excludes legacy APK installation permission
+  and Debug-only IME/autofill providers. Bundled notices match the intended source.
+- A dedicated API-36 signed QA emulator accepted an in-place local signed
+  code-19 → code-20 update and retained the fixture tab. Actual Appearance and
+  site-menu actions verified default off, darkened pixels, a white excluded
+  site, retained draft text and no document request during toggles.
+- This is local upload-key-signed APK evidence, distinct from Play-delivered app
+  signing, physical-device behavior or eventual store availability.
+- GitHub retains a source release draft with no APK/AAB assets. No new workflow
+  triggers, sideload release or updater manifest was introduced. The development
+  checkout's original 42 modified/untracked source files were preserved.
