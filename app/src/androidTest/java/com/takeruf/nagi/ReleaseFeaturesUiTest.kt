@@ -69,7 +69,7 @@ class ReleaseFeaturesUiTest {
             compose.waitUntil(10_000) {
                 val shell = instrumentation.uiAutomation.executeShellCommand("dumpsys activity activities")
                 val activity = android.os.ParcelFileDescriptor.AutoCloseInputStream(shell).bufferedReader().use { it.readText() }
-                settingsOpened = activity.lineSequence().any { "mResumedActivity" in it && "com.android.settings" in it }
+                settingsOpened = activity.lineSequence().any { "ResumedActivity" in it && "com.android.settings" in it }
                 settingsOpened
             }
             assertTrue(settingsOpened)
