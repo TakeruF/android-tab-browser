@@ -1,12 +1,15 @@
 # Google Play release preparation
 
-## Latest production submission — 2026-11-09
+## Latest production submission — 2026-11-15
 
-Nagi **1.2.0 / code 17** is submitted for a full production rollout. Console
+Nagi **1.3.0 / code 18** is submitted for a full production rollout. Console
 shows **Changes in review**, quick checks running, and **Managed publishing off**.
 The accepted bundle hash matches the verified signed artifact; the existing
-178 country/region availability is preserved. Public 1.2.0 availability is not
-yet confirmed; 1.1.7 remains published. See [1.2.0 verification](RELEASE_1.2.0_VERIFICATION.md).
+country/region availability is preserved (177 explicit entries plus rest of
+world, corresponding to the existing 178-country/region selection). The approved
+English, Japanese, Simplified Chinese and Korean notes were submitted unchanged.
+Public 1.3.0 availability is not yet confirmed; 1.2.0 remains published. See
+[1.3.0 verification](RELEASE_1.3.0_VERIFICATION.md).
 
 ## Current preparation — 2026-10-31
 
