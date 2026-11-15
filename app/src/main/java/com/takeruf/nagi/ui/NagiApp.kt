@@ -480,7 +480,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                     .padding(vertical = 16.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
                             }
                         }
-                        val flatBottom = sidebarAdaptation.compact && state.settings.bottomSearchBar && route == "browser"
+                        val flatBottom = sidebarAdaptation.compact && route == "browser"
                         Surface(shape = if (flatBottom) NagiShapes.Top else NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
                             .padding(if (sidebarAdaptation.compact) PaddingValues(0.dp) else PaddingValues(top = 8.dp, end = 8.dp, bottom = 8.dp)),
                             color = MaterialTheme.colorScheme.surface, shadowElevation = if (flatBottom) 0.dp else 1.dp) {

@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -65,7 +66,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     }
     var pageMenu by remember { mutableStateOf(false) }
     val bottomSearchBar = compactWindow && state.settings.bottomSearchBar
-    Surface(shape = if (bottomSearchBar) NagiShapes.Top else NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
+    Surface(shape = if (compactWindow) NagiShapes.Top else NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
         border = if (split && focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier.fillMaxSize()) {
         @Composable
@@ -239,7 +240,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                         shortcuts = shortcuts, onResumeTab = onResumeTab)
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
-                else BrowserSurface(engine, Modifier.fillMaxSize().clip(NagiShapes.Bottom), onFocus)
+                else BrowserSurface(engine, Modifier.fillMaxSize().clip(if (compactWindow) RectangleShape else NagiShapes.Bottom), onFocus)
                 if (page.readerLoading) CircularProgressIndicator(Modifier.align(Alignment.Center))
                 page.error?.let { error ->
                     Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,

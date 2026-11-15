@@ -12,6 +12,8 @@ Compact page headers move Back/Forward to the bottom bar and Reload into the pag
 
 The compact toolbar and the area behind system navigation share the same theme surface color, including live Space-color changes. In compact browsing, the three-button contrast scrim is disabled so it cannot add a different tint; leaving compact browsing restores the window's prior setting. Safe-area padding still keeps buttons above the system navigation controls.
 
+Compact browser panes have a straight bottom edge where the page meets the lower controls. Their top corners stay rounded with either address-bar position.
+
 On the next document navigation or manual reload, sites without a saved manual display choice use mobile mode in compact windows and the desktop default in wide windows. Disabling **Desktop site by default** also requests mobile on wide windows on the next navigation/reload. A site's explicit **Use desktop site** / **Use mobile site** choice always takes precedence. Automatic window changes never write to the per-site choice store.
 
 Mobile site mode requests a phone layout even on a tablet: the installed WebView's UA keeps its browser/OS version and includes the `Mobile` token. Supported WebViews also receive matching User-Agent Client Hints (`mobile=true` for mobile mode; `mobile=false` and Linux desktop metadata for desktop mode). A tablet's unmodified default Android UA is insufficient: it can lack `Mobile` and request a fixed-width desktop document. Viewport tags are supplied by websites and respected by the browser; site HTML is not rewritten to force a layout.
