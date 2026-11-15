@@ -41,7 +41,12 @@ The independent language-only candidate passed the focused eight-configuration u
 | Qwen (China Mainland) | `qwen` | `https://www.qianwen.com/?q={query}` |
 | Perplexity | `pplx` | `https://www.perplexity.ai/search/?q={query}` |
 
-Together with the original nine engines, these provide 15 defaults. Qwen includes its region in Settings and uses the shorter name in suggestions. Select an engine as a common engine to use keywords such as `qwen Tokyo weather`, `pplx Tokyo weather`, `sg Tokyo weather`, or `dy Korea travel`. Douyin puts the query in the URL path, so spaces are encoded as `%20` rather than `+`. Japanese, Korean, Chinese, and `+`, `/`, `?`, and `&` are encoded as query content.
+The initial set contains 11 engines. GitHub, Google Scholar, Wikipedia and
+YouTube are no longer seeded on fresh installs. Existing saved engines,
+including user edits and selections, are retained; custom engines can still be
+added for these sites.
+
+Qwen includes its region in Settings and uses the shorter name in suggestions. Select an engine as a common engine to use keywords such as `qwen Tokyo weather`, `pplx Tokyo weather`, `sg Tokyo weather`, or `dy Korea travel`. Douyin puts the query in the URL path, so spaces are encoded as `%20` rather than `+`. Japanese, Korean, Chinese, and `+`, `/`, `?`, and `&` are encoded as query content.
 
 References: the forms on [Sogou](https://www.sogou.com/) and [360](https://www.so.com/), the search action on [Shenma's mobile home](https://m.sm.cn/), and [Douyin's public search URL](https://www.douyin.com/search/). Tests verify URL generation and in-app selection/display; actual results, login, and regional access are separate conditions.
 

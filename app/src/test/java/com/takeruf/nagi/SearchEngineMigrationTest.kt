@@ -44,10 +44,19 @@ class SearchEngineMigrationTest {
         val store = androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(scope = dataScope, produceFile = { file })
         try {
             val settings = SettingsStore(context, store)
-            settings.update { it.copy(defaultSearchEngineId = "bing", automaticSearchRegion = false) }
+            val legacySiteEngines = listOf(
+                SearchEngine("github", "My GitHub", "gitsearch", "https://github.com/search?q={query}"),
+                SearchEngine("scholar", "Google Scholar", "scholar", "https://scholar.google.com/scholar?q={query}"),
+                SearchEngine("wikipedia", "Wikipedia", "wiki", "https://en.wikipedia.org/w/index.php?search={query}"),
+                SearchEngine("youtube", "YouTube", "yt", "https://www.youtube.com/results?search_query={query}"),
+            )
+            val commonIds = legacySiteEngines.map { it.id }.toSet()
+            settings.update { it.copy(defaultSearchEngineId = "github", automaticSearchRegion = false,
+                commonSearchEngineIds = commonIds) }
             val dao = db.browserDao()
             dao.putSpace(Space("personal", "Renamed by user").entity())
             DefaultSearchEngines.all.filter { it.id !in DefaultSearchEngines.additionalIds && it.id !in DefaultSearchEngines.aiIds }.forEach { dao.putEngine(it.entity()) }
+            legacySiteEngines.forEach { dao.putEngine(it.entity()) }
             dao.putEngine(SearchEngine("custom", "My existing engine", "sg", "https://example.com/?q={query}").entity())
             dao.putEngine(SearchEngine("existing-qwen", "Custom Qwen", "qwen", "https://example.com/?q={query}").entity())
             dao.putEngine(SearchEngine("douyin", "Edited Douyin", "video", "https://example.com/video?q={query}").entity())
@@ -60,7 +69,9 @@ class SearchEngineMigrationTest {
             assertTrue(dao.engines().none { it.id == "sogou" })
             assertEquals("Edited Douyin", dao.engines().first { it.id == "douyin" }.name)
             assertEquals("My existing engine", dao.engines().first { it.id == "custom" }.name)
-            assertEquals("bing", settings.settings.first().defaultSearchEngineId)
+            legacySiteEngines.forEach { engine -> assertEquals(engine, dao.engines().first { it.id == engine.id }.model()) }
+            assertEquals("github", settings.settings.first().defaultSearchEngineId)
+            assertEquals(commonIds, settings.settings.first().commonSearchEngineIds)
             dao.deleteEngine("so360")
             workspace.initialize()
             assertTrue(dao.engines().none { it.id == "so360" })

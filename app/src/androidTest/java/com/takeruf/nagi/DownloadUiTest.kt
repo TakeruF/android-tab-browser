@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.takeruf.nagi.domain.model.BrowserSettings
@@ -70,7 +71,12 @@ class DownloadUiTest {
     private fun confirmationVisible() = compose.onAllNodesWithTag("download-confirm").fetchSemanticsNodes().isNotEmpty()
     private fun confirm(accept: Boolean) {
         waitFor { confirmationVisible() }
+        assertNoDuplicateDismissControl()
         compose.onNodeWithTag(if (accept) "download-confirm" else "download-cancel").performClick()
+    }
+    private fun assertNoDuplicateDismissControl() {
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_cancel)).assertDoesNotExist()
+        compose.onNodeWithTag("download-cancel").assertIsDisplayed()
     }
     private fun shell(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
         instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
@@ -308,6 +314,7 @@ class DownloadUiTest {
         compose.onNodeWithText(filename).assertIsDisplayed()
         compose.onNodeWithText("117 KB").assertIsDisplayed()
         compose.onNodeWithText(server.origin).assertIsDisplayed()
+        assertNoDuplicateDismissControl()
         captureConfirmation("download-confirmation-generated")
         instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         waitFor { !confirmationVisible() }

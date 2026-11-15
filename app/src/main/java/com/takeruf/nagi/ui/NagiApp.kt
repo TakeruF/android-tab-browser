@@ -6,29 +6,15 @@ import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.isPrimaryPressed
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -123,6 +109,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         host.video.autoPipEnabled = state.settings.autoVideoPip
         host.video.popupEnabled = state.settings.videoPopups
         sessions.pool.setDarkTheme(siteDarkTheme)
+        sessions.pool.configurePageDarkening(state.settings.adaptiveDarkMode, state.settings.darkModeExcludedHosts)
         sessions.pool.configureContentBlocking(state.settings.adBlockingEnabled, state.settings.adBlockExcludedHosts)
     }
     DisposableEffect(sessions) {
@@ -433,56 +420,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             Box(Modifier.width(width).fillMaxHeight().padding(vertical = 8.dp).testTag("sidebar")) {
                                 SidebarContent(previewState)
                             }
-                            val resizeSettings by rememberUpdatedState(state.settings.copy(sidebarCollapsed = sidebarCollapsed))
-                            val resizeCollapsed by rememberUpdatedState<(Boolean) -> Unit>(::setSidebarCollapsed)
-                            var resizeOriginX by remember { mutableFloatStateOf(0f) }
-                            val hoverSource = remember { MutableInteractionSource() }
-                            val edgeHovered by hoverSource.collectIsHoveredAsState()
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            val resizeCursor = remember(context) { PointerIcon(android.view.PointerIcon.getSystemIcon(context,
-                                android.view.PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW)) }
-                            Box(Modifier.width(8.dp).fillMaxHeight().testTag("sidebar-resize-handle")
-                                .onGloballyPositioned { resizeOriginX = it.positionInRoot().x }
-                                .pointerHoverIcon(resizeCursor).hoverable(hoverSource)
-                                .pointerInput(density) {
-                                    awaitEachGesture {
-                                        val down = awaitFirstDown()
-                                        if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
-                                        val downX = resizeOriginX + down.position.x
-                                        val startWidth = resizeSettings.sidebarWidth
-                                        val startCollapsed = resizeSettings.sidebarCollapsed
-                                        val slop = if (down.type == PointerType.Mouse) 1f else viewConfiguration.touchSlop
-                                        var dragging = false
-                                        try {
-                                            while (true) {
-                                                val event = awaitPointerEvent()
-                                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                                if (change.isConsumed) break
-                                                val delta = resizeOriginX + change.position.x - downX
-                                                if (kotlin.math.abs(delta) > slop) dragging = true
-                                                if (dragging) {
-                                                    val raw = (if (startCollapsed) 72f else startWidth) + delta / density.density
-                                                    resizingCollapsed = raw <= (if (startCollapsed) 102f else 220f)
-                                                    resizingWidth = raw.coerceIn(220f, 380f)
-                                                }
-                                                val released = change.changedToUp()
-                                                change.consume()
-                                                if (!change.pressed) {
-                                                    if (released && dragging) {
-                                                        val collapse = resizingCollapsed ?: startCollapsed
-                                                        val value = resizingWidth ?: startWidth
-                                                        resizeCollapsed(collapse)
-                                                        vm.updateSettings { it.copy(sidebarWidth = if (collapse) startWidth else value) }
-                                                    }
-                                                    break
-                                                }
-                                            }
-                                        } finally { resizingWidth = null; resizingCollapsed = null }
-                                    }
-                                }, contentAlignment = Alignment.Center) {
-                                if (edgeHovered || resizingWidth != null) Box(Modifier.width(2.dp).fillMaxHeight()
-                                    .padding(vertical = 16.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
-                            }
+                            Spacer(Modifier.width(8.dp))
                         }
                         val flatBottom = sidebarAdaptation.compact && route == "browser"
                         Surface(shape = if (flatBottom) NagiShapes.Top else NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
@@ -550,6 +488,16 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             onSearch = if (state.settings.bottomSearchBar) null else { { openOmnibox() } },
                             onTabs = { setSidebarCollapsed(false) })
                     }
+                }
+                if (!sidebarAdaptation.compact && route != "settings") {
+                    // Widen the hit area without widening the gap or moving neighboring controls.
+                    SidebarResizeHandle(state.settings.copy(sidebarCollapsed = sidebarCollapsed),
+                        onPreview = { value, collapsed -> resizingWidth = value; resizingCollapsed = collapsed },
+                        onCommit = { value, collapsed ->
+                            setSidebarCollapsed(collapsed)
+                            vm.updateSettings { it.copy(sidebarWidth = value) }
+                        },
+                        modifier = Modifier.offset(x = width - 8.dp).width(24.dp).fillMaxHeight())
                 }
                 if (sidebarAdaptation.compact && !sidebarCollapsed) {
                     ModalBottomSheet(onDismissRequest = { setSidebarCollapsed(true); sidebarDrag.cancel() },

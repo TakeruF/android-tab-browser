@@ -23,6 +23,11 @@ Opening History or Settings dismisses the Omnibox and Find UI. Private browsing
 uses the existing support check and does not open another private screen from a
 private Activity.
 
+A blank new-tab page initially holds keyboard focus in its content area.
+Enter and numpad Enter do not implicitly select or toggle the sidebar button.
+Explicit Tab navigation still allows Enter to activate a focused control;
+creating a tab with Ctrl/Command+T continues to focus the Command Bar input.
+
 Only the listed modifier combinations are recognized. Extra Alt, Symbol, or
 Control+Command combinations, unused Shift combinations, key-up events and key
 repeats pass through to Android or the focused content. Zoom-in accepts `+` or

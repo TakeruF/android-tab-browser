@@ -143,11 +143,30 @@ class WorkspaceRepositoryTest {
         assertEquals("lucide:user-round", db.browserDao().spaces().first { it.id == "personal" }.icon)
         assertEquals("lucide:briefcase", db.browserDao().spaces().first { it.id == "work" }.icon)
         assertEquals(com.takeruf.nagi.browser.search.DefaultSearchEngines.all.size, db.browserDao().engines().size)
+        assertEquals(11, db.browserDao().engines().size)
+        assertTrue(db.browserDao().engines().none { it.id in setOf("github", "scholar", "wikipedia", "youtube") })
         db.browserDao().spaces().forEach { assertNotNull(db.browserDao().tab(it.activeTabId!!)) }
         val engine = db.browserDao().engines().first()
         db.browserDao().putEngine(engine.copy(name = "Edited"))
         workspace.initialize()
         assertEquals("Edited", db.browserDao().engines().first { it.id == engine.id }.name)
+    }
+    @Test fun siteSearchCanBeAddedManuallyAndUsedAsDefaultAcrossInitialization() = runBlocking {
+        val repository = SearchEngineRepository(workspace, settings)
+        val custom = SearchEngine("custom-encyclopedia", "My encyclopedia", "wiki",
+            "https://en.wikipedia.org/w/index.php?search={query}")
+        repository.save(custom)
+        repository.setDefault(custom.id)
+        workspace.initialize()
+        val saved = db.browserDao().engines().map { it.model() }
+        assertEquals(custom, saved.first { it.id == custom.id })
+        assertEquals(custom.id, settings.settings.first().defaultSearchEngineId)
+        for (query in listOf("日本語 history", "wiki 日本語 history")) {
+            val resolved = com.takeruf.nagi.browser.search.InputResolver.resolve(query, saved, custom.id)
+                as com.takeruf.nagi.browser.search.ResolvedInput.Search
+            assertEquals(custom, resolved.engine)
+            assertEquals("日本語 history", resolved.query)
+        }
     }
     @Test fun upgradesLegacyDefaultSpaceIconsAndPreservesCustomChoices() = runBlocking {
         val dao = db.browserDao()

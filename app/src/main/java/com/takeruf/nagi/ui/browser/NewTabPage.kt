@@ -6,16 +6,27 @@ import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import com.takeruf.nagi.ui.components.NagiIcons
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import com.takeruf.nagi.domain.model.BrowserSettings
 import com.takeruf.nagi.domain.model.BrowserTab
-import com.takeruf.nagi.domain.model.NewTabBackground
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,24 +56,28 @@ internal fun newTabShortcuts(tabs: List<BrowserTab>, currentTabId: String, compa
 }
 
 @Composable
-internal fun NewTabPage(spaceName: String, onSearch: () -> Unit, compactWindow: Boolean = false,
+internal fun NewTabPage(onSearch: () -> Unit, compactWindow: Boolean = false,
     settings: BrowserSettings = BrowserSettings(), onCustomize: () -> Unit = {},
-    shortcuts: List<NewTabShortcut> = emptyList(), onResumeTab: (String) -> Unit = {}) {
+    shortcuts: List<NewTabShortcut> = emptyList(), onResumeTab: (String) -> Unit = {},
+    requestInitialFocus: Boolean = true) {
     val strings = rememberNagiStrings()
-    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    val focus = remember { FocusRequester() }
+    var pageFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(requestInitialFocus) {
+        // A blank page has no native WebView to take focus. Keep Enter away from
+        // the first toolbar button until the user explicitly navigates to it.
+        if (requestInitialFocus) focus.requestFocus()
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().testTag("new-tab-page").focusRequester(focus)
+        .onFocusChanged { pageFocused = it.isFocused }
+        .onKeyEvent { pageFocused && it.key in setOf(Key.Enter, Key.NumPadEnter) }.focusable(),
+        contentAlignment = Alignment.Center) {
         NewTabBackground(settings, Modifier.matchParentSize())
-        val customized = settings.newTabBackground != NewTabBackground.DEFAULT
         val compact = compactWindow || maxWidth < 320.dp
         val content = Modifier.padding(bottom = if (shortcuts.isEmpty()) 0.dp else 64.dp)
             .padding(if (compact) 16.dp else 32.dp).widthIn(max = 440.dp)
         Column(if (shortcuts.isEmpty()) content else content.verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(shape = NagiShapes.Rounded, color = if (customized) MaterialTheme.colorScheme.surface.copy(alpha = 0.94f) else Color.Transparent) {
-                Text(spaceName, modifier = if (customized) Modifier.padding(horizontal = 16.dp, vertical = 8.dp) else Modifier,
-                    style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.height(20.dp))
             Surface(onClick = onSearch, shape = NagiShapes.Pill, color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurface) {
                 Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -63,8 +63,8 @@ class InputResolverTest {
         assertEquals("https://duckduckgo.com/?q=android+tablet+browser+%26+%E6%97%A5%E6%9C%AC%E8%AA%9E", value.url)
     }
     @Test fun keywordOverridesDefault() {
-        mapOf("g android webview" to "google", "ddg android browser" to "ddg", "yt android tablet" to "youtube",
-            "gh chromium android" to "github", "scholar web browser usability" to "scholar").forEach { (input, id) ->
+        mapOf("g android webview" to "google", "ddg android browser" to "ddg",
+            "brave android tablet" to "brave", "bd web browser usability" to "baidu").forEach { (input, id) ->
             assertEquals(id, (InputResolver.resolve(input, engines, "bing") as ResolvedInput.Search).engine.id)
         }
     }

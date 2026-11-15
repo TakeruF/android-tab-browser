@@ -458,4 +458,9 @@
     <string name="ui_download_location_choose">"Choose a folder…"</string>
     <string name="ui_download_location_unavailable">"%1$s is unavailable, so files go to Downloads"</string>
     <string name="ui_download_saved_to_1_s">"Saved to %1$s"</string>
+    <string name="ui_adaptive_dark_mode">Adaptive dark mode</string>
+    <string name="ui_adaptive_dark_mode_description">Darken websites when Nagi is in dark mode. Colors and contrast may differ on some sites.</string>
+    <string name="ui_adaptive_dark_mode_unavailable">This version of Android System WebView does not support adaptive dark mode.</string>
+    <string name="ui_disable_site_dark_mode">Turn off adaptive dark mode for this site</string>
+    <string name="ui_enable_site_dark_mode">Turn on adaptive dark mode for this site</string>
 </resources>

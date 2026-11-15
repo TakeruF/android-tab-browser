@@ -119,6 +119,8 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
             if (enabled) it.adBlockExcludedHosts - host else it.adBlockExcludedHosts + host) }
         onApplied(container.settings.settings.first())
     }
+    fun setSiteDarkMode(host: String, enabled: Boolean) = updateSettings { it.copy(darkModeExcludedHosts =
+        if (enabled) it.darkModeExcludedHosts - host else it.darkModeExcludedHosts + host) }
     fun saveEngine(engine: SearchEngine) = action { container.engines.save(engine) }
     fun deleteEngine(id: String) = action { container.engines.delete(id) }
     fun defaultAiEngine(id: String) = action { container.engines.setDefaultAi(id) }

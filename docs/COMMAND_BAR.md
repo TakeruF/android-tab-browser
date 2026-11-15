@@ -18,6 +18,10 @@ Every category is initially enabled, preserving existing behavior. Preferences
 use atomic DataStore updates; hiding suggestions does not delete tabs, Spaces or
 browsing history.
 
+Turning off **Use Spaces** also turns the Spaces suggestion switch off and
+disables it. Its saved choice is retained, so turning Spaces back on restores
+the previous suggestion setting.
+
 These settings change only what the Command Bar lists. Hiding Commands does not
 disable the commands themselves: their keyboard bindings and the other places
 that run them keep working. The bindings are documented in

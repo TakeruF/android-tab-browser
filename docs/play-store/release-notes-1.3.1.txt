@@ -1,0 +1,29 @@
+<en-US>
+Added adaptive dark mode for web pages while Nagi is in dark mode. Enable it in Settings and turn it off for individual sites.
+Fixed several minor issues.
+</en-US>
+
+<es-ES>
+Se añadió un modo oscuro adaptativo para las páginas web cuando Nagi está en modo oscuro. Actívalo en Ajustes y desactívalo para sitios concretos.
+Se corrigieron varios problemas menores.
+</es-ES>
+
+<fr-FR>
+Ajout du mode sombre adaptatif pour les pages web lorsque Nagi est en mode sombre. Activez-le dans les paramètres et désactivez-le pour certains sites.
+Correction de plusieurs problèmes mineurs.
+</fr-FR>
+
+<ja-JP>
+ダークモード中にウェブページを自動で暗くする機能を追加しました。設定から有効にでき、サイトごとにオフにできます。
+複数の些細な問題を修正しました。
+</ja-JP>
+
+<zh-CN>
+新增网页自适应深色模式，在Nagi处于深色模式时自动调暗网页。可在设置中启用，也可对单个网站关闭。
+修复了多个细微问题。
+</zh-CN>
+
+<ko-KR>
+Nagi가 다크 모드일 때 웹페이지를 자동으로 어둡게 표시하는 기능을 추가했습니다. 설정에서 켜고 사이트별로 끌 수 있습니다.
+여러 사소한 문제를 수정했습니다.
+</ko-KR>

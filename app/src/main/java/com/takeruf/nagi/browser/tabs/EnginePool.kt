@@ -40,6 +40,13 @@ class EnginePool(
         adBlockingEnabled = enabled; adBlockExcludedHosts = excludedHosts
         engines.values.forEach { it.configureContentBlocking(enabled, excludedHosts) }
     }
+    private var pageDarkeningEnabled = false
+    private var darkModeExcludedHosts = emptySet<String>()
+    fun configurePageDarkening(enabled: Boolean, excludedHosts: Set<String>) {
+        pageDarkeningEnabled = enabled
+        darkModeExcludedHosts = excludedHosts.toSet()
+        engines.values.forEach { it.configurePageDarkening(enabled, darkModeExcludedHosts) }
+    }
     private var darkTheme = false
     fun setDarkTheme(dark: Boolean) {
         darkTheme = dark
@@ -67,6 +74,7 @@ class EnginePool(
         val engine = factory(id, previous?.page?.desktopMode ?: desktop)
         engines[id] = engine
         engine.setDarkTheme(darkTheme)
+        engine.configurePageDarkening(pageDarkeningEnabled, darkModeExcludedHosts)
         engine.configureContentBlocking(adBlockingEnabled, adBlockExcludedHosts)
         engine.configureVisitBlockingExceptions(pausedSites.toSet())
         if (previous?.snapshot == null || !engine.restoreState(previous.snapshot)) engine.loadUrl(previous?.page?.url ?: url)

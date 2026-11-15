@@ -16,10 +16,6 @@ object DefaultSearchEngines {
         SearchEngine("bing", "Bing", "b", "https://www.bing.com/search?q={query}"),
         SearchEngine("ddg", "DuckDuckGo", "ddg", "https://duckduckgo.com/?q={query}"),
         SearchEngine("brave", "Brave Search", "brave", "https://search.brave.com/search?q={query}"),
-        SearchEngine("scholar", "Google Scholar", "scholar", "https://scholar.google.com/scholar?q={query}"),
-        SearchEngine("youtube", "YouTube", "yt", "https://www.youtube.com/results?search_query={query}"),
-        SearchEngine("github", "GitHub", "gh", "https://github.com/search?q={query}"),
-        SearchEngine("wikipedia", "Wikipedia", "wiki", "https://en.wikipedia.org/w/index.php?search={query}"),
     )
     val aiIds = setOf("qwen", "perplexity")
     val additionalIds = setOf("sogou", "so360", "douyin", "shenma")
