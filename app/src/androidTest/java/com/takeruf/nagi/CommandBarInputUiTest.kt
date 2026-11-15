@@ -13,7 +13,7 @@ import org.junit.Test
 class CommandBarInputUiTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun hidingEverySuggestionStillResolvesCommittedSearchesAndIgnoresCommands() {
+    @Test fun hidingEverySuggestionResolvesCommittedTextIncludingCommandPrefix() {
         val actions = mutableListOf<SuggestionAction>()
         compose.setContent {
             NagiTheme(ThemeMode.LIGHT) {
@@ -25,7 +25,11 @@ class CommandBarInputUiTest {
         val input = compose.onNodeWithTag("command-input")
         input.performTextReplacement(">New tab")
         input.performImeAction()
-        compose.runOnIdle { assertTrue(actions.isEmpty()) }
+        compose.runOnIdle {
+            assertEquals(listOf(SuggestionAction.Navigate(InputResolver.search(DefaultSearchEngines.all.first { it.id == "google" },
+                ">New tab").url)), actions)
+            actions.clear()
+        }
         input.performTextReplacement("日本語 & 中文")
         input.performImeAction()
         compose.runOnIdle {
