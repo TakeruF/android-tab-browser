@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.3.0 adds page zoom, pinned-tab/Split resume links, keyboard actions, category-based Settings and download improvements. The earlier code-18 submission was stopped; a code-19 replacement including the latest UI, Command Bar and download-folder changes is being prepared. Release notes await user confirmation, and public availability is not yet confirmed. See [1.3.0 notes](docs/releases/1.3.0.md) for scope, verification and release status.
+Version 1.3.0 adds page zoom, pinned-tab/Split resume links, keyboard actions, category-based Settings and download improvements. The code-19 update includes the latest UI, Command Bar, download-folder and password-autofill changes and has been submitted to Google Play with six-language notes and store copy. Code 19 is in review; its public availability is not yet confirmed. See [1.3.0 notes](docs/releases/1.3.0.md) for scope, verification and release status.
 
 Version 1.2.0 adds a confirmed Spaces on/off setting, improves Android browser-picker recognition, and fixes a private-mode close crash. See [1.2.0 notes](docs/releases/1.2.0.md) for verification and release status.
 

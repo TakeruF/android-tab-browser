@@ -1,13 +1,21 @@
 # Google Play release preparation
 
-## Replacement preparation — 2026-11-15
+## Latest production submission — 2026-11-15
 
-The user stopped the earlier 1.3.0 submission. A live lifecycle API check confirms
-code 18 is NOT_SENT_FOR_REVIEW, while code 17 (1.2.0) is PUBLISHED. All current
-development work is being prepared as 1.3.0 / code 19; the highest uploaded code
-is 18. Replacement release notes await user confirmation before upload/submission.
-Existing country availability is retained. See
-[replacement verification](RELEASE_1.3.0_CODE19_VERIFICATION.md).
+**1.3.0 / code 19** is accepted and submitted for full production rollout with the
+user-approved notes in en-US, es-ES, fr-FR, ja-JP, zh-CN and ko-KR. Spanish and
+French store listings were added; existing descriptions now list all six interface
+languages. All six saved listings and notes were reread and matched the canonical
+files, including the corrected Korean text. The source is `7fadfab`, tag
+`v1.3.0-code19`; the earlier `v1.3.0` tag remains unchanged.
+
+The lifecycle API reports code 19 IN_REVIEW and code 18 PUBLISHED. Publishing
+overview shows the release and all six listing changes in Changes in review,
+with quick checks running and Managed publishing off. Approval is configured to
+publish automatically; **code 19 public availability is not yet confirmed**.
+Country availability and device-support declarations were preserved. See
+[code-19 verification](RELEASE_1.3.0_CODE19_VERIFICATION.md) and the exact
+[six-language store copy](play-store/listings-1.3.0-code19.json).
 
 ## Historical production submission — 2026-11-15
 
@@ -117,7 +125,7 @@ Nagi is a workspace browser for Android tablets and phones. Organize your browsi
 
 Keep frequently used pages in Favorites or pinned tabs. Find pages in your history, and use the Command Bar to open URLs, search, or switch tabs and Spaces. Choose your search engines, including a user-initiated Ask ChatGPT action that opens ChatGPT's website.
 
-Nagi supports touch, mouse, trackpad, hardware-keyboard shortcuts, and English, Japanese, Korean, and Simplified Chinese interfaces. Choose light, dark, or system appearance and adjust the theme color. Upload selected files through Android's document picker, download files, find text on pages, and use desktop mode when needed.
+Nagi supports touch, mouse, trackpad, hardware-keyboard shortcuts, and English, Spanish, French, Japanese, Korean, and Simplified Chinese interfaces. Choose light, dark, or system appearance and adjust the theme color. Upload selected files through Android's document picker, download files, find text on pages, and use desktop mode when needed.
 
 Your workspace is stored on your device. You can clear browsing history and website cookies/storage in Settings. No Nagi account, subscription, or cloud synchronization is required. Google Play manages updates for this edition.
 
@@ -146,7 +154,7 @@ NagiはAndroidタブレット・スマートフォン向けのワークスペー
 
 よく使うページはお気に入りや固定タブに保存。履歴からページを開き、コマンドバーでURL入力、検索、タブやSpaceの切り替えを行えます。検索エンジンを選択でき、「ChatGPTに聞く」は入力した質問をChatGPTのウェブサイトで開きます。
 
-タッチ、マウス、トラックパッド、外付けキーボードのショートカットに対応。日本語、英語、韓国語、簡体字中国語で利用できます。ライト・ダーク・システムテーマとテーマカラーを選択でき、ファイル選択によるアップロード、ダウンロード、ページ内検索、デスクトップ表示も利用できます。
+タッチ、マウス、トラックパッド、外付けキーボードのショートカットに対応。日本語、英語、スペイン語、フランス語、韓国語、簡体字中国語で利用できます。ライト・ダーク・システムテーマとテーマカラーを選択でき、ファイル選択によるアップロード、ダウンロード、ページ内検索、デスクトップ表示も利用できます。
 
 ワークスペースは端末上に保存します。設定から履歴やCookie・サイトデータを削除できます。Nagiのアカウント登録やサブスクリプションは不要で、クラウド同期はありません。Google Play版の更新はGoogle Playから配信されます。
 
@@ -175,7 +183,7 @@ Nagi 是适用于 Android 平板和手机的工作空间浏览器。你可以在
 
 将常用页面加入收藏或固定为标签页，也可以从历史记录中重新打开页面。通过命令栏输入网址、搜索内容，或切换标签页和空间。你可以选择搜索引擎；向 ChatGPT 提问时，会在 ChatGPT 网站中打开你输入的内容。
 
-支持触控、鼠标、触控板和外接键盘快捷键，提供英语、日语、韩语和简体中文界面。你可以选择浅色或深色主题，也可以让主题跟随系统，并调整主题色。通过 Android 文件选择器上传文件，或拍摄照片后上传。还可以下载文件、在页面中查找文字，以及使用桌面版网站。
+支持触控、鼠标、触控板和外接键盘快捷键，提供英语、西班牙语、法语、日语、韩语和简体中文界面。你可以选择浅色或深色主题，也可以让主题跟随系统，并调整主题色。通过 Android 文件选择器上传文件，或拍摄照片后上传。还可以下载文件、在页面中查找文字，以及使用桌面版网站。
 
 支持保存网页生成的文件（Blob/data），确认后即可下载，单个文件上限为 32 MB。可开启标签页后台休眠，让符合条件的闲置标签页自动休眠；再次打开时会重新加载，部分页面状态可能丢失。
 
@@ -206,7 +214,7 @@ Nagi는 Android 태블릿과 휴대전화를 위한 워크스페이스 브라우
 
 자주 사용하는 페이지를 즐겨찾기나 고정 탭으로 보관하세요. 방문 기록에서 페이지를 열고 명령 모음으로 URL 입력, 검색, 탭과 Space 전환을 할 수 있습니다. 검색 엔진을 선택할 수 있으며 “ChatGPT에 질문”은 입력한 질문을 ChatGPT 웹사이트에서 엽니다.
 
-터치, 마우스, 트랙패드, 외장 키보드 단축키를 지원합니다. 영어, 일본어, 한국어, 중국어 간체 인터페이스를 제공하며 밝게, 어둡게, 시스템 테마와 테마 색상을 선택할 수 있습니다. Android 문서 선택기를 통해 선택한 파일을 업로드하고 파일 다운로드, 페이지 내 검색, 데스크톱 모드를 사용할 수 있습니다.
+터치, 마우스, 트랙패드, 외장 키보드 단축키를 지원합니다. 영어, 스페인어, 프랑스어, 일본어, 한국어, 중국어 간체 인터페이스를 제공하며 밝게, 어둡게, 시스템 테마와 테마 색상을 선택할 수 있습니다. Android 문서 선택기를 통해 선택한 파일을 업로드하고 파일 다운로드, 페이지 내 검색, 데스크톱 모드를 사용할 수 있습니다.
 
 워크스페이스는 기기에 저장됩니다. 설정에서 방문 기록과 쿠키·사이트 데이터를 삭제할 수 있습니다. Nagi 계정 등록이나 구독이 필요하지 않으며 클라우드 동기화는 없습니다. Google Play 버전은 Google Play를 통해 업데이트됩니다.
 

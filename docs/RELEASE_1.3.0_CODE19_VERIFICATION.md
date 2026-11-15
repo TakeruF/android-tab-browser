@@ -1,4 +1,4 @@
-# Nagi 1.3.0 / code 19 replacement preparation
+# Nagi 1.3.0 / code 19 verification and submission
 
 Checked on 2026-11-15 (JST). This candidate includes all current development work.
 The earlier code-18 artifact and immutable `v1.3.0` tag remain historical.
@@ -14,10 +14,10 @@ The country-availability response is retained for an exact comparison at upload.
 ## Release-note review
 
 The [six-language replacement notes](play-store/release-notes-1.3.0-code19.txt)
-are a proposal awaiting user confirmation. Counts are checked against the 500-character Console limit for every locale. The original approved/submitted
+were approved by the user on 2026-11-15 and submitted unchanged in all six locales. Counts: en-US 473, es-ES 475, fr-FR 474, ja-JP 281, zh-CN 172 and ko-KR 290 characters. The original approved/submitted
 code-18 notes are preserved unchanged in `release-notes-1.3.0.txt`.
 
-No replacement upload, review submission or public release has occurred yet.
+The code-19 upload and review submission are complete. Public code-19 availability is not yet confirmed.
 Evidence is retained in ignored `artifacts/1.3.0-replacement-20261115/`.
 
 ## Password autofill scope update
@@ -73,11 +73,60 @@ physical-device validation, successful Google password delivery or completed
 Google login. Synthetic providers supply test credentials only. Native library
 packaging checks do not establish runtime testing on a 16KB-page device.
 
-## Remaining authorized work after note confirmation
+## Final source and accepted artifacts
 
-Confirm the proposed six-language Play notes with the user, refresh Play state,
-create the distinct immutable `v1.3.0-code19` source tag without moving `v1.3.0`,
-replace the stopped code-18 candidate with the verified code-19 bundle, compare
-country/device support, and submit the production release for review. Managed
-publishing is currently off; review submission and actual public availability
-must be reported separately. No code-19 upload or review submission has occurred.
+- Source `7fadfab18581a3e2ecb295e119887e4789e2610b`, immutable tag
+  `v1.3.0-code19`; the original `v1.3.0` still points to
+  `9aaf98f6af1eb2799e847474d8959fe5e0897ce4`.
+- Accepted Play AAB SHA-256:
+  `b25592eea70b5ae63585b9707ba6585b9fc2fcf823964ebb52ed4428cbc29d6f`.
+- Local signed APK SHA-256:
+  `f1dd207ee1b9cdc83f738213ded2c2905c04467ec0b200328f8b3728d0eda8bc`.
+  The final artifact was installed in place on the dedicated signed QA emulator;
+  its retained fixture tab and production autofill Settings were rechecked.
+- The accepted bundle reports the same digest as the verified file. GitHub holds
+  a source release draft without binary assets; Play remains the sole distribution
+  channel. Subsequent commits only record store copy and release evidence.
+
+## Store copy and submission
+
+The user approved the six-language notes and requested equivalent Play listing
+coverage. Spanish (es-ES) and French (fr-FR) listings were added; the existing
+English, Japanese, Simplified Chinese and Korean descriptions now list all six
+interface languages. [Canonical submitted store copy](play-store/listings-1.3.0-code19.json)
+contains the exact title, short description and full description for each locale.
+New translations inherit default-language graphics; no graphics were replaced.
+All title/short/full limits (30/80/4,000 characters) passed.
+
+The service account could upload and manage releases but could not validate store
+copy changes (403). Store text was therefore saved through the logged-in owner
+Console, without expanding permissions. An initial candidate draft also failed
+upgrade validation when it retained code 17 below the existing code-18 candidate;
+only the new draft was requested in the successful commit. The app rejected the
+`changesNotSentForReview` parameter; the successful commit omitted it.
+
+During Console editing, French text was temporarily entered in the Korean field.
+The user pointed this out before saving. Korean was restored, and each locale's
+selected-language control plus all three text fields was checked against the
+canonical copy. All 18 text fields matched before saving. An independent Publisher
+API reread after saving, and another after submission, confirmed the full six
+listings and six approved release-note blocks matched exactly. No mixed-language
+Korean copy was submitted.
+
+A later lifecycle reread showed code 18 as PUBLISHED, unlike the initial
+NOT_SENT_FOR_REVIEW preflight. The earlier statement that draft creation had
+replaced the old candidate was premature. Code 19 was then submitted as the
+production update to code 18; no downgrade or app-data removal was attempted.
+
+The final lifecycle API reports **code 19 IN_REVIEW** and **code 18 PUBLISHED**.
+Live Publishing overview confirms **Changes in review**, including
+**19 (1.3.0) → Start full rollout**, both added languages and all four existing
+language-description updates. Quick checks are running and **Managed publishing
+is off**: successful checks proceed to review, and approval is configured to
+publish automatically. **Code 19 public availability is not yet confirmed.**
+
+Production country availability was compared unchanged before draft and final
+submission: 177 explicit countries plus rest-of-world availability, retaining the
+existing 178-country/region scope. `uses-sdk`, required features and screen-support
+manifest declarations match the earlier code-18 build. No device targeting or
+country changes were requested or made.

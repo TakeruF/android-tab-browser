@@ -10,7 +10,13 @@ English strings live in `app/src/main/res/values/strings.xml`, with translations
 
 Spanish and French use language-wide resources (`es`, `fr`), including fallback for regional settings such as `es-MX` and `fr-CA`. The public privacy policy is currently available in the original four languages, so Spanish/French Settings deliberately link to the existing English policy rather than nonexistent localized URLs.
 
-The Spanish/French addition is unreleased development work prepared on 2026-11-15. It is not part of the already submitted 1.3.0/code-18 artifact. Additional translations of that release’s Play notes are kept as a [local draft](play-store/release-notes-1.3.0-es-fr-draft.txt); they have not been submitted to Console. Future releases should include all six note languages. Existing approved/submitted four-language notes remain unchanged.
+The 1.3.0/code-19 replacement includes Spanish and French. Its six-language Play
+notes were approved by the user on 2026-11-15; the original code-18 four-language
+notes remain historical. The corresponding six-language store copy is recorded in
+[the Play listing snapshot](play-store/listings-1.3.0-code19.json). Spanish and
+French listings link to the existing English privacy policy. Submission and public
+availability are tracked separately in the
+[code-19 release verification](RELEASE_1.3.0_CODE19_VERIFICATION.md).
 
 ## Spanish and French validation — 2026-11-15
 
