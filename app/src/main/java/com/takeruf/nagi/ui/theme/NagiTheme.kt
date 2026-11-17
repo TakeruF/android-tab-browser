@@ -9,6 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -36,6 +38,9 @@ private val LightColors = lightColorScheme(
     inverseSurface = Color(0xFF2C3630), inverseOnSurface = Color(0xFFF0F5EE), inversePrimary = Color(0xFFADCDB9),
     outline = Color(0xFF6D7D72), outlineVariant = Color(0xFFBCC8BD),
 )
+
+/** Effective app theme, including system changes, independent of animated palette colors. */
+val LocalNagiDarkTheme = staticCompositionLocalOf { false }
 private val DarkColors = darkColorScheme(
     primary = Color(0xFFADCDB9), onPrimary = Color(0xFF153C2B),
     primaryContainer = Color(0xFF2D4D3C), onPrimaryContainer = Color(0xFFD1EAD9),
@@ -93,7 +98,9 @@ fun NagiTheme(mode: ThemeMode, themeColor: Long = 0xFF426B5A, content: @Composab
     // Retarget from the current color on rapid switches. Compose respects animator duration scale.
     val seed by animateColorAsState(Color(themeColor or 0xFF000000),
         animationSpec = tween(250, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)), label = "space-theme")
-    MaterialTheme(colorScheme = themeColorScheme(dark, seed.toArgb().toLong()), shapes = NagiShapes.Material, content = content)
+    CompositionLocalProvider(LocalNagiDarkTheme provides dark) {
+        MaterialTheme(colorScheme = themeColorScheme(dark, seed.toArgb().toLong()), shapes = NagiShapes.Material, content = content)
+    }
 }
 
 /**

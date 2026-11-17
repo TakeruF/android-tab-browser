@@ -26,4 +26,13 @@ class FaviconUrlsTest {
         assertEquals(listOf("https://example.com:8443/favicon.ico", "https://example.com:8443/apple-touch-icon.png",
             "https://example.com:8443/apple-touch-icon-precomposed.png"), defaultFaviconUrls("https://example.com:8443/path?private"))
     }
+
+    @Test fun independentHomepageDiscoveryDoesNotGuessTheDocumentsColorScheme() {
+        assertEquals(listOf("https://example.com/fixed.png"), faviconLinks("""
+            <link rel="icon" href="/white.png" media="(prefers-color-scheme: dark)">
+            <link rel="icon" href="/black.png" media="(prefers-color-scheme: light)">
+            <link rel="icon" href="/print.png" media="print">
+            <link rel="icon" href="/fixed.png">
+        """, "https://example.com/page"))
+    }
 }

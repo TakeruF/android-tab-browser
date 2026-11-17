@@ -21,5 +21,6 @@ object BrowserDataCleaner {
         WebStorage.getInstance().deleteAllData()
         GeolocationPermissions.getInstance().clearAll()
         WebView(context).apply { clearCache(true); clearHistory(); clearFormData(); destroy() }
+        com.takeruf.nagi.browser.favicon.FaviconStore.get(context).clear()
     }
 }

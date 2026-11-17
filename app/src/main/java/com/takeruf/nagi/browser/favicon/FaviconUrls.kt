@@ -17,7 +17,10 @@ internal fun faviconLinks(html: String, pageUrl: String): List<String> =
         link.attr("rel").lowercase(Locale.ROOT).split(Regex("\\s+")).any {
             it == "icon" || it == "apple-touch-icon" || it == "apple-touch-icon-precomposed"
         }
-    }.map { it.absUrl("href") }.filter { faviconOrigin(it) != null }.distinct().take(8)
+    // An independently fetched homepage has no evaluated document media environment.
+    // Theme-qualified candidates are discovered by the live WebView instead.
+    }.filter { it.attr("media").trim().lowercase(Locale.ROOT) in setOf("", "all", "screen") }
+        .map { it.absUrl("href") }.filter { faviconOrigin(it) != null }.distinct().take(8)
 
 internal fun defaultFaviconUrls(siteUrl: String?): List<String> = faviconOrigin(siteUrl)?.let { origin ->
     listOf("${origin}favicon.ico", "${origin}apple-touch-icon.png", "${origin}apple-touch-icon-precomposed.png")

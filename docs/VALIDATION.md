@@ -308,3 +308,9 @@ The 2026-10-11 cleanup removed older local runs and chronological development re
 
 These checks use the dedicated API 36 QA emulator. Other WebView versions,
 physical devices and arbitrary public websites remain separate verification.
+
+## Theme-aware favicon validation (2026-11-17)
+
+See [favicon acquisition, storage and validation](FAVICONS.md) for the 218-unit-test
+build/lint results, 11 selected local WebView/UI cases, two separate GitHub/ChatGPT
+live/restart checks, screenshot coverage, cache limits and provider limitations.

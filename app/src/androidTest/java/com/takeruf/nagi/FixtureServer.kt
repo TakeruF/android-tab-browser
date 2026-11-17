@@ -10,7 +10,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Device-local HTTP fixture. Integration tests never depend on a public website. */
 class FixtureServer(private val rootIconAvailable: Boolean = true, private val homeIconMarkup: String = "",
     private val useIcoContainer: Boolean = false, private val pages: Map<String, String> = emptyMap(),
-    private val redirects: Map<String, String> = emptyMap()) : AutoCloseable {
+    private val redirects: Map<String, String> = emptyMap(),
+    private val icons: Map<String, Int> = emptyMap(),
+    private val iconDelaysMs: Map<String, Long> = emptyMap()) : AutoCloseable {
     private val socket = ServerSocket(0)
     private val executor = Executors.newCachedThreadPool()
     val origin = "http://127.0.0.1:${socket.localPort}"
@@ -57,9 +59,10 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     client.getOutputStream().write(bytes)
                     return@use
                 }
-                if (path == "/favicon.ico" || path == "/custom-icon.png" || path == "/apple-touch-icon.png") {
+                if (path in icons || path == "/favicon.ico" || path == "/custom-icon.png" || path == "/apple-touch-icon.png") {
+                    iconDelaysMs[path]?.let { Thread.sleep(it) }
                     val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
-                    bitmap.eraseColor(if (path == "/favicon.ico") Color.MAGENTA else Color.CYAN)
+                    bitmap.eraseColor(icons[path] ?: if (path == "/favicon.ico") Color.MAGENTA else Color.CYAN)
                     val png = ByteArrayOutputStream().use { out ->
                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray()
                     }

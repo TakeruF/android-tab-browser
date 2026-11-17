@@ -64,7 +64,7 @@ The `github` source set owns release metadata, APK verification, and installatio
 
 `Space.activeTabId` is a logical reference to avoid a cyclic foreign key. Tab deletion, movement, and restoration update the affected Space selection in Room transactions; closing its final tab creates a new tab. The final Space and search engine cannot be deleted. Shared Favorites use `isFavorite=true` and `spaceId=null`; ordinary Bookmarks use `isFavorite=false` and `spaceId=null`. Legacy Space-scoped Favorites are migrated to shared entries on startup. Favorite ordering updates the existing `createdAt` field as an order value.
 
-The 30 most recently closed tabs are retained. History stores up to 5,000 records, exposing the latest 2,000 to suggestions and the history screen. Favicons refer to PNG files in app cache and are fetched again on the next visit after cache removal.
+The 30 most recently closed tabs are retained. History stores up to 5,000 records, exposing the latest 2,000 to suggestions and the history screen. Favicons refer to content-addressed PNGs in app-private files. A bounded origin index selects independent light/dark variants, with legacy paths retained as unclassified fallbacks; see [favicon storage and theme behavior](FAVICONS.md).
 
 Room JSON schemas are exported to `app/schemas/`. Schema v2 adds nullable `parentTabId`; v3 adds nullable `splitRightTabId` for saved left/right pairs. Non-destructive auto-migrations cover v1 → v2 → v3. The normal workspace retains the database filename `orbit.db` for upgrade continuity. Future schema changes require explicit migration coverage; destructive migration is not used.
 

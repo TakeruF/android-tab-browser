@@ -74,10 +74,15 @@ fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = nul
     }
     val store = remember(context.applicationContext) { FaviconStore.get(context) }
     val shared by store.icons.collectAsState()
+    val dark = com.takeruf.nagi.ui.theme.LocalNagiDarkTheme.current
     val origin = remember(siteUrl) { faviconOrigin(siteUrl) }
     LaunchedEffect(path, siteUrl) { store.resolve(siteUrl, path) }
-    val sharedPath = shared[origin]
-    val source = remember(path, siteUrl, sharedPath) { faviconSource(sharedPath ?: path, null) }
+    // Theme changes only select a local variant; they never restart network recovery.
+    val variants = shared[origin]
+    val sharedPath = variants?.select(dark)
+    val source = remember(path, sharedPath, variants) {
+        faviconSource(if (variants != null) sharedPath else path?.takeIf { !it.startsWith('/') }, null)
+    }
     var loaded by remember(source) { mutableStateOf(false) }
     // Chrome-style: the favicon sits directly on its row or tile, without a backing plate.
     Box(modifier.size(maxOf(24.dp, iconSize + 6.dp)),

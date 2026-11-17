@@ -137,6 +137,10 @@ class WebViewBrowserEngine(
     private var navigationGeneration = 0L
     private var navigationRequestGeneration = 0L
     private var iconGeneration = 0L
+    private var receivedDocumentIcon = false
+    private var faviconDocumentTheme = false
+    private var observedIconTheme = false
+    private var observedIcon: Bitmap? = null
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val popupViews = mutableSetOf<WebView>()
     private var destroyed = false
@@ -322,12 +326,18 @@ class WebViewBrowserEngine(
                 pageDownloads.invalidate()
                 mediaPermissionGranted = false
                 faviconJob?.cancel()
+                receivedDocumentIcon = false
+                faviconDocumentTheme = darkTheme
+                observedIconTheme = darkTheme
+                observedIcon?.recycle()
+                observedIcon = null
                 failedNavigation = false
                 update { it.copy(url = url, isLoading = true, progress = 0, error = null,
                     visitBlockingExceptionSite = visitExceptionFor(url),
                     blockedRequests = blockingDocument.count.get(), readerArticle = null, readerLoading = false,
                     faviconUrl = if (faviconOrigin(it.url) != null && faviconOrigin(it.url) == faviconOrigin(url)) it.faviconUrl else null) }
-                if (favicon != null) saveFavicon(url, favicon)
+                // onPageStarted's bitmap can be WebView's cached icon from another
+                // visit/theme. Only onReceivedIcon supplies a new themed observation.
                 metadata()
                 watchLoading()
             }
@@ -395,8 +405,24 @@ class WebViewBrowserEngine(
                 update { it.copy(title = if (it.url == "about:blank") "New tab" else title?.takeIf(String::isNotBlank) ?: it.url) }; metadata()
             }
             override fun onReceivedIcon(view: WebView, icon: Bitmap?) {
-                if (icon == null) return
-                saveFavicon(state.value.url, icon)
+                val url = view.url ?: return
+                if (icon == null || url != state.value.url || destroyed || favicons == null) return
+                receivedDocumentIcon = true
+                faviconJob?.cancel()
+                // Providers can replay the unchanged bitmap during a configuration change.
+                // It is still the previous observation, not a newly learned opposite variant.
+                val scaled = Bitmap.createScaledBitmap(icon, 64, 64, true)
+                val sample = scaled.copy(Bitmap.Config.ARGB_8888, false)
+                if (scaled !== icon) scaled.recycle()
+                val replay = observedIconTheme != darkTheme &&
+                    (observedIcon == null || observedIcon?.sameAs(sample) == true)
+                if (!replay) {
+                    observedIcon?.recycle()
+                    observedIcon = sample
+                    observedIconTheme = darkTheme
+                }
+                if (replay) { sample.recycle(); return }
+                saveFavicon(url, icon)
             }
             override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 fileCallback?.onReceiveValue(null); fileCallback = callback
@@ -728,25 +754,31 @@ class WebViewBrowserEngine(
         val favicons = favicons ?: return
         val navigation = navigationGeneration
         val revision = ++iconGeneration
+        val dark = darkTheme
         scope.launch {
-            val path = favicons.save(pageUrl, icon)
-            if (navigation == navigationGeneration && revision == iconGeneration && state.value.url == pageUrl && path != null) {
+            val path = favicons.save(pageUrl, icon, dark)
+            if (navigation == navigationGeneration && revision == iconGeneration && dark == darkTheme && state.value.url == pageUrl && path != null) {
                 update { it.copy(faviconUrl = path) }; metadata()
             }
         }
     }
     private fun discoverFavicon(view: WebView, pageUrl: String) {
         val favicons = favicons ?: return
-        if (faviconOrigin(pageUrl) == null) return
+        if (faviconOrigin(pageUrl) == null || receivedDocumentIcon || faviconDocumentTheme != darkTheme) return
         val navigation = navigationGeneration
         val revision = iconGeneration
+        val dark = darkTheme
         view.evaluateJavascript("""
             JSON.stringify(Array.from(document.querySelectorAll('link[rel][href]'))
               .filter(l => l.rel.toLowerCase().split(/\s+/).some(r =>
                 r === 'icon' || r === 'apple-touch-icon' || r === 'apple-touch-icon-precomposed'))
+              .filter(l => !l.media || window.matchMedia(l.media).matches)
+              .sort((a,b) => Number(!a.rel.toLowerCase().split(/\s+/).includes('icon')) -
+                             Number(!b.rel.toLowerCase().split(/\s+/).includes('icon')))
               .map(l => l.href).slice(0, 8))
         """.trimIndent()) { result ->
-            if (navigation != navigationGeneration || state.value.url != pageUrl || destroyed) return@evaluateJavascript
+            if (navigation != navigationGeneration || revision != iconGeneration || dark != darkTheme ||
+                receivedDocumentIcon || state.value.url != pageUrl || destroyed) return@evaluateJavascript
             val links = runCatching {
                 val decoded = JSONArray("[$result]").getString(0)
                 val array = JSONArray(decoded)
@@ -754,8 +786,8 @@ class WebViewBrowserEngine(
             }.getOrDefault(emptyList())
             faviconJob?.cancel()
             faviconJob = scope.launch {
-                val path = favicons.resolve(pageUrl, state.value.faviconUrl, links)
-                if (navigation == navigationGeneration && revision == iconGeneration && state.value.url == pageUrl && path != null) {
+                val path = favicons.resolve(pageUrl, state.value.faviconUrl, links, dark)
+                if (navigation == navigationGeneration && revision == iconGeneration && dark == darkTheme && state.value.url == pageUrl && path != null) {
                     update { it.copy(faviconUrl = path) }; metadata()
                 }
             }
@@ -918,6 +950,9 @@ class WebViewBrowserEngine(
     override fun setDarkTheme(dark: Boolean) {
         if (destroyed || darkTheme == dark) return
         darkTheme = dark
+        iconGeneration++
+        faviconJob?.cancel()
+        receivedDocumentIcon = false
         // WebView reads isLightTheme on configuration changes and updates native
         // prefers-color-scheme, including CSS, matchMedia listeners and child frames.
         webTheme.theme.setTo(webTheme.resources.newTheme().apply {
@@ -1187,6 +1222,8 @@ class WebViewBrowserEngine(
             !fullscreenActive && pendingDownloads == 0 && zoomJob?.isActive != true && restoredZoomPercent == null && !pageDownloads.isBusy && !pageTranslation.active) }
     }
     override fun destroy() {
+        observedIcon?.recycle()
+        observedIcon = null
         if (destroyed) return
         pageTranslation.reset(restore = false)
         destroyed = true
