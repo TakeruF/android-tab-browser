@@ -72,6 +72,22 @@ Room JSON schemas are exported to `app/schemas/`. Schema v2 adds nullable `paren
 
 DataStore persists theme, sidebarWidth, sidebarCollapsed, defaultSearchEngineId, selectedSpaceId, restoreTabs, desktopDefault, openLinksInNewTab, and archivePeriod, along with theme-color, search, native page-drag, external-app blocking, video PiP/pop-out, and content-blocking preferences. Changes read and apply the current value inside atomic `edit` operations.
 
+Observations and atomic edits use the same preference decoder, including upgrade
+defaults. If `automatic_search_region` is absent but a legacy default search
+engine is saved, keep that choice manual. An explicit automatic-mode preference
+always wins; a fresh install still defaults to automatic selection.
+`SettingsPersistenceTest` checks every model field against the shipped storage
+keys, real disk reopening, concurrent unrelated edits, nullable/empty values,
+seed-marker retention and legacy search choices through startup.
+
+Transient DataStore read I/O failures retry after 500ms for both settings and
+startup seed-marker reads. They never emit empty preferences or terminate the
+settings observer. A continuing I/O failure leaves cold startup waiting for
+storage, or retains the last observed values in an active session. Cancellation
+stops retries. Corruption and other unexpected read errors propagate to the
+ViewModel's existing workspace-error screen, with readiness disabled and the
+last observed settings retained. No read-recovery path writes or clears data.
+
 ## Navigation
 
 Navigation starts at `browser` and includes `settings` and `history`. The sidebar is shared; the session controller is retained outside NavHost. Command Bar, Space editing, and search-engine editing use dialogs. Navigation does not destroy every WebView.

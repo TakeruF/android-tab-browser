@@ -36,8 +36,17 @@ Settings › General › Download location keeps the system Downloads folder by
 default, so existing users are unaffected. Choosing a folder opens Android's
 folder picker; Nagi takes a persisted read/write grant and stores only the tree
 URI in DataStore (`download_folder`). Replacing the folder or returning to the
-default releases the previous grant. The row shows the folder's name, or notes
+default releases the previous grant only after saving succeeds. A failed save
+keeps the old choice and its grant. Private-workspace changes do not release
+the inherited grant used by normal browsing. The row shows the folder's name, or notes
 when the folder has become unavailable.
+
+`DownloadFolderSettingsTest` covers save-before-release ordering, failed writes,
+same-folder selection and private/normal isolation. `DownloadLocationSettingsUiTest`
+checks cancellation, resetting to Downloads and retained unrelated settings
+after Activity recreation on phone/light and tablet/dark layouts. Its synthetic
+folder URI checks Settings wiring; it does not establish a real document
+provider's grant behavior.
 
 Page-generated files are written straight into the chosen folder. DownloadManager
 cannot write into a Storage Access Framework folder, so HTTP(S) downloads bound

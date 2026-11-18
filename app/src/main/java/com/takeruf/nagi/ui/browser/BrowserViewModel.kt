@@ -26,11 +26,15 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     val canChooseNewTabPhoto get() = !container.isPrivate
     val importingNewTabPhoto = MutableStateFlow(false)
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val state = combine(container.workspace.snapshot, container.settings.settings, initialized, startupError, spacePreview) { workspace, settings, ready, error, preview ->
+    val state: StateFlow<BrowserUiState> = combine(container.workspace.snapshot, container.settings.settings.catch { error ->
+        if (error is CancellationException) throw error
+        startupError.value = error.message ?: "Could not open workspace"
+        emit(state.value.settings)
+    }, initialized, startupError, spacePreview) { workspace, settings, ready, error, preview ->
         val displayed = if (preview == null) workspace else workspace.copy(spaces = workspace.spaces.map { space ->
             if (space.id == preview.id) space.copy(name = preview.name, icon = preview.icon, color = preview.color) else space
         })
-        BrowserUiState(displayed, settings, ready, error)
+        BrowserUiState(displayed, settings, ready && error == null, error)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BrowserUiState())
     init { viewModelScope.launch {
         try { container.workspace.ready.await(); initialized.value = true }
@@ -114,6 +118,11 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
     fun updateSettings(change: (BrowserSettings) -> BrowserSettings) = action { container.settings.update(change) }
+    fun updateDownloadFolder(folder: String?, releasePrevious: (String) -> Unit) = action {
+        com.takeruf.nagi.browser.downloads.DownloadFolder.rememberSelection(
+            container.settings, folder, releasePrevious,
+            retainedFolder = { if (container.isPrivate) container.normalSettings?.settings?.first()?.downloadFolder else null })
+    }
     fun setSiteContentBlocking(host: String, enabled: Boolean, onApplied: (BrowserSettings) -> Unit) = action {
         container.settings.update { it.copy(adBlockExcludedHosts =
             if (enabled) it.adBlockExcludedHosts - host else it.adBlockExcludedHosts + host) }

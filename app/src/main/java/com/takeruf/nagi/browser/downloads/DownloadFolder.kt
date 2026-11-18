@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import com.takeruf.nagi.data.datastore.SettingsStore
 import java.io.File
 import java.io.InputStream
 
@@ -18,6 +19,17 @@ import java.io.InputStream
  * DocumentsContract so no extra library is needed; the persisted grant is taken in Settings.
  */
 object DownloadFolder {
+    /** Keep the old grant until saving succeeds, and while normal browsing still uses it. */
+    suspend fun rememberSelection(settings: SettingsStore, folder: String?,
+        releasePrevious: (String) -> Unit, retainedFolder: suspend () -> String? = { null }) {
+        var previous: String? = null
+        settings.update {
+            previous = it.downloadFolder
+            it.copy(downloadFolder = folder)
+        }
+        previous?.takeIf { it != folder && it != retainedFolder() }?.let(releasePrevious)
+    }
+
     /** True while Nagi still holds a persisted write grant for [tree]. */
     fun writable(context: Context, tree: Uri): Boolean =
         context.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isWritePermission }

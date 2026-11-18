@@ -1,11 +1,13 @@
 package com.takeruf.nagi.data.datastore
 
 import android.content.Context
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.takeruf.nagi.domain.model.*
 import com.takeruf.nagi.browser.search.AiSearchEngines
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.delay
 import java.io.IOException
 
 private val Context.browserDataStore by preferencesDataStore("browser_settings")
@@ -57,9 +59,16 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val translationTargetLanguage = stringPreferencesKey("translation_target_language")
         val alwaysTranslateLanguages = stringSetPreferencesKey("always_translate_languages")
     }
-    val settings: Flow<BrowserSettings> = store.data.catch {
-        if (it is IOException) emit(emptyPreferences()) else throw it
-    }.map { p -> BrowserSettings(
+    private val preferences = store.data.retryWhen { error, _ ->
+        if (error is IOException && error !is CorruptionException) {
+            // A failed read is not an empty store. Keep observing until storage recovers.
+            delay(500)
+            true
+        } else false
+    }
+    val settings: Flow<BrowserSettings> = preferences.map(::readSettings)
+
+    private fun readSettings(p: Preferences) = BrowserSettings(
         spacesEnabled = p[Keys.spacesEnabled] ?: true,
         commandBar = commandBarSettings(p),
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
@@ -88,50 +97,24 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         adBlockingEnabled = p[Keys.adBlocking] ?: true,
         adBlockExcludedHosts = p[Keys.adBlockExcluded] ?: emptySet(),
         archivePeriod = enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
-        automaticSearchRegion = p[Keys.automaticRegion] ?: true,
+        // An engine saved before automatic region selection existed is a manual choice.
+        automaticSearchRegion = p[Keys.automaticRegion] ?: (p[Keys.engine] == null),
         searchRegionCountry = p[Keys.regionCountry], searchRegionSource = p[Keys.regionSource],
         searchRegionCheckedAt = p[Keys.regionCheckedAt] ?: 0,
         themeColor = p[Keys.themeColor] ?: 0xFF426B5A,
         commonSearchEngineIds = p[Keys.commonEngines],
         defaultAiEngineId = p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
-    ) }
-    suspend fun aiEnginesSeeded(): Boolean = store.data.first()[Keys.aiEnginesSeeded] ?: false
+    )
+    suspend fun aiEnginesSeeded(): Boolean = preferences.first()[Keys.aiEnginesSeeded] ?: false
     suspend fun markAiEnginesSeeded() { store.edit { it[Keys.aiEnginesSeeded] = true } }
-    suspend fun additionalEnginesSeeded(): Boolean = store.data.first()[Keys.additionalEnginesSeeded] ?: false
+    suspend fun additionalEnginesSeeded(): Boolean = preferences.first()[Keys.additionalEnginesSeeded] ?: false
     suspend fun markAdditionalEnginesSeeded() { store.edit { it[Keys.additionalEnginesSeeded] = true } }
-    suspend fun regionalEngineSeeded(): Boolean = store.data.first()[Keys.regionalEngineSeeded] ?: false
+    suspend fun regionalEngineSeeded(): Boolean = preferences.first()[Keys.regionalEngineSeeded] ?: false
     suspend fun markRegionalEngineSeeded() { store.edit { it[Keys.regionalEngineSeeded] = true } }
     suspend fun update(change: (BrowserSettings) -> BrowserSettings) {
         store.edit { p ->
             // Read inside the atomic edit to prevent concurrent settings changes being lost.
-            val current = BrowserSettings(
-                enumOrDefault(p[Keys.theme], ThemeMode.SYSTEM), p[Keys.width] ?: 264f,
-                p[Keys.collapsed] ?: false, p[Keys.engine]?.takeUnless { it in AiSearchEngines.ids } ?: "google", p[Keys.space] ?: "personal",
-                p[Keys.restore] ?: true, p[Keys.desktop] ?: true, p[Keys.newLinks] ?: false,
-                enumOrDefault(p[Keys.archive], ArchivePeriod.NEVER),
-                p[Keys.automaticRegion] ?: true,
-                p[Keys.regionCountry], p[Keys.regionSource], p[Keys.regionCheckedAt] ?: 0,
-                p[Keys.themeColor] ?: 0xFF426B5A, p[Keys.commonEngines], p[Keys.aiEngine] ?: p[Keys.engine]?.takeIf { it in AiSearchEngines.ids },
-                spacesEnabled = p[Keys.spacesEnabled] ?: true,
-                commandBar = commandBarSettings(p),
-                adaptiveDarkMode = p[Keys.adaptiveDarkMode] ?: false,
-                darkModeExcludedHosts = p[Keys.darkModeExcludedHosts] ?: emptySet(),
-                bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
-                downloadFolder = p[Keys.downloadFolder],
-                avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
-                cameraSideMargin = (p[Keys.cameraSideMargin] ?: 32).coerceIn(0, 64),
-                cameraLeftRotation = p[Keys.cameraLeftRotation]?.takeIf { it in 0..3 },
-                nativePageDrag = p[Keys.pageDrag] ?: true,
-                blockExternalApps = p[Keys.blockExternal] ?: false,
-                autoVideoPip = p[Keys.autoVideoPip] ?: true,
-                videoPopups = p[Keys.videoPopups] ?: true,
-                adBlockingEnabled = p[Keys.adBlocking] ?: true,
-                adBlockExcludedHosts = p[Keys.adBlockExcluded] ?: emptySet(),
-                newTabBackground = enumOrDefault(p[Keys.newTabBackground], NewTabBackground.DEFAULT),
-                newTabColor = p[Keys.newTabColor] ?: 0xFF426B5A,
-                newTabPhoto = p[Keys.newTabPhoto],
-                translationTargetLanguage = p[Keys.translationTargetLanguage],
-                alwaysTranslateLanguages = translationRules(p[Keys.alwaysTranslateLanguages]))
+            val current = readSettings(p)
             val next = change(current)
             p[Keys.adaptiveDarkMode] = next.adaptiveDarkMode
             p[Keys.darkModeExcludedHosts] = next.darkModeExcludedHosts

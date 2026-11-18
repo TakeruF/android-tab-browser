@@ -18,6 +18,11 @@ Every category is initially enabled, preserving existing behavior. Preferences
 use atomic DataStore updates; hiding suggestions does not delete tabs, Spaces or
 browsing history.
 
+A temporary settings-file read failure retries without treating the store as
+empty or enabling every category. Existing observers resume when storage is
+readable again. Corrupt or otherwise invalid settings surface an error instead
+of displaying an editable set of defaults; settings files are not reset.
+
 Turning off **Use Spaces** also turns the Spaces suggestion switch off and
 disables it. Its saved choice is retained, so turning Spaces back on restores
 the previous suggestion setting.

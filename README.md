@@ -16,10 +16,11 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
+Version 1.4.1 is being prepared with the 1.4.0 phone/keyboard improvements and fixes for retaining custom settings. Release validation is in progress; submission and availability for 1.4.1 are not yet established. See [1.4.1 notes](docs/releases/1.4.1.md) for scope and verification.
+
 Version 1.4.0 improves the phone UI and on-screen keyboard behavior, adds native
-page-error screens, and improves theme-aware website icons. Code 21 has been
-submitted to Google Play for a full rollout and is in review; 1.3.1/code 20
-remains the current published version. See
+page-error screens, and improves theme-aware website icons. Google Play code 21 is published, confirmed by the release lifecycle API on
+2026-11-19. See
 [1.4.0 notes](docs/releases/1.4.0.md) for scope, validation and release status.
 
 Version 1.3.0 added page zoom, pinned-tab/Split resume links, keyboard actions, category-based Settings and download improvements. The code-19 update included UI, Command Bar, download-folder and password-autofill changes with six-language notes and store copy. See [1.3.0 notes](docs/releases/1.3.0.md) for its historical scope and verification.

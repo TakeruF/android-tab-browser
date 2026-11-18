@@ -44,17 +44,17 @@ private const val GRANT = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_G
  * after restarts, and released when the folder is replaced or reset.
  */
 @Composable
-internal fun DownloadLocationSetting(folder: String?, onChange: (String?) -> Unit) {
+internal fun DownloadLocationSetting(folder: String?, onChange: (String?, (String) -> Unit) -> Unit) {
     val strings = rememberNagiStrings()
-    val context = LocalContext.current
+    // Completion callbacks can outlive this Settings composition or its Activity.
+    val context = LocalContext.current.applicationContext
     var choosing by remember { mutableStateOf(false) }
-    fun release(previous: String?) {
-        previous?.let { runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(it), GRANT) } }
+    fun release(previous: String) {
+        runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(previous), GRANT) }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null && runCatching { context.contentResolver.takePersistableUriPermission(uri, GRANT) }.isSuccess) {
-            if (folder != uri.toString()) release(folder)
-            onChange(uri.toString())
+            onChange(uri.toString(), ::release)
         }
     }
     // Name and availability are read off the main thread; a revoked or deleted folder falls back to Downloads.
@@ -85,8 +85,7 @@ internal fun DownloadLocationSetting(folder: String?, onChange: (String?) -> Uni
                     }
                 }
                 Option(strings(R.string.ui_download_location_default_option), folder == null, "download-location-default") {
-                    release(folder)
-                    onChange(null)
+                    onChange(null, ::release)
                     choosing = false
                 }
                 if (folder != null) Option(name.orEmpty(), true, "download-location-folder") { choosing = false }

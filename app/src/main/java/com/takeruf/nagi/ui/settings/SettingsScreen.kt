@@ -203,7 +203,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                 SettingToggle(strings(R.string.ui_page_drag), null, prefs.nativePageDrag) { value -> vm.updateSettings { it.copy(nativePageDrag = value) } }
                                 SettingToggle(strings(R.string.ui_restore_tabs_on_launch), null, prefs.restoreTabs) { value -> vm.updateSettings { it.copy(restoreTabs = value) } }
                                 SettingToggle(strings(R.string.ui_desktop_site_by_default), null, prefs.desktopDefault) { value -> vm.updateSettings { it.copy(desktopDefault = value) } }
-                                DownloadLocationSetting(prefs.downloadFolder) { folder -> vm.updateSettings { it.copy(downloadFolder = folder) } }
+                                DownloadLocationSetting(prefs.downloadFolder, onChange = vm::updateDownloadFolder)
                             } }
                             if (category == SettingsCategory.COMMAND_BAR) {
                                 item { Text(strings(R.string.ui_command_bar_description),

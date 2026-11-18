@@ -32,6 +32,8 @@ class AppContainer(application: Application, val privateProfileName: String? = n
     val database = if (isPrivate) Room.inMemoryDatabaseBuilder(application, NagiDatabase::class.java).build()
         else Room.databaseBuilder(application, NagiDatabase::class.java, "orbit.db").build()
     val settings = if (isPrivate) SettingsStore(application, com.takeruf.nagi.browser.privacy.MemoryPreferences()) else SettingsStore(application)
+    // Private folder changes must keep any grant still selected by the normal workspace.
+    val normalSettings = if (isPrivate) initialSettings else settings
     val siteDisplayModes = com.takeruf.nagi.browser.engine.SiteDisplayModeStore(application, inMemory = isPrivate)
     val adBlocker = sharedBlocker ?: com.takeruf.nagi.browser.blocking.AdBlocker(application, scope)
     val workspace = WorkspaceRepository(database, settings)

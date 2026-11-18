@@ -314,3 +314,86 @@ physical devices and arbitrary public websites remain separate verification.
 See [favicon acquisition, storage and validation](FAVICONS.md) for the 218-unit-test
 build/lint results, 11 selected local WebView/UI cases, two separate GitHub/ChatGPT
 live/restart checks, screenshot coverage, cache limits and provider limitations.
+
+
+## Settings retention audit (2026-11-18)
+
+An isolated candidate based on `22934d3` fixes two settings-retention paths:
+legacy search-engine selections without an automatic-region flag keep their
+manual web/AI choices; download-folder grants are released only after saving
+succeeds and are retained while selected by the normal workspace. Private-only
+replacement grants can still be released when no longer selected.
+
+`SettingsPersistenceTest` checks all 36 `BrowserSettings` fields against raw
+shipped preference keys, disk reopening, concurrent unrelated updates, cleared
+nullable/empty values, unknown keys and seeding markers. Its legacy search tests
+failed before the fix on API 26 and 35, then passed. Download-folder tests cover
+write failure, release ordering, reselecting the same folder and private/normal
+separation.
+
+The JDK-17 Wrapper passed all 233 Play Debug unit tests with zero failures,
+errors or skips, Play Debug/Release lint (zero errors, 96 warnings each), and
+Debug/main-test APK assembly using `--no-parallel`:
+
+```sh
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayDebug :app:lintPlayRelease :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --no-parallel
+ANDROID_SERIAL=emulator-5590 ./gradlew :app:connectedPlayDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.takeruf.nagi.DownloadLocationSettingsUiTest,com.takeruf.nagi.CommandBarSettingsUiTest,com.takeruf.nagi.SettingsNavigationUiTest#adaptiveDarkModeSettingAndSiteMenuUpdateLiveSplitAndSurviveRecreation' --no-parallel
+```
+
+All five selected UI cases passed with no failures or skips on dedicated
+`Nagi_SettingsRetention_QA_20261118` (`emulator-5590`, API 36, WebView
+133.0.6943.137). They cover cancellation/resetting of a saved download folder,
+Command Bar choices, Activity recreation, live Split/draft retention and page
+darkening across phone/light and tablet/dark states. Both download-location
+cases also passed a direct-instrumentation screenshot rerun; the 411dp/light
+and 1000dp/dark screenshots were visually inspected.
+
+The folder UI test uses a synthetic URI. Actual document-provider grants,
+physical/OEM devices, full instrumentation and Google Play update delivery
+were not tested. The earlier reported Command Bar reset remains unreproduced;
+these findings do not establish its cause. Compact evidence and the focused
+patch are under ignored `artifacts/settings-retention-20261118/`. No version
+bump or release action was performed.
+
+
+## Command Bar read recovery (2026-11-19)
+
+The reported update was clarified as 1.3.1 → 1.4.0, with Settings switches
+returning to ON. A fresh locally signed 1.3.1/code-20 install on dedicated
+`Nagi_CommandBar131Upgrade_QA_20261119` (`emulator-5592`, API 36) retained all five
+OFF choices through process restart, an in-place 1.4.0/code-21 update and another
+restart. Real Command Bar screenshots before/after the update showed only the
+input with all suggestions hidden. This ordinary APK-replacement path did not
+reproduce the reset; it is separate from Google Play delivery and the user's
+physical device.
+
+An independent injected-read-failure test found a matching model-state defect:
+`IOException` produced empty preferences, enabling every category, and completed
+the observer so later saved values were no longer received. Before the fix,
+eight of ten API-26/API-35 test executions failed. Read recovery now retries
+transient I/O after 500ms, including startup seed reads, without emitting defaults
+or writing settings. Cancellation stops retries. Corruption and other unexpected
+errors propagate; the ViewModel disables readiness and uses the existing error
+screen while retaining its last settings value. A permanent I/O outage waits for
+storage instead of pretending that the store is empty.
+
+All six recovery cases pass on both API 26 and 35 (12 executions). They cover
+startup failure, failure after valid settings, seed-marker reads, continued
+outages, cancellation, and corruption/non-I/O failures. The isolated candidate
+and original working tree both passed all 245 Play Debug unit tests, with zero
+failures/errors/skips, and Debug/Release lint (zero errors, 96 warnings each).
+The candidate also passed Debug and instrumentation APK assembly:
+
+```sh
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayDebug :app:lintPlayRelease :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --no-parallel
+ANDROID_SERIAL=emulator-5590 ./gradlew :app:connectedPlayDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.takeruf.nagi.CommandBarSettingsUiTest,com.takeruf.nagi.SettingsNavigationUiTest#adaptiveDarkModeSettingAndSiteMenuUpdateLiveSplitAndSurviveRecreation' --no-parallel
+```
+
+All three selected UI cases passed without failures or skips on dedicated
+`Nagi_SettingsRetention_QA_20261118` (API 36, WebView 133.0.6943.137), covering
+phone/light and tablet/dark Command Bar settings, recreation, retained live
+Split/drafts and adaptive dark mode. These emulator tests did not inject storage
+errors; read-failure evidence is from the separate JVM tests.
+
+Evidence is under ignored `artifacts/commandbar-131-140-20261119/`. The actual
+user-device cause remains unconfirmed. No version bump or release action ran.

@@ -1,5 +1,17 @@
 # Google Play release preparation
 
+## Current release preparation — 2026-11-19
+
+Version **1.4.1 / code 22** is authorized for release with the user-approved
+[six-language notes](play-store/release-notes-1.4.1.txt): the unchanged 1.4.0
+three-point copy plus the custom-settings update fix. Fresh API preflight across
+bundles, APKs and all tracks found highest code **21**, and the independent
+release lifecycle API reports **1.4.0/code 21 PUBLISHED**. Preserve the existing
+177 explicit production countries plus rest-of-world availability, all store
+listings and device/permission declarations. The signed code-22 upload and
+submission are pending verification. See [1.4.1 notes](releases/1.4.1.md).
+
+
 ## Latest production submission — 2026-11-18
 
 Version **1.4.0 / code 21** is accepted and submitted for full production rollout with the user-approved
