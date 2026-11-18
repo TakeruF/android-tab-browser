@@ -1,5 +1,16 @@
 # Google Play release preparation
 
+## Current preparation — 2026-11-18
+
+Version **1.4.0 / code 21** is being prepared with the user-approved
+[six-language notes](play-store/release-notes-1.4.0.txt). Live API preflight found
+highest uploaded code 20 across bundles, APKs and every track. Production 20
+(1.3.1) is completed; Console independently showed it Available on Google Play
+at 100% in all 178 selected countries/regions. App signing preflight reconfirmed
+the established upload-key SHA-256 and its separate Play app-signing role.
+No code-21 upload or submission is recorded at this stage. See
+[1.4.0 verification](RELEASE_1.4.0_VERIFICATION.md).
+
 ## Latest production submission — 2026-11-15
 
 **1.3.1 / code 20** is accepted and submitted for full production rollout with

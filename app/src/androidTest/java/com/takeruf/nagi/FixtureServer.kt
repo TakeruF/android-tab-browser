@@ -12,8 +12,9 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
     private val useIcoContainer: Boolean = false, private val pages: Map<String, String> = emptyMap(),
     private val redirects: Map<String, String> = emptyMap(),
     private val icons: Map<String, Int> = emptyMap(),
-    private val iconDelaysMs: Map<String, Long> = emptyMap()) : AutoCloseable {
-    private val socket = ServerSocket(0)
+    private val iconDelaysMs: Map<String, Long> = emptyMap(),
+    private val statusCodes: Map<String, Int> = emptyMap(), port: Int = 0) : AutoCloseable {
+    private val socket = ServerSocket(port)
     private val executor = Executors.newCachedThreadPool()
     val origin = "http://127.0.0.1:${socket.localPort}"
     data class Request(val path: String, val userAgent: String, val referer: String?, val mobileHint: String?)
@@ -175,7 +176,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     </body></html>
                 """
                 val bytes = body.toByteArray()
-                client.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                client.getOutputStream().write(("HTTP/1.1 ${statusCodes[path] ?: 200} Fixture\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
                 client.getOutputStream().write(bytes)
             } } }
         }

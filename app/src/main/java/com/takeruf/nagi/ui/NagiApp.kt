@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.RectangleShape
 import com.takeruf.nagi.ui.theme.NagiTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -63,7 +65,7 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, container: AppContainer,
     incomingUrls: Flow<String>, windowWidthDp: Float) {
@@ -87,7 +89,13 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.SYSTEM && androidx.compose.foundation.isSystemInDarkTheme()
     val currentStrings by rememberUpdatedState(strings)
     val currentSettings by rememberUpdatedState(state.settings)
-    val desktopDefault = !sidebarAdaptation.compact && state.settings.desktopDefault
+    // A landscape phone can have a wide browser UI and still request phone sites.
+    // Keep the preceding default while the system video PiP window is active.
+    var savedDesktopDefault by rememberSaveable { mutableStateOf(false) }
+    val smallestWidthDp = LocalConfiguration.current.smallestScreenWidthDp
+    val desktopDefault = if (systemPip) savedDesktopDefault else
+        !sidebarAdaptation.compact && smallestWidthDp >= 600 && state.settings.desktopDefault
+    SideEffect { savedDesktopDefault = desktopDefault }
     val currentDesktopDefault by rememberUpdatedState(desktopDefault)
     SideEffect { host.blockExternalApps = { currentSettings.blockExternalApps } }
     val sessions = remember(host) { BrowserSessionController(container) { tabId, desktop ->
@@ -324,8 +332,14 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val displayRotation = rememberDisplayRotation()
+        // The browser shell stays behind the keyboard. A page editor resizes only
+        // BrowserScreen; the Command Bar handles IME insets in its own Dialog window.
+        val safeInsets = if (route == "browser" || omniboxOpen)
+            WindowInsets.systemBars.union(WindowInsets.displayCutout)
+                .union(WindowInsets.navigationBarsIgnoringVisibility)
+        else WindowInsets.safeDrawing
         val contentInsets = cameraContentInsets(state.settings, landscape, displayRotation,
-            WindowInsets.safeDrawing, WindowInsets.systemBars, WindowInsets.ime)
+            safeInsets, WindowInsets.systemBars, WindowInsets.ime)
         val compactNavigation = sidebarAdaptation.compact && route == "browser"
         val settingsOpen = route == "settings"
         val windowColor = if (settingsOpen) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.background
@@ -422,11 +436,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             }
                             Spacer(Modifier.width(8.dp))
                         }
-                        val flatBottom = sidebarAdaptation.compact && route == "browser"
-                        Surface(shape = if (flatBottom) NagiShapes.Top else NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
+                        val flatBrowser = sidebarAdaptation.compact && route == "browser"
+                        Surface(shape = if (flatBrowser) RectangleShape else NagiShapes.Rounded, modifier = Modifier.weight(1f).fillMaxHeight()
                             .padding(if (sidebarAdaptation.compact) PaddingValues(0.dp) else PaddingValues(top = 8.dp, end = 8.dp, bottom = 8.dp)),
                             color = if (settingsOpen) windowColor else MaterialTheme.colorScheme.surface,
-                            shadowElevation = if (flatBottom || settingsOpen) 0.dp else 1.dp) {
+                            shadowElevation = if (flatBrowser || settingsOpen) 0.dp else 1.dp) {
                             Box(Modifier.fillMaxSize()) {
                                 NavHost(navController = nav, startDestination = "browser") {
                                     composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
@@ -435,6 +449,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         onSplit = ::split, onCloseSplit = ::closeSplit,
                                         onSwap = { right?.let { other -> left?.let { vm.pairTabs(other.id, it.id); vm.selectTab(other.id) } } },
                                         leftTabId = left?.id, compactWindow = sidebarAdaptation.compact, desktopDefault = desktopDefault,
+                                        resizeForIme = !omniboxOpen,
+                                        onNewTab = ::newTab, onTabs = { setSidebarCollapsed(false) },
                                         onTranslationOptions = { tab, engine ->
                                             translationRequest = PageTranslationRequest(tab.id, engine, engine.state.value.url)
                                         }) }
@@ -479,7 +495,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             }
                         }
                     }
-                    if (sidebarAdaptation.compact && route == "browser") {
+                    if (sidebarAdaptation.compact && route == "browser" && !state.settings.bottomSearchBar && !WindowInsets.isImeVisible) {
                         val focusedPage = pages[focusedTab?.id]
                         CompactBrowserBar(state.visibleTabs.size,
                             canGoBack = focusedPage?.readerArticle != null || focusedPage?.canGoBack == true || canCloseTabOnBack,
@@ -503,9 +519,11 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     ModalBottomSheet(onDismissRequest = { setSidebarCollapsed(true); sidebarDrag.cancel() },
                         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                         sheetMaxWidth = 600.dp, dragHandle = null) {
-                        Box(Modifier.fillMaxWidth().fillMaxHeight(0.85f).testTag("compact-tab-sheet")) {
-                            SidebarContent(state.copy(settings = state.settings.copy(sidebarCollapsed = false)))
-                            if (sidebarDrag.item != null || sidebarDrag.favoriteLanding != null) SidebarDragPreview(sidebarDrag)
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            Box(Modifier.fillMaxWidth().heightIn(max = maxHeight * 0.85f).testTag("compact-tab-sheet")) {
+                                SidebarContent(state.copy(settings = state.settings.copy(sidebarCollapsed = false)))
+                                if (sidebarDrag.item != null || sidebarDrag.favoriteLanding != null) SidebarDragPreview(sidebarDrag)
+                            }
                         }
                     }
                 }

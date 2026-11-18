@@ -462,4 +462,12 @@
     <string name="ui_adaptive_dark_mode_unavailable">Esta versión de Android System WebView no admite el modo oscuro adaptativo.</string>
     <string name="ui_disable_site_dark_mode">Desactivar el modo oscuro adaptativo para este sitio</string>
     <string name="ui_enable_site_dark_mode">Activar el modo oscuro adaptativo para este sitio</string>
+    <string name="ui_page_connection_title">No se pudo conectar</string>
+    <string name="ui_page_connection_description">Comprueba tu conexión a Internet e inténtalo de nuevo.</string>
+    <string name="ui_page_timeout_title">Se agotó el tiempo de conexión</string>
+    <string name="ui_page_timeout_description">El sitio tarda demasiado en responder. Inténtalo más tarde.</string>
+    <string name="ui_page_certificate_title">No se pudo conectar de forma segura</string>
+    <string name="ui_page_certificate_description">No se pudo verificar el certificado del sitio. Inténtalo más tarde.</string>
+    <string name="ui_page_error_title">No se pudo abrir esta página</string>
+    <string name="ui_page_error_description">Comprueba la dirección o inténtalo más tarde.</string>
 </resources>

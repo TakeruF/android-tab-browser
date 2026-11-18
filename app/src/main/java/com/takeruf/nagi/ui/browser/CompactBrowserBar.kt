@@ -2,6 +2,7 @@ package com.takeruf.nagi.ui.browser
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.components.NagiIcons
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
-import com.takeruf.nagi.ui.theme.NagiShapes
 
 /** Cover-screen controls stay within thumb reach without reserving a sidebar column. */
 @Composable
@@ -37,16 +37,22 @@ fun CompactBrowserBar(tabCount: Int, canGoBack: Boolean, canGoForward: Boolean,
             if (onSearch != null) IconButton(onClick = onSearch, modifier = Modifier.weight(1f).fillMaxHeight().testTag("compact-search-button")) {
                 Icon(NagiIcons.Search, strings(R.string.ui_search_or_enter_url), Modifier.size(21.dp))
             }
-            IconButton(onClick = onTabs, modifier = Modifier.weight(1f).fillMaxHeight()
-                .testTag("compact-tabs-button").semantics {
-                    contentDescription = strings(R.string.ui_tabs)
-                    stateDescription = tabCount.toString()
-                }) {
-                Box(Modifier.size(28.dp).border(1.5.dp, MaterialTheme.colorScheme.onSurface, NagiShapes.Rounded),
-                    contentAlignment = Alignment.Center) {
-                    Text(tabCount.toString(), style = MaterialTheme.typography.labelSmall)
-                }
-            }
+            CompactTabsButton(tabCount, onTabs, Modifier.weight(1f).fillMaxHeight())
+        }
+    }
+}
+
+@Composable
+internal fun CompactTabsButton(tabCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val strings = rememberNagiStrings()
+    IconButton(onClick = onClick, modifier = modifier.size(48.dp)
+        .testTag("compact-tabs-button").semantics {
+            contentDescription = strings(R.string.ui_tabs)
+            stateDescription = tabCount.toString()
+        }) {
+        Box(Modifier.size(24.dp).border(2.dp, LocalContentColor.current, RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center) {
+            Text(tabCount.toString(), style = MaterialTheme.typography.labelMedium)
         }
     }
 }

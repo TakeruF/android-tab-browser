@@ -460,4 +460,12 @@
     <string name="ui_adaptive_dark_mode_unavailable">현재 Android System WebView 버전은 웹페이지 자동 다크 모드를 지원하지 않습니다.</string>
     <string name="ui_disable_site_dark_mode">이 사이트의 자동 다크 모드 끄기</string>
     <string name="ui_enable_site_dark_mode">이 사이트의 자동 다크 모드 켜기</string>
+    <string name="ui_page_connection_title">연결할 수 없습니다</string>
+    <string name="ui_page_connection_description">인터넷 연결을 확인하고 다시 시도하세요.</string>
+    <string name="ui_page_timeout_title">연결 시간이 초과되었습니다</string>
+    <string name="ui_page_timeout_description">사이트의 응답이 지연되고 있습니다. 나중에 다시 시도하세요.</string>
+    <string name="ui_page_certificate_title">안전하게 연결할 수 없습니다</string>
+    <string name="ui_page_certificate_description">사이트의 인증서를 확인할 수 없습니다. 나중에 다시 시도하세요.</string>
+    <string name="ui_page_error_title">페이지를 열 수 없습니다</string>
+    <string name="ui_page_error_description">주소를 확인하거나 나중에 다시 시도하세요.</string>
 </resources>

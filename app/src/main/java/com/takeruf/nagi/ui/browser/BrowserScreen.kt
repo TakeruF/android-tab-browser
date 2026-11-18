@@ -14,6 +14,8 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
     onOmnibox: () -> Unit, onOpenUrl: (String) -> Unit, onSplit: () -> Unit,
     onCloseSplit: () -> Unit, onSwap: () -> Unit,
     leftTabId: String? = null, compactWindow: Boolean = false, desktopDefault: Boolean = state.settings.desktopDefault,
+    resizeForIme: Boolean = true,
+    onNewTab: () -> Unit = {}, onTabs: () -> Unit = {},
     onTranslationOptions: (com.takeruf.nagi.domain.model.BrowserTab, com.takeruf.nagi.browser.engine.BrowserEngine) -> Unit = { _, _ -> }) {
     var customizingNewTab by remember { mutableStateOf(false) }
     if (customizingNewTab) NewTabAppearanceDialog(state.settings, vm) { customizingNewTab = false }
@@ -35,6 +37,7 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 onResumeTab = { id -> onFocusRight(false); vm.selectTab(id) },
                 onTranslationOptions = { onTranslationOptions(tab, engine) },
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap, compactWindow = compactWindow,
+                onNewTab = onNewTab, onTabs = onTabs,
                 onSiteDarkModeChange = vm::setSiteDarkMode,
                 onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->
                     engine.configureContentBlocking(prefs.adBlockingEnabled, prefs.adBlockExcludedHosts)
@@ -50,7 +53,7 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 })
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().then(if (resizeForIme) Modifier.imePadding() else Modifier)) {
         if (right == null) Pane(false)
         else SplitLayout(splitRatio, onSplitRatio, left = { Pane(false) }, right = { Pane(true) })
     }

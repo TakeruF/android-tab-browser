@@ -1,7 +1,7 @@
 # Favicons and app themes
 
-Status: planned for the next app update. A release version has not yet been
-assigned to this change.
+Status: included in the 1.4.0 release candidate; see
+[release verification](RELEASE_1.4.0_VERIFICATION.md) for distribution status.
 
 `FaviconStore` shares icons by normalized HTTP(S) origin across tabs, Favorites,
 history and drag previews. Each origin has independent light and dark indexes,

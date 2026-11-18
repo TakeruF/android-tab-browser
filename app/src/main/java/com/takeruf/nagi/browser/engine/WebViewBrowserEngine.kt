@@ -385,7 +385,13 @@ class WebViewBrowserEngine(
                 if (request.isForMainFrame) {
                     loadingTimeout?.cancel()
                     failedNavigation = true
-                    update { it.copy(isLoading = false, error = error.description.toString()) }
+                    val kind = when (error.errorCode) {
+                        WebViewClient.ERROR_HOST_LOOKUP, WebViewClient.ERROR_CONNECT, WebViewClient.ERROR_IO -> PageErrorKind.CONNECTION
+                        WebViewClient.ERROR_TIMEOUT -> PageErrorKind.TIMEOUT
+                        WebViewClient.ERROR_FAILED_SSL_HANDSHAKE -> PageErrorKind.CERTIFICATE
+                        else -> PageErrorKind.OTHER
+                    }
+                    update { it.copy(isLoading = false, error = error.description.toString(), errorKind = kind) }
                 }
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
@@ -394,9 +400,13 @@ class WebViewBrowserEngine(
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel() // Never bypass certificate validation.
+                // A rejected image/frame certificate must not replace a healthy main page.
+                if (error.url.substringBefore('#') != state.value.url.substringBefore('#')) return
                 wwwRetryUrl(error)?.let { retry -> loadUrl(retry); return }
+                loadingTimeout?.cancel()
                 failedNavigation = true
-                update { it.copy(isLoading = false, error = strings(R.string.ui_the_site_s_certificate_could_not_be_verified)) }
+                update { it.copy(isLoading = false, error = strings(R.string.ui_the_site_s_certificate_could_not_be_verified),
+                    errorKind = PageErrorKind.CERTIFICATE) }
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -693,7 +703,7 @@ class WebViewBrowserEngine(
             if (state.value.isLoading) {
                 failedNavigation = true
                 webView.stopLoading()
-                update { it.copy(isLoading = false, error = strings(R.string.ui_loading_timeout)) }
+                update { it.copy(isLoading = false, error = strings(R.string.ui_loading_timeout), errorKind = PageErrorKind.TIMEOUT) }
                 metadata()
             }
         }

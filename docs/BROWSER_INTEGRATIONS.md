@@ -1,5 +1,8 @@
 # Everyday browser integrations
 
+Page loading failures use a native replacement screen; see [page errors](PAGE_ERRORS.md)
+for transport/certificate handling, preserved site responses and retry/history behavior.
+
 ## Camera uploads
 
 `FileSelectionRequest` preserves WebView's capture preference. Single-image JPEG-compatible or unrestricted inputs offer Take photo / Choose files; image inputs requesting capture launch the camera directly. Other MIME types and multiple selection retain the document picker. Android camera permission is requested when the user selects photography.

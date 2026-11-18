@@ -192,7 +192,8 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         }
     }
     val sidebarBackground = Brush.verticalGradient(listOf(sidebarTop, sidebarBottom))
-    Box(Modifier.fillMaxSize().drawBehind {
+    val panelSize = if (overlay) Modifier.fillMaxWidth() else Modifier.fillMaxSize()
+    Box(panelSize.drawBehind {
         // Continue the same gradient into the camera gutter without moving controls
         // or making the reserved camera area interactive.
         val extension = backgroundExtension.toPx()
@@ -230,7 +231,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
             }
         }
         .sidebarDragHost(drag, { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }, { drop() })) {
-        Column(Modifier.fillMaxSize().padding(horizontal = if (collapsed) 8.dp else 12.dp, vertical = 8.dp)) {
+        Column(panelSize.padding(horizontal = if (collapsed) 8.dp else 12.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // The panel glyph fills its whole frame, so it is drawn smaller to look the same size
                 // as the rounder History/Settings icons.
@@ -312,7 +313,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                     Spacer(Modifier.height(12.dp))
                 }
                 if (!overlay) FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark)
-                SpacePages(Modifier.weight(1f)) { state ->
+                SpacePages(Modifier.weight(1f, fill = !overlay)) { state ->
                     val tabs = state.visibleTabs
                     val pairLefts = tabs.filter { tab -> tabs.any { it.id == tab.splitRightTabId } }
                     val todayStart = SidebarDestination(SidebarSection.TODAY, atStart = true)
@@ -337,8 +338,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                     TabRow(page, state, vm, drag, page.id in loadingIds, !mouseInput,
                                         { selectTab(page) }, { onSplitTab(page.id) },
                                         modifier = modifier, compact = true, replacementRight = index == 1,
-                                        suspended = page.id in suspendedIds, largeTouchTargets = overlay,
-                                        showSelectionMark = overlay)
+                                        suspended = page.id in suspendedIds, largeTouchTargets = overlay)
                                 }
                                 Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Member(0, tab, Modifier.weight(1f))
@@ -346,7 +346,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                 }
                             }
                         } else TabRow(tab, state, vm, drag, tab.id in loadingIds, !mouseInput,
-                            { selectTab(tab) }, { onSplitTab(tab.id) }, suspended = tab.id in suspendedIds, largeTouchTargets = overlay, showSelectionMark = overlay, splitEnabled = !overlay)
+                            { selectTab(tab) }, { onSplitTab(tab.id) }, suspended = tab.id in suspendedIds, largeTouchTargets = overlay, splitEnabled = !overlay)
                     }
                     val list = rememberLazyListState()
                     var viewport by remember { mutableStateOf(Rect.Zero) }
@@ -374,7 +374,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                     val spaceForeground = readableSpaceColor(Color(state.currentSpace?.color ?: 0xFF426B5A),
                         palette.onSurface, listOf(sidebarTop, sidebarBottom))
                     SidebarAutoScroll(drag, list, viewport)
-                    LazyColumn(Modifier.fillMaxSize().semantics {
+                    LazyColumn(panelSize.semantics {
                         if (state.currentSpace?.id == spaces.getOrNull(selectedPage)?.id) contentDescription = strings(R.string.ui_sidebar_tabs)
                     }.onGloballyPositioned { viewport = it.boundsInRoot() }, state = list,
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -630,8 +630,7 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
 private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel, drag: SidebarDragState,
     loading: Boolean, touch: Boolean, onSelect: () -> Unit, onSplit: () -> Unit,
     modifier: Modifier = Modifier, compact: Boolean = false, selectedOverride: Boolean? = null, suspended: Boolean = false,
-    replacementRight: Boolean? = null, largeTouchTargets: Boolean = false,
-    showSelectionMark: Boolean = false, splitEnabled: Boolean = true) {
+    replacementRight: Boolean? = null, largeTouchTargets: Boolean = false, splitEnabled: Boolean = true) {
     val strings = rememberNagiStrings()
     var menu by remember { mutableStateOf(false) }
     val selected = selectedOverride ?: (state.activeTab?.id == tab.id)
@@ -639,7 +638,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
     val hovered by interaction.collectIsHoveredAsState()
     val showActions = largeTouchTargets || hovered || menu || (touch && selected)
     val palette = MaterialTheme.colorScheme
-    val contentColor = if (selected && (!compact || showSelectionMark)) palette.onSecondaryContainer else palette.onSurface
+    val contentColor = if (selected && !compact) palette.onSecondaryContainer else palette.onSurface
     val section = if (tab.isPinned) SidebarSection.PINNED else SidebarSection.TODAY
     val target = drag.destination?.takeIf { it.section == section && it.id == tab.id && drag.item?.id != tab.id }
     val splitTarget = drag.destination?.section == SidebarSection.SPLIT_TAB && drag.destination?.id == tab.id
@@ -657,7 +656,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                 .background(palette.primary.copy(alpha = 0.28f).compositeOver(palette.surfaceContainerHigh), NagiShapes.Rounded))
         }
         Row(Modifier.fillMaxWidth().alpha(if (drag.item?.id == tab.id && drag.item?.pairRight == null) 0.3f else 1f)
-            .clip(NagiShapes.Rounded).background(if (splitTarget || replacementTarget) Color.Transparent else if (selected && (!compact || showSelectionMark)) palette.secondaryContainer else if (compact) palette.surfaceContainerHigh else Color.Transparent)
+            .clip(NagiShapes.Rounded).background(if (splitTarget || replacementTarget) Color.Transparent else if (selected && !compact) palette.secondaryContainer else if (compact) palette.surfaceContainerHigh else Color.Transparent)
             .sidebarDraggable(drag, item).hoverable(interaction).sidebarContextMenu { menu = true }.clickable(onClick = onSelect)
             .heightIn(min = 48.dp).semantics { contentDescription = strings(R.string.ui_tab_1_s, strings.tabTitle(tab))
                 this.selected = selected
@@ -675,9 +674,6 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
 
             Text(strings.tabTitle(tab), color = contentColor, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f).padding(end = if (compact) 8.dp else 0.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (selected && showSelectionMark) {
-                Icon(NagiIcons.Check, null, Modifier.size(16.dp), tint = contentColor)
-            }
             if (suspended) Text("zZ", style = MaterialTheme.typography.labelSmall, color = palette.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp).semantics { contentDescription = strings(R.string.ui_tab_suspended) })
             Box {

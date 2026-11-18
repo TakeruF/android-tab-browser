@@ -1,0 +1,35 @@
+<en-US>
+Improved the smartphone UI.
+Fixed behavior when the on-screen keyboard opens.
+Made other minor improvements.
+</en-US>
+
+<es-ES>
+Se mejoró la interfaz para teléfonos.
+Se corrigió el comportamiento al abrir el teclado en pantalla.
+Se realizaron otras pequeñas mejoras.
+</es-ES>
+
+<fr-FR>
+Amélioration de l’interface sur smartphone.
+Correction du comportement à l’ouverture du clavier à l’écran.
+Autres améliorations mineures.
+</fr-FR>
+
+<ja-JP>
+スマホUIを改善しました。
+画面内キーボード起動時の動作を修正しました。
+その他の些細な改善を行いました。
+</ja-JP>
+
+<zh-CN>
+改进了手机界面。
+修复了打开屏幕键盘时的行为问题。
+进行了其他细微改进。
+</zh-CN>
+
+<ko-KR>
+스마트폰 UI를 개선했습니다.
+화면 키보드가 열릴 때의 동작을 수정했습니다.
+기타 사소한 사항을 개선했습니다.
+</ko-KR>

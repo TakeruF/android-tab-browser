@@ -27,9 +27,9 @@ class CompactBrowserUiTest {
         InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
     ).bufferedReader().use { it.readText() }
 
-    private fun resize(widthDp: Int) {
+    private fun resize(widthDp: Int, heightDp: Int = 820) {
         val density = compose.activity.resources.displayMetrics.density
-        shell("wm size ${(widthDp * density).toInt()}x${(820 * density).toInt()}")
+        shell("wm size ${(widthDp * density).toInt()}x${(heightDp * density).toInt()}")
         compose.waitUntil(10_000) {
             kotlin.math.abs(compose.activity.resources.configuration.screenWidthDp - widthDp) < 20
         }
@@ -114,6 +114,277 @@ class CompactBrowserUiTest {
         assertEquals("入力中のデータ", data.getString("draft"))
         assertEquals("unfinished long message", data.getString("notes"))
         assertEquals("編集中の文章", data.getString("editable"))
+    }
+
+    private fun capturePanel(name: String) {
+        compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        java.io.File(compose.activity.getExternalFilesDir(null), "compact-panel-$name.png").outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+
+    @Test fun tabSheetWrapsVisibleContentAndCapsLargeCollections() {
+        fun height() = compose.onNodeWithTag("compact-tab-sheet").fetchSemanticsNode().boundsInRoot.height
+        val density = compose.activity.resources.displayMetrics.density
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        val oneTab = height()
+        assertTrue("Small collections should stay within thumb reach", oneTab < 540 * density)
+        capturePanel("one-tab-light")
+        val pinnedToggle = compose.activity.getString(R.string.ui_toggle_pinned_tabs)
+        compose.onNodeWithContentDescription(pinnedToggle).performClick()
+        assertTrue("Collapsing a section shrinks the sheet", height() < oneTab)
+        compose.onNodeWithContentDescription(pinnedToggle).performClick()
+        assertEquals(oneTab, height(), 2f)
+        val favorites = compose.activity.getString(R.string.ui_favorites_section)
+        compose.onNodeWithText(favorites).performClick()
+        assertTrue("Expanding Favorites grows the sheet", height() > oneTab)
+        compose.onNodeWithText(favorites).performClick()
+        assertEquals(oneTab, height(), 2f)
+        val second = runBlocking { container.tabs.create(spaceId, "about:blank") }
+        compose.waitForIdle()
+        assertTrue("Adding a tab grows the sheet", height() > oneTab + 40 * density)
+        capturePanel("two-tabs-light")
+        runBlocking { container.tabs.close(second) }
+        compose.waitForIdle()
+        assertEquals("Closing a tab shrinks the sheet", oneTab, height(), 2f)
+        val extra = runBlocking { (1..24).map { container.tabs.create(spaceId, "about:blank") } }
+        compose.waitForIdle()
+        val capped = height()
+        assertTrue("Large collections grow beyond the small sheet", capped > oneTab)
+        assertTrue("Sheet retains its available-height cap", capped <= 820 * density * 0.85f)
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_sidebar_tabs))
+            .performScrollToNode(hasTestTag("sidebar-tab-${extra.last()}"))
+        compose.onNodeWithTag("sidebar-tab-${extra.last()}").assertIsDisplayed()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_settings)).assertIsDisplayed()
+        capturePanel("many-tabs-light")
+        runBlocking { extra.forEach { container.tabs.close(it) } }
+        compose.waitForIdle()
+        assertEquals("Shrinking a scrolled list also shrinks its sheet", oneTab, height(), 2f)
+        runBlocking { container.settings.update { it.copy(theme = com.takeruf.nagi.domain.model.ThemeMode.DARK, spacesEnabled = false) } }
+        compose.waitForIdle()
+        assertTrue("Hiding the Space switcher reduces sheet height", height() < oneTab)
+        capturePanel("one-tab-dark-no-spaces")
+    }
+
+    @Test fun commandKeyboardKeepsWideBrowserChromeBehindIt() {
+        fun bounds(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        fun awaitKeyboardHidden() {
+            compose.waitUntil(10_000) {
+                val insets = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                compose.activity.hasWindowFocus() && insets != null &&
+                    !insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) &&
+                    insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom == 0
+            }
+        }
+        val density = compose.activity.resources.displayMetrics.density
+        for ((width, height) in listOf(1000 to 820, 820 to 360)) {
+            resize(width, height)
+            runBlocking { container.settings.update { it.copy(
+                theme = if (height < 600) com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
+            compose.waitForIdle()
+            awaitKeyboardHidden()
+            val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+            val sidebar = bounds("sidebar")
+            val page = bounds("new-tab-page")
+            val palette = bounds("customize-new-tab")
+            val history = compose.onNodeWithContentDescription("History").fetchSemanticsNode().boundsInRoot
+            compose.onNodeWithTag("url-drop-$active").performClick()
+            compose.waitUntil(10_000) {
+                val ime = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ime?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true &&
+                    ime.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom > 100 * density
+            }
+            compose.onNodeWithTag("command-input").assertIsDisplayed().assertIsFocused()
+            capturePanel("wide-command-keyboard-$width")
+            val afterHistory = compose.onNodeWithContentDescription("History").fetchSemanticsNode().boundsInRoot
+            java.io.File(compose.activity.getExternalFilesDir(null), "wide-keyboard-bounds-$width.txt").writeText(
+                "sidebar=$sidebar -> ${bounds("sidebar")}\npage=$page -> ${bounds("new-tab-page")}\n" +
+                    "palette=$palette -> ${bounds("customize-new-tab")}\nhistory=$history -> $afterHistory\n")
+            assertEquals("Sidebar height stays fixed behind the command keyboard", sidebar.height, bounds("sidebar").height, 1f)
+            assertEquals("Page height stays fixed behind the command keyboard", page.height, bounds("new-tab-page").height, 1f)
+            assertEquals("Palette is not raised above the keyboard", palette.top, bounds("customize-new-tab").top, 1f)
+            assertEquals("History is not raised above the keyboard", history.top, afterHistory.top, 1f)
+            compose.onNodeWithTag("command-close").performClick()
+            awaitKeyboardHidden()
+        }
+    }
+
+    @Test fun pageKeyboardResizesPanesWithoutRaisingWideSidebar() {
+        resize(1000)
+        open("${server.origin}/ua-wide-keyboard-left")
+        awaitDisplayMode(true)
+        val first = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        fun keyboardVisible() = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        for (split in listOf(false, true)) {
+            if (split) {
+                val second = runBlocking { container.tabs.create(spaceId, "${server.origin}/ua-wide-keyboard-right") }
+                awaitDisplayMode(true)
+                runBlocking {
+                    container.tabs.pair(first, second)
+                    container.tabs.select(second)
+                    container.settings.update { it.copy(theme = com.takeruf.nagi.domain.model.ThemeMode.DARK) }
+                }
+                awaitDisplayMode(true, 2)
+            }
+            val views = webViews()
+            views.forEach(::enterDraft)
+            val heights = views.associateWith { it.height }
+            val sidebarHeight = compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.height
+            val editor = views.last()
+            compose.runOnIdle {
+                editor.requestFocus()
+                editor.evaluateJavascript("document.getElementById('draft').focus()", null)
+                compose.activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                    .showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+            compose.waitUntil(10_000) { keyboardVisible() && views.all { it.height < heights.getValue(it) } }
+            compose.waitForIdle()
+            assertEquals("The wide sidebar stays at full height during page input", sidebarHeight,
+                compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.height, 1f)
+            assertEquals(views.toSet(), webViews().toSet())
+            views.forEach(::assertDraft)
+            capturePanel("wide-page-keyboard-${if (split) "split-dark" else "single-light"}")
+            shell("input keyevent 4")
+            compose.waitUntil(10_000) { !keyboardVisible() && views.all { it.height == heights.getValue(it) } }
+            views.forEach(::assertDraft)
+        }
+    }
+
+    @Test fun keyboardHidesCompactFooterAndBottomAddressWithoutReloadingPage() {
+        open("${server.origin}/ua-keyboard"); awaitDisplayMode(false)
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val view = webViews().single()
+        enterDraft(view)
+        fun keyboardVisible() = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        fun awaitFooter() {
+            // IME visibility switches before its hide animation finishes applying insets.
+            compose.waitUntil(10_000) { !keyboardVisible() && compose.activity.hasWindowFocus() &&
+                androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                    ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom == 0 && runCatching {
+                compose.onNodeWithTag("compact-browser-bar").assertIsDisplayed()
+                compose.onNodeWithTag("browser-address-bar-$active").assertIsDisplayed()
+            }.isSuccess }
+        }
+        for (bottom in listOf(false, true)) {
+            runBlocking { container.settings.update { it.copy(bottomSearchBar = bottom,
+                theme = if (bottom) com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
+            compose.waitForIdle()
+            val fullHeight = view.height
+            compose.runOnIdle {
+                view.requestFocus()
+                view.evaluateJavascript("document.getElementById('draft').focus()", null)
+                compose.activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                    .showSoftInput(view, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+            compose.waitUntil(10_000) { keyboardVisible() }
+            // The platform visibility callback precedes Compose's inset-state update.
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("compact-browser-bar").fetchSemanticsNodes().isEmpty() }
+            compose.waitForIdle()
+            compose.onNodeWithTag("compact-browser-bar").assertDoesNotExist()
+            if (bottom) compose.onNodeWithTag("browser-address-bar-$active").assertDoesNotExist()
+            else compose.onNodeWithTag("browser-address-bar-$active").assertIsDisplayed()
+            assertTrue("Page still resizes above the keyboard", view.height < fullHeight)
+            assertSame(view, webViews().single())
+            assertDraft(view)
+            capturePanel("page-keyboard-${if (bottom) "bottom-dark" else "top-light"}")
+            shell("input keyevent 4")
+            awaitFooter()
+            compose.onNodeWithTag("url-drop-$active").performClick()
+            compose.waitUntil(10_000) { keyboardVisible() }
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("compact-browser-bar").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("command-input").assertIsDisplayed().assertIsFocused()
+            compose.onNodeWithTag("compact-browser-bar").assertDoesNotExist()
+            if (bottom) compose.onNodeWithTag("browser-address-bar-$active").assertDoesNotExist()
+            capturePanel("command-keyboard-${if (bottom) "bottom-dark" else "top-light"}")
+            compose.onNodeWithTag("command-close").performClick()
+            awaitFooter()
+            assertSame(view, webViews().single())
+            assertDraft(view)
+        }
+    }
+
+    @Test fun bottomChromeToolbarUsesOneRowAndKeepsNavigationAndPageActions() {
+        val url = "${server.origin}/ua-chrome-toolbar"
+        open(url); awaitDisplayMode(false)
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val view = webViews().single()
+        enterDraft(view)
+        runBlocking { container.settings.update { it.copy(bottomSearchBar = true) } }
+        fun awaitKeyboardHidden() {
+            compose.waitUntil(10_000) {
+                val insets = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                compose.activity.hasWindowFocus() && insets != null &&
+                    !insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) &&
+                    insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom == 0
+            }
+        }
+        for (width in listOf(320, 360, 411)) {
+            resize(width)
+            runBlocking { container.settings.update { it.copy(theme = if (width == 360)
+                com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
+            compose.waitForIdle()
+            assertEquals(1, compose.onAllNodesWithTag("compact-browser-bar").fetchSemanticsNodes().size)
+            compose.onNodeWithTag("compact-browser-bar").assertHeightIsEqualTo(56.dp)
+            val address = compose.onNodeWithTag("url-drop-$active").fetchSemanticsNode().boundsInRoot
+            val plus = compose.onNodeWithTag("compact-new-tab-button").assertIsDisplayed()
+                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
+            val tabs = compose.onNodeWithTag("compact-tabs-button").assertIsDisplayed()
+                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
+            val menu = compose.onNodeWithTag("page-menu-$active").assertIsDisplayed()
+                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
+            assertTrue(address.right <= plus.left + 1f && plus.right <= tabs.left + 1f && tabs.right <= menu.left + 1f)
+            assertEquals(address.center.y, plus.center.y, 1f)
+            assertEquals(plus.center.y, tabs.center.y, 1f)
+            assertEquals(tabs.center.y, menu.center.y, 1f)
+            val page = compose.onNodeWithTag("browser-content-$active").fetchSemanticsNode().boundsInRoot
+            val row = compose.onNodeWithTag("browser-address-bar-$active").fetchSemanticsNode().boundsInRoot
+            assertTrue("Single toolbar follows the page", row.top >= page.bottom - 1f)
+            compose.onNodeWithText(server.origin.removePrefix("http://")).assertIsDisplayed()
+            for (label in listOf(R.string.ui_back, R.string.ui_forward, R.string.ui_new_tab_home)) {
+                compose.onAllNodes(hasContentDescription(compose.activity.getString(label)) and
+                    hasAnyAncestor(hasTestTag("compact-browser-bar"))).assertCountEquals(0)
+            }
+            compose.onNodeWithTag("address-copy-url:$active").assertDoesNotExist()
+            compose.onNodeWithTag("address-share-url:$active").assertDoesNotExist()
+            assertSame(view, webViews().single())
+            assertDraft(view)
+            capturePanel("chrome-bottom-$width")
+        }
+        assertEquals(1, server.requests.count { it.path == "/ua-chrome-toolbar" })
+        compose.onNodeWithTag("url-drop-$active").performClick()
+        compose.onNodeWithTag("command-input").assertTextEquals(url)
+        compose.onNodeWithTag("command-close").performClick()
+        awaitKeyboardHidden()
+        compose.onNodeWithTag("page-menu-$active").performClick()
+        compose.onNodeWithTag("menu-share-url:$active").assertIsDisplayed()
+        compose.onNodeWithTag("menu-copy-url:$active").assertIsDisplayed()
+        compose.onNodeWithTag("site-ad-blocking").assertIsDisplayed()
+        compose.onNodeWithText("Forward").performScrollTo().assertIsNotEnabled()
+        shell("input keyevent 4")
+        open("${server.origin}/two"); awaitTitle("Fixture Two")
+        awaitKeyboardHidden()
+        shell("input keyevent 4")
+        awaitDisplayMode(false)
+        compose.onNodeWithTag("page-menu-$active").performClick()
+        compose.onNodeWithText("Forward").performScrollTo().assertIsEnabled().performClick()
+        awaitTitle("Fixture Two")
+        assertSame(view, webViews().single())
+        compose.onNodeWithTag("compact-new-tab-button").performClick()
+        compose.onNodeWithTag("command-input").assertIsFocused()
+        compose.onNodeWithTag("command-close").performClick()
+        awaitKeyboardHidden()
+        assertEquals("2", compose.onNodeWithTag("compact-tabs-button").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription])
+        compose.onNodeWithTag("compact-tabs-button").performClick()
+        compose.onNodeWithTag("sidebar-tab-$active").performClick()
+        compose.onNodeWithTag("compact-tab-sheet").assertDoesNotExist()
+        awaitUrl("${server.origin}/two")
+        assertSame(view, webViews().single())
     }
 
     @Test fun bottomSearchSettingMovesAddressAndInputAndPreservesPageAcrossWidths() {
@@ -360,6 +631,48 @@ class CompactBrowserUiTest {
         }
     }
 
+    @Test fun phoneLandscapeKeepsMobileSitesAndExplicitDesktopChoice() {
+        val url = "${server.origin}/ua-phone-landscape"
+        open(url)
+        awaitDisplayMode(false)
+        val original = webViews().single()
+        enterDraft(original)
+        resize(820, 360)
+        assertTrue(compose.activity.resources.configuration.smallestScreenWidthDp < 600)
+        // Browser chrome may expand, independently of the site's default identity.
+        compose.onNodeWithTag("compact-browser-bar").assertDoesNotExist()
+        awaitDisplayMode(false)
+        assertSame(original, webViews().single())
+        assertDraft(original)
+        assertEquals(1, server.requests.count { it.path == "/ua-phone-landscape" })
+        open(url)
+        awaitDisplayMode(false)
+        assertSame(original, webViews().single())
+        assertTrue(server.requests.last { it.path == "/ua-phone-landscape" }.userAgent.contains("Mobile"))
+        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.USER_AGENT_METADATA)) {
+            assertTrue(pageData(original).getBoolean("mobile"))
+            assertEquals("?1", server.requests.last { it.path == "/ua-phone-landscape" }.mobileHint)
+        }
+        capturePanel("phone-landscape-mobile")
+        compose.activityRule.scenario.recreate()
+        awaitDisplayMode(false)
+        compose.onNodeWithContentDescription("Page menu").performClick()
+        compose.onNodeWithText("Use desktop site").performClick()
+        awaitDisplayMode(true)
+        assertEquals(true, container.siteDisplayModes.desktopMode(url))
+        resize(360)
+        awaitDisplayMode(true)
+        resize(820, 360)
+        awaitDisplayMode(true)
+        // Choosing desktop for one host must not affect other hosts on the phone.
+        val other = "${server.origin.replace("127.0.0.1", "localhost")}/ua-phone-other"
+        open(other)
+        awaitDisplayMode(false)
+        assertNull(container.siteDisplayModes.desktopMode(other))
+        compose.activityRule.scenario.recreate()
+        awaitDisplayMode(false)
+    }
+
     @Test fun resizePreservesTheDocumentAndDraftUntilTheNextNavigationOrReload() {
         val url = "${server.origin}/ua-resize"
         open(url)
@@ -526,8 +839,8 @@ class CompactBrowserUiTest {
 
     @Test fun bottomNavigationBackgroundMatchesTheToolbarAcrossThemesAndSpaceColors() {
         val space = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId } }
-        for (theme in listOf(com.takeruf.nagi.domain.model.ThemeMode.LIGHT, com.takeruf.nagi.domain.model.ThemeMode.DARK)) {
-            runBlocking { container.settings.update { it.copy(theme = theme) } }
+        for (bottom in listOf(false, true)) for (theme in listOf(com.takeruf.nagi.domain.model.ThemeMode.LIGHT, com.takeruf.nagi.domain.model.ThemeMode.DARK)) {
+            runBlocking { container.settings.update { it.copy(theme = theme, bottomSearchBar = bottom) } }
             compose.waitUntil(10_000) {
                 var light = false
                 compose.runOnIdle {
@@ -544,7 +857,7 @@ class CompactBrowserUiTest {
                 val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
                 try {
                     val directory = java.io.File(compose.activity.getExternalFilesDir(null), "compact-navigation").apply { mkdirs() }
-                    val capture = java.io.File(directory, "$theme-$color.png")
+                    val capture = java.io.File(directory, "$theme-$bottom-$color.png")
                     capture.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
                     // Keep pixel evidence after the test runner removes its installed APK/data.
                     shell("mkdir -p /data/local/tmp/nagi-compact-navigation")

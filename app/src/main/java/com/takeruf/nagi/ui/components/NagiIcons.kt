@@ -9,6 +9,14 @@ import com.composables.icons.lucide.R as LucideR
 
 /** One Lucide family for generic app controls; site favicons and Space emoji keep their identity. */
 object NagiIcons {
+    val WifiOff: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_wifi_off)
+    val ShieldAlert: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_shield_alert)
+    val FileWarning: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_file_exclamation_point)
+    val Clock: ImageVector
+        @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_clock)
     val Moon: ImageVector
         @Composable get() = ImageVector.vectorResource(LucideR.drawable.lucide_ic_moon)
     val Languages: ImageVector

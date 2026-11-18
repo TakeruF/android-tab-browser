@@ -19,8 +19,8 @@ android {
         applicationId = "com.takeruf.nagi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 20
-        versionName = "1.3.1"
+        versionCode = 21
+        versionName = "1.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "PASSWORD_AUTOFILL_DIAGNOSTICS", "false")
     }

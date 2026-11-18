@@ -3,6 +3,8 @@ package com.takeruf.nagi.browser.engine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+enum class PageErrorKind { CONNECTION, TIMEOUT, CERTIFICATE, OTHER }
+
 data class PageState(
     val url: String = "about:blank", val title: String = "New tab", val faviconUrl: String? = null,
     val progress: Int = 100, val isLoading: Boolean = false,
@@ -19,6 +21,7 @@ data class PageState(
     val humanVerification: HumanVerificationState = HumanVerificationState(),
     val pageZoomPercent: Int = 100,
     val canZoomIn: Boolean = false, val canZoomOut: Boolean = false,
+    val errorKind: PageErrorKind = PageErrorKind.OTHER,
 )
 
 sealed interface EngineEvent {

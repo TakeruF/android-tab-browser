@@ -1,6 +1,24 @@
 # Narrow-window browsing
 
-Nagi continues to prioritize tablet and unfolded-phone windows. Since version 1.0.0, narrow windows use full-width pages with a 56dp bottom bar for Back, Forward, New tab, Search, and a tab-count button. The tab button opens the existing tabs, Favorites, and Spaces interface in a modal bottom sheet; selecting a tab, Space, or favorite closes it. History and Settings remain available in that sheet. Tab action/close buttons have 48dp targets in the sheet.
+Nagi continues to prioritize tablet and unfolded-phone windows. Narrow windows
+use full-width pages. With the default top-address layout, a 56dp bottom bar
+provides Back, Forward, New tab, Search, and a tab-count button. The optional
+bottom-address layout combines its controls into one row, described below.
+The tab button opens the existing tabs, Favorites, and Spaces interface in a
+modal bottom sheet; selecting a tab, Space, or favorite closes it. History and
+Settings remain available in that sheet. Tab action/close buttons have 48dp
+targets in the sheet.
+
+The tab sheet wraps its visible content, so small tab collections keep the header
+and actions near the bottom of the screen. It grows as tabs or expanded sections
+need more room, up to 85% of the available sheet height; larger lists scroll.
+With the software keyboard visible, compact navigation and the optional bottom
+address bar are hidden instead of moving above it. They return when the keyboard
+closes. The browser shell, including the wide sidebar footer and new-tab palette,
+keeps its full height behind the keyboard. Page input resizes only the browser
+page area (both panes in Split), while Command Bar input leaves the background
+page at full height and applies keyboard spacing in its own dialog. Settings
+keeps keyboard-safe content spacing.
 
 Compact mode uses a single boundary: the current Nagi window is compact below 600dp and wide at 600dp or above. This decision is independent of previous widths and saved layout state. It measures the full app window before sidebar or Split-pane allocation, using logical dp (pixels divided by the current display density), rather than identifying a phone model or using orientation, the physical display, or the width of an individual web page. Display scaling can change this logical width; font scaling alone does not change the boundary. A portrait tablet or unfolded foldable with a window at least 600dp wide keeps the wide UI. Any device whose app window is narrowed below 600dp, including tablet multi-window, uses compact UI. A landscape phone at least 600dp wide uses wide UI as well. System video PiP freezes the preceding browser mode until it exits.
 
@@ -12,21 +30,43 @@ and disappears on release or cancellation; hovering or pressing alone does
 not reveal it. Dragging still collapses at the minimum width, reopens a
 collapsed sidebar, and saves the width only on release.
 
-**Settings → Appearance → Search bar at bottom** optionally moves the address/search bar below the page, just above the compact navigation controls. The choice persists across launches and applies only below 600dp; wide windows retain the top address bar. With this option enabled, search suggestions appear above the input and the input stays above the keyboard. The default remains the top address bar.
+**Settings → Appearance → Search bar at bottom** uses one 56dp row below the page:
+the address field, New tab, tab count/list and a vertical three-dot page menu.
+It has no Home button or separate Back/Forward row. The address field shows the
+host (and explicit port); tapping it opens the full URL in the Command Bar.
+Share, Copy link and blocking controls move into the page menu, as does Forward.
+Android Back and keyboard history shortcuts remain available. The choice
+persists across launches and applies only below 600dp; wide windows retain the
+top address bar. With this option enabled, search suggestions appear above the
+input and the input stays above the keyboard. The default remains the top
+address bar with the existing compact navigation controls.
 
-Compact page headers move Back/Forward to the bottom bar and Reload into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split is available only in wide windows. Below 600dp, the selected tab fills the page, including either member of a saved pair. The tab sheet lists both members individually; page/tab menus, Command Bar commands, and drag targets do not offer Split creation, replacement, swapping or closing. New-tab resume links also open individual pages in compact mode.
+The top-address compact layout moves Back/Forward to the bottom bar and Reload
+into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split is available only in wide windows. Below 600dp, the selected tab fills the page, including either member of a saved pair. The tab sheet lists both members individually; page/tab menus, Command Bar commands, and drag targets do not offer Split creation, replacement, swapping or closing. New-tab resume links also open individual pages in compact mode.
 
 The page menu omits Forward when the top toolbar or compact bottom bar already
-provides it. Split and narrow wide-window panes keep the menu action because
-their address bar has no Forward button.
+provides it. The single-row bottom toolbar, Split and narrow wide-window panes
+keep the menu action because their address bar has no Forward button.
 
 Narrowing a window never detaches a saved pair or closes its partner. Both live engines remain protected from suspension and archiving while the pair is selected, including across Settings. Widening the window restores both panes with their original left/right order and selected side. Explicit tab close, move and reorder actions retain their existing repository semantics. This does not add vertical splitting or hinge/posture handling.
 
 The compact toolbar and the area behind system navigation share the same theme surface color, including live Space-color changes. In compact browsing, the three-button contrast scrim is disabled so it cannot add a different tint; leaving compact browsing restores the window's prior setting. Safe-area padding still keeps buttons above the system navigation controls.
 
-Compact browser panes have a straight bottom edge where the page meets the lower controls. Their top corners stay rounded with either address-bar position.
+Compact browser panes have straight top and bottom edges with either address-bar
+position. No extra outer top spacing is added beyond system-bar/cutout safety.
+With the address bar at the bottom, the idle top divider reserves no space;
+loading progress overlays the page's top edge instead of pushing it down.
 
-On the next document navigation or manual reload, sites without a saved manual display choice use mobile mode in compact windows and the desktop default in wide windows. Disabling **Desktop site by default** also requests mobile on wide windows on the next navigation/reload. A site's explicit **Use desktop site** / **Use mobile site** choice always takes precedence. Automatic window changes never write to the per-site choice store.
+On the next document navigation or manual reload, sites without a saved manual
+display choice use mobile mode on phone-sized configurations (Android's smallest
+width below 600dp), including landscape phones whose browser chrome uses the
+wide UI. Compact windows also request mobile sites. Wide tablet/unfolded
+configurations with a smallest width of at least 600dp use the desktop default.
+Disabling **Desktop site by default** also requests mobile on those wide windows
+on the next navigation/reload. A site's explicit **Use desktop site** / **Use
+mobile site** choice always takes precedence. Automatic window changes never
+write to the per-site choice store. System video PiP retains the preceding
+default until it exits.
 
 Mobile site mode requests a phone layout even on a tablet: the installed WebView's UA keeps its browser/OS version and includes the `Mobile` token. Supported WebViews also receive matching User-Agent Client Hints (`mobile=true` for mobile mode; `mobile=false` and Linux desktop metadata for desktop mode). A tablet's unmodified default Android UA is insufficient: it can lack `Mobile` and request a fixed-width desktop document. Viewport tags are supplied by websites and respected by the browser; site HTML is not rewritten to force a layout.
 
@@ -103,6 +143,94 @@ API references: [WebView zoom operations](https://developer.android.com/referenc
 [scale callbacks](https://developer.android.com/reference/android/webkit/WebViewClient#onScaleChanged(android.webkit.WebView,%20float,%20float)).
 
 ## Validation
+
+The compact top-edge update on 2026-11-18 passed Debug/test APK assembly and
+Debug lint (0 errors, 96 warnings). Four existing `CompactBrowserUiTest` cases
+passed individually on the dedicated API-36 `Nagi_CompactPanel_QA_20261118`
+emulator / WebView 133.0.6943.137: the single-row toolbar, navigation backgrounds
+across themes, address placement and retained pages across widths, and saved
+Split restoration. Screenshots were inspected for compact top/bottom address
+placement in light/dark themes and wide Split. In the 360dp bottom-address
+fixture capture, the page starts at row 119 across both edges and the center;
+the previous center started at row 124 (the removed 2dp divider). System-bar
+and display-cutout safety remain applied. Evidence and the co-installable
+Debug APK are under ignored `artifacts/compact-panel-ime-20261118/flat-top-edge/`.
+Unit tests were not rerun for this cosmetic update; neither a full connected
+suite nor a physical device was checked. No version or release action was performed.
+
+The single-row bottom-toolbar update on 2026-11-18 passed all 218 Play Debug
+unit tests, Debug/test APK assembly, and Debug lint (0 errors, 96 warnings). Six selected
+`CompactBrowserUiTest` cases passed individually on the dedicated API-36
+`Nagi_CompactPanel_QA_20261118` emulator / WebView 133.0.6943.137:
+the new `bottomChromeToolbarUsesOneRowAndKeepsNavigationAndPageActions`, existing
+bottom-address placement/persistence, compact keyboard handling, navigation
+background/theme colors (both address placements), saved Split retention, and
+the wide Command Bar keyboard regression. No selected case failed or skipped.
+The new case checks a single 56dp row at 320/360/411dp, control order and 48dp
+action targets, no Home/Back/Forward buttons in that row, full-URL editing,
+relocated page actions, Android Back, menu Forward, New tab and tab selection,
+and the same live WebView/draft across layout and theme changes.
+Light/dark screenshots were inspected. Evidence and the co-installable Debug
+APK are under ignored `artifacts/compact-panel-ime-20261118/chrome-bottom-bar/`.
+These are local fixture/selected emulator checks; a full connected suite and
+physical-device rendering were not checked. No version or release action was
+performed.
+
+The wide-keyboard correction on 2026-11-18 first reproduced the remaining issue:
+Command Bar input reduced the wide sidebar/page by 778px and moved History and
+the new-tab palette upward by the same amount. The corrected browser shell
+keeps all four bounds unchanged (0px movement) at 1000 x 820dp/light and
+820 x 360dp/dark while the Command Bar remains usable above the keyboard.
+Actual page input still resizes single/Split WebViews, retains both live engines
+and drafts, and keeps the wide sidebar at full height.
+
+All 218 Play Debug unit tests passed; Debug/test APK assembly and Debug lint
+passed (0 errors, 95 warnings). Four selected `CompactBrowserUiTest` cases passed
+individually on the dedicated API-36 emulator / WebView 133.0.6943.137:
+`commandKeyboardKeepsWideBrowserChromeBehindIt`,
+`pageKeyboardResizesPanesWithoutRaisingWideSidebar`,
+`keyboardHidesCompactFooterAndBottomAddressWithoutReloadingPage`, and
+`savedSplitUsesOneSelectedPageInCompactAndRestoresBothLivePagesWhenWide`.
+Intermediate combined runs each had one failure: a compact assertion preceded
+Compose's IME visibility update, and a subsequent Command Bar IME-show wait
+timed out. Tests now await the inset update, zero remaining hide-animation
+insets and Activity focus before the next interaction. The final four independent
+runs passed without failures or skips; this is not a passing full connected suite.
+Screenshots were inspected. Logs, bounds and the updated test APK are under
+ignored `artifacts/compact-panel-ime-20261118/wide-keyboard-shell/`.
+Physical-device/OEM keyboard behavior remains unverified. No version or release
+action was performed.
+
+The phone-default update on 2026-11-18 passed all 218 Play Debug unit tests,
+Debug lint (0 errors, 95 warnings), and Debug/test APK assembly. Three selected
+`CompactBrowserUiTest` cases passed on API 36 / WebView 133.0.6943.137:
+`phoneLandscapeKeepsMobileSitesAndExplicitDesktopChoice`,
+`tabletEngineRequestsPhoneLayoutAndClientHintsWhenItsWindowBecomesCompact`, and
+`explicitDesktopAndMobileChoicesSurviveBothLayoutsAndRecreation`.
+These check actual fixture HTTP user agents and mobile Client Hints, mobile
+defaults in 360dp portrait and 820 x 360dp landscape, retained live drafts during
+resizing, saved per-host desktop/mobile choices, and tablet defaults. The
+landscape screenshot was inspected. Evidence and the separately packaged Debug
+APK are under ignored `artifacts/compact-panel-ime-20261118/phone-mobile-default/`.
+This is selected emulator coverage, not a full connected suite, physical-device
+or live-provider check. No version bump or release action was performed.
+
+On 2026-11-18, the current development worktree passed all 218 Play Debug unit
+tests (no failures, errors or skips), Debug/test APK assembly, and Play Debug lint
+(0 errors, 95 warnings). Four selected `CompactBrowserUiTest` cases passed on
+the dedicated API-36 `Nagi_CompactPanel_QA_20261118` emulator (`emulator-5588`,
+WebView 133.0.6943.137): content-sized sheets, keyboard/footer behavior, compact
+tab/Space actions, and saved-Split retention across compact/wide windows.
+The sheet regression covers adding/removing tabs, expanding/collapsing sections,
+scrolling a capped list and disabling Spaces. The keyboard regression covers
+page and Command Bar input with both address-bar positions and light/dark themes,
+including footer restoration and retained live WebViews/drafts.
+An initial keyboard assertion ran during the IME hide animation; it now waits
+for the footer to be displayed after the animation. The final four-case run
+passed without failures or skips. Evidence is under ignored
+`artifacts/compact-panel-ime-20261118/`. This is selected emulator coverage of
+the mixed development worktree, not a full connected suite or physical-device
+result. No version bump or release action was performed.
 
 On 2026-11-15, an isolated candidate from `045f1f8` passed all 195 Play Debug
 unit tests (zero failures/errors/skips), Debug/test APK assembly, and Play

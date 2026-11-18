@@ -460,4 +460,12 @@
     <string name="ui_adaptive_dark_mode_unavailable">このAndroid System WebViewはウェブページの自動ダークモードに対応していません。</string>
     <string name="ui_disable_site_dark_mode">このサイトの自動ダークモードをオフ</string>
     <string name="ui_enable_site_dark_mode">このサイトの自動ダークモードをオン</string>
+    <string name="ui_page_connection_title">接続できません</string>
+    <string name="ui_page_connection_description">インターネット接続を確認して、もう一度お試しください。</string>
+    <string name="ui_page_timeout_title">接続がタイムアウトしました</string>
+    <string name="ui_page_timeout_description">サイトから応答がありません。時間をおいてもう一度お試しください。</string>
+    <string name="ui_page_certificate_title">安全に接続できません</string>
+    <string name="ui_page_certificate_description">このサイトの証明書を確認できませんでした。時間をおいてもう一度お試しください。</string>
+    <string name="ui_page_error_title">ページを開けません</string>
+    <string name="ui_page_error_description">URLを確認するか、時間をおいてもう一度お試しください。</string>
 </resources>

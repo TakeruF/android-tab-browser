@@ -30,17 +30,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.takeruf.nagi.browser.engine.BrowserEngine
+import com.takeruf.nagi.browser.engine.PageErrorKind
 import com.takeruf.nagi.domain.model.BrowserTab
 import com.takeruf.nagi.ui.components.ToolButton
 import com.takeruf.nagi.ui.components.AddressActionButton
 import com.takeruf.nagi.ui.components.NagiOverflowMenu
 import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, focused: Boolean,
     split: Boolean, showFind: Boolean, onCloseFind: () -> Unit, onFind: () -> Unit, onFocus: () -> Unit,
@@ -49,6 +52,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onAdBlockingChange: (String, Boolean) -> Unit = { _, _ -> },
     onSiteDarkModeChange: (String, Boolean) -> Unit = { _, _ -> },
     onVisitBlockingChange: (Boolean) -> Unit = {}, onCustomizeNewTab: () -> Unit = {}, compactWindow: Boolean = false,
+    onNewTab: () -> Unit = {}, onTabs: () -> Unit = {},
     onTranslationOptions: () -> Unit = {}, onResumeTab: (String) -> Unit = {}) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
@@ -77,31 +81,43 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     val darkTheme = state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.DARK ||
         state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.SYSTEM && isSystemInDarkTheme()
     val bottomSearchBar = compactWindow && state.settings.bottomSearchBar
-    Surface(shape = if (compactWindow) NagiShapes.Top else NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
+    // Keep the native error document detached during retry so it cannot flash behind loading.
+    var retainedError by remember(engine) { mutableStateOf<PageErrorKind?>(null) }
+    val visibleError = if (page.error != null) page.errorKind else retainedError?.takeIf { page.isLoading }
+    SideEffect { retainedError = visibleError }
+    Surface(shape = if (compactWindow) RectangleShape else NagiShapes.Rounded, color = MaterialTheme.colorScheme.surface,
         border = if (split && focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier.fillMaxSize()) {
         @Composable
         fun AddressBar() {
-            BoxWithConstraints {
+            BoxWithConstraints(Modifier.then(if (bottomSearchBar) Modifier.testTag("compact-browser-bar") else Modifier)) {
                 val compact = compactWindow || maxWidth < 320.dp
                 // Each address action takes 32dp; retain share, then copy, then the shield.
-                val inlineShare = maxWidth >= 296.dp
-                val inlineCopy = maxWidth >= 328.dp
-                val inlineBlocking = maxWidth >= 360.dp
-                Row(Modifier.fillMaxWidth().height(56.dp).testTag("browser-address-bar-${tab.id}").padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                val inlineShare = !bottomSearchBar && maxWidth >= 296.dp
+                val inlineCopy = !bottomSearchBar && maxWidth >= 328.dp
+                val inlineBlocking = !bottomSearchBar && maxWidth >= 360.dp
+                Row(Modifier.fillMaxWidth().height(56.dp).testTag("browser-address-bar-${tab.id}")
+                    .then(if (bottomSearchBar) Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow) else Modifier)
+                    .padding(start = if (bottomSearchBar) 8.dp else 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
                     if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
                     if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
                     Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Pill,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f).height(40.dp)
+                        modifier = Modifier.weight(1f).height(if (bottomSearchBar) 44.dp else 40.dp)
                             .testTag("url-drop-${tab.id}")) {
                         Box {
                         WebUrlDropTarget(Modifier.matchParentSize(), shape = NagiShapes.Pill) { url -> onFocus(); engine.loadUrl(url) }
-                        Row(Modifier.fillMaxSize().padding(start = 14.dp, end = if (inlineShare) 6.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
-                            Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/"),
-                                Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(Modifier.fillMaxSize().padding(start = if (bottomSearchBar) 16.dp else 14.dp, end = if (inlineShare) 6.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (!bottomSearchBar) Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
+                            val displayUrl = if (bottomSearchBar) {
+                                val uri = android.net.Uri.parse(page.url)
+                                uri.host?.let { host -> host.removePrefix("www.") + if (uri.port >= 0) ":${uri.port}" else "" } ?: page.url
+                            } else page.url.removePrefix("https://").removePrefix("http://").removeSuffix("/")
+                            Text(if (page.url == "about:blank") (if (compact) strings(R.string.ui_search) else strings(R.string.ui_search_or_enter_url)) else displayUrl,
+                                Modifier.weight(1f).padding(start = if (bottomSearchBar) 0.dp else 10.dp),
+                                style = if (bottomSearchBar) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (inlineBlocking) ContentBlockingShield(page, state.settings, onFocus = onFocus,
                                 onPauseVisit = { paused ->
                                     onVisitBlockingChange(paused)
@@ -121,8 +137,17 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                         }
                         }
                     }
+                    if (bottomSearchBar) {
+                        IconButton(onClick = onNewTab, modifier = Modifier.size(48.dp).testTag("compact-new-tab-button")) {
+                            Icon(NagiIcons.Plus, strings(R.string.ui_new_tab), Modifier.size(24.dp))
+                        }
+                        CompactTabsButton(state.visibleTabs.size, onTabs)
+                    }
                     Box {
-                        ToolButton(NagiIcons.Ellipsis, strings(R.string.ui_page_menu)) { onFocus(); pageMenu = true }
+                        IconButton(onClick = { onFocus(); pageMenu = true }, modifier = Modifier.size(48.dp).testTag("page-menu-${tab.id}")) {
+                            Icon(NagiIcons.Ellipsis, strings(R.string.ui_page_menu), Modifier.size(21.dp)
+                                .then(if (bottomSearchBar) Modifier.rotate(90f) else Modifier))
+                        }
                         NagiOverflowMenu(pageMenu, { pageMenu = false }) {
                             if (engine.supportsPageZoom && canShareLink && page.readerArticle == null) {
                                 val zoomEnabled = !page.isLoading && !page.readerLoading && page.error == null
@@ -203,8 +228,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                     modifier = Modifier.testTag("open-private-mode"),
                                     onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenu = false })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenu = false })
-                            // Split and narrow wide-window panes have no separate Forward button.
-                            if (!compactWindow && (split || compact)) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
+                            // The one-row bottom toolbar, Split and narrow wide panes have no Forward button.
+                            if (bottomSearchBar || (!compactWindow && (split || compact))) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
                             if (!compactWindow && !split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
                             else if (!compactWindow) {
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenu = false })
@@ -225,7 +250,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(21.dp))
                 }
             }
-            Box(Modifier.fillMaxWidth().height(2.dp), contentAlignment = Alignment.BottomCenter) {
+            if (!bottomSearchBar) Box(Modifier.fillMaxWidth().height(2.dp), contentAlignment = Alignment.BottomCenter) {
                 if (page.isLoading) LinearProgressIndicator(progress = { page.progress / 100f }, modifier = Modifier.fillMaxWidth().height(2.dp))
                 else HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
             }
@@ -242,7 +267,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     onRetry = { onFocus(); engine.setDesktopMode(false) })
             }
             Box(Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}")) {
-                if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
+                if (visibleError != null) BrowserErrorPage(visibleError, page.isLoading, onFocus) { onFocus(); engine.reload() }
+                else if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
                     val tabs = state.visibleTabs
                     val shortcuts = remember(tabs, tab.id, compactWindow) { newTabShortcuts(tabs, tab.id, compactWindow) }
@@ -253,23 +279,16 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
                 else BrowserSurface(engine, Modifier.fillMaxSize().clip(if (compactWindow) RectangleShape else NagiShapes.Bottom), onFocus)
+                if (bottomSearchBar && page.isLoading) LinearProgressIndicator(progress = { page.progress / 100f },
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(2.dp))
                 if (page.readerLoading) CircularProgressIndicator(Modifier.align(Alignment.Center))
                 // Chrome-style: a compact card floating over the page's top end; the page does not move.
                 if (findOpen) FindInPageBar(findQuery, { findQuery = it },
                     if (findQuery.isEmpty()) "" else "${if (page.findMatches == 0) 0 else page.activeFindMatch + 1}/${page.findMatches}",
                     onPrevious = { engine.findNext(false) }, onNext = { engine.findNext(true) }, onClose = onCloseFind,
                     modifier = Modifier.align(Alignment.TopEnd))
-                page.error?.let { error ->
-                    Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(strings.translate(error), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            TextButton(shape = NagiShapes.Rounded, onClick = { engine.reload() }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer)) { Text(strings(R.string.ui_retry)) }
-                        }
-                    }
-                }
             }
-            if (bottomSearchBar) AddressBar()
+            if (bottomSearchBar && !WindowInsets.isImeVisible) AddressBar()
         }
     }
 }

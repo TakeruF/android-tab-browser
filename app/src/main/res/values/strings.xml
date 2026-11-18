@@ -463,4 +463,12 @@
     <string name="ui_adaptive_dark_mode_unavailable">This version of Android System WebView does not support adaptive dark mode.</string>
     <string name="ui_disable_site_dark_mode">Turn off adaptive dark mode for this site</string>
     <string name="ui_enable_site_dark_mode">Turn on adaptive dark mode for this site</string>
+    <string name="ui_page_connection_title">Unable to connect</string>
+    <string name="ui_page_connection_description">Check your internet connection and try again.</string>
+    <string name="ui_page_timeout_title">The connection timed out</string>
+    <string name="ui_page_timeout_description">The site is taking too long to respond. Please try again later.</string>
+    <string name="ui_page_certificate_title">Unable to connect securely</string>
+    <string name="ui_page_certificate_description">The site’s certificate could not be verified. Please try again later.</string>
+    <string name="ui_page_error_title">Unable to open this page</string>
+    <string name="ui_page_error_description">Check the address or try again later.</string>
 </resources>

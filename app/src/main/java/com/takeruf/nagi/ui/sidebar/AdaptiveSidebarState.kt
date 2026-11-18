@@ -8,8 +8,8 @@ data class AdaptiveSidebarState(
     val compactCollapsed: Boolean? = null,
 ) {
     fun forWidth(widthDp: Float): AdaptiveSidebarState {
-        // Use one boundary in both directions: the same window must have the same UI
-        // and automatic site mode, regardless of its previous size or saved state.
+        // Use one boundary in both directions: the same width must have the same UI,
+        // regardless of its previous size or saved state.
         val nextCompact = widthDp < 600f
         return if (nextCompact == compact) this else AdaptiveSidebarState(compact = nextCompact)
     }
