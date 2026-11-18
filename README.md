@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.4.1 retains the 1.4.0 phone/keyboard improvements and fixes custom-settings retention. Code 22 has been submitted to Google Play for a full rollout and is in review; code 21 (1.4.0) is currently published. Approval is configured to publish automatically. See [1.4.1 notes](docs/releases/1.4.1.md) for scope, verification and release status.
+Version 1.4.1 retains the 1.4.0 phone/keyboard improvements and fixes custom-settings retention. Google Play code 22 is published, confirmed by the release lifecycle API on 2026-11-19. See [1.4.1 notes](docs/releases/1.4.1.md) for scope, verification and release status.
 
 Version 1.4.0 improves the phone UI and on-screen keyboard behavior, adds native
 page-error screens, and improves theme-aware website icons. Google Play code 21 is published, confirmed by the release lifecycle API on

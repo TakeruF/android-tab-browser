@@ -69,7 +69,7 @@ without committing changes. The release lifecycle at **2026-11-19 07:23:07 JST**
 **22 (1.4.1) IN_REVIEW** and **21 (1.4.0) PUBLISHED**. Approval is configured to
 publish automatically; **public 1.4.1 availability is not yet confirmed**.
 
-The GitHub release is a source-only draft with no APK/AAB assets. The Console's
+At submission, the GitHub release was a source-only draft with no APK/AAB assets. The Console's
 upload signing and managed-publishing state were observed before submission;
 post-submission native browser reconnection failed with `cgWindowNotFound`, so
 final submission/lifecycle evidence is the official API readback, not a claimed
@@ -77,3 +77,13 @@ Console screenshot. No manual release action remains before Google approval.
 
 Compact checks, artifact hashes, API receipts and local QA evidence are retained
 under ignored `artifacts/1.4.1/` in the original checkout.
+
+## Publication confirmed — 2026-11-19
+
+A fresh official production lifecycle read at **08:00:11 JST** reports
+**22 (1.4.1) RELEASE_LIFECYCLE_STATE_PUBLISHED**. Google approved the submitted
+full rollout and published it automatically. The immutable source tag and the
+accepted AAB digest are unchanged. The GitHub `v1.4.1` release is now a published
+source-only note, linking to Play and retaining the four approved English lines;
+no APK/AAB assets were attached. This confirms store publication, not a
+Play-delivered installation or physical-device test.

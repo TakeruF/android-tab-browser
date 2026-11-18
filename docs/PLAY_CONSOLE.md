@@ -1,16 +1,14 @@
 # Google Play release preparation
 
-## Latest production submission — 2026-11-19
+## Latest production publication — 2026-11-19
 
-Version **1.4.1 / code 22** is accepted and submitted for full production rollout
-with the [six approved language notes](play-store/release-notes-1.4.1.txt): the
-unchanged three-point 1.4.0 copy plus the requested custom-settings update fix.
-The exact signed AAB from `f34d478`, tag `v1.4.1`, was accepted. Countries, store
-listings, other tracks and device/permission declarations were retained. Fresh
-lifecycle readback reports **code 22 IN_REVIEW** and **code 21 PUBLISHED**.
-Managed publishing was off during Console preflight; approval is configured to
-publish automatically. **Public 1.4.1 availability is not yet confirmed.**
-See [1.4.1 verification](RELEASE_1.4.1_VERIFICATION.md).
+**1.4.1 / code 22 is PUBLISHED**, confirmed by the official production release
+lifecycle at **08:00:11 JST**. The submitted full rollout passed review and
+published automatically. The exact signed AAB from `f34d478`, immutable tag
+`v1.4.1`, and the [six approved language notes](play-store/release-notes-1.4.1.txt)
+are unchanged. Countries, store listings, other tracks and device/permission
+declarations were retained. The GitHub source-only release is also published
+without APK/AAB assets. See [1.4.1 verification](RELEASE_1.4.1_VERIFICATION.md).
 
 ## Latest production submission — 2026-11-18
 
