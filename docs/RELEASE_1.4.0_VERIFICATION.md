@@ -88,3 +88,13 @@ source-only draft with no APK/AAB assets. No automatic workflow was added.
 Compact evidence, accepted bundle metadata, lifecycle readbacks, screenshots,
 source digests and local QA artifacts are under ignored `artifacts/1.4.0/` in
 the original checkout. The public Play note text remains the user's three points.
+
+## Publication confirmed — 2026-11-19
+
+The official production lifecycle independently confirmed **code 21 (1.4.0)
+PUBLISHED** before the 1.4.1 upload, as recorded in the
+[1.4.1 preflight](RELEASE_1.4.1_VERIFICATION.md#release-scope-and-live-preflight--2026-11-19).
+This supersedes the earlier review-pending status above without changing the
+source tag, signed artifact or approved notes. It confirms store publication,
+not a Play-delivered installation or physical-device test. The latest published
+version is recorded in [1.4.1 notes](releases/1.4.1.md).

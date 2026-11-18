@@ -10,7 +10,13 @@ are unchanged. Countries, store listings, other tracks and device/permission
 declarations were retained. The GitHub source-only release is also published
 without APK/AAB assets. See [1.4.1 verification](RELEASE_1.4.1_VERIFICATION.md).
 
-## Latest production submission — 2026-11-18
+The sections below preserve observations from their stated dates. Their review,
+draft and remaining-action descriptions are historical, not outstanding tasks
+for the published release above. Later checks confirmed
+[1.3.1/code 20 published](RELEASE_1.3.1_VERIFICATION.md#publication-confirmed--2026-11-18)
+and [1.4.0/code 21 published](RELEASE_1.4.0_VERIFICATION.md#publication-confirmed--2026-11-19).
+
+## Historical production submission — 2026-11-18
 
 Version **1.4.0 / code 21** is accepted and submitted for full production rollout with the user-approved
 [six-language notes](play-store/release-notes-1.4.0.txt). Live API preflight found
@@ -71,13 +77,13 @@ English, Japanese, Simplified Chinese and Korean notes were submitted unchanged.
 Public 1.3.0 availability is not yet confirmed; 1.2.0 remains published. See
 [1.3.0 verification](RELEASE_1.3.0_VERIFICATION.md).
 
-## Current preparation — 2026-10-31
+## Historical preparation — 2026-10-31
 
 The user selected Google Play as the sole official distribution channel starting with **1.1.1 / code 10**. New GitHub tags record source versions; APKs and updater manifests are no longer published. See [release workflow and migration](RELEASING.md) and [four-language 1.1.1 notes](play-store/release-notes-1.1.1.txt).
 
 The live Console was rechecked: production **1.1.0** is active at 100% in 178 countries/regions; Publishing overview initially had no unpublished changes. The earlier review-pending record below is historical. Preparation of 1.1.1 must stop before sending changes for review or starting a rollout; a saved draft is not submission or store availability. The reviewed AAB has now been accepted as 10 (1.1.1), with all four note languages, and saved as one Production change in Publishing overview. The remaining action, **Submit 1 change for review**, has not been pressed. See [final Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md) for artifact, test and saved-state evidence.
 
-## Latest recorded production submission — 2026-10-27
+## Historical production submission — 2026-10-27
 
 Nagi **1.1.0 / code 9** was submitted to Production at 100% rollout in the existing 178 countries/regions, together with four full-description updates and the ML Kit Data safety declaration. The Console showed **Changes in review**, quick checks running, and **Managed publishing off**. The accepted AAB was rebuilt from clean source `6b5d0de9fec1d14cbded57609a6613604e16c944`. No supported devices were lost; the only release warning concerned increased download size. Approval and public 1.1.0 availability are not established. See [final verification](RELEASE_1.1.0_VERIFICATION.md).
 

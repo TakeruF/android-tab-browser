@@ -84,3 +84,13 @@ Play. A Publisher track's `completed` status is not used as publication proof.
 - GitHub retains a source release draft with no APK/AAB assets. No new workflow
   triggers, sideload release or updater manifest was introduced. The development
   checkout's original 42 modified/untracked source files were preserved.
+
+## Publication confirmed — 2026-11-18
+
+The later [1.4.0 release checks](RELEASE_1.4.0_VERIFICATION.md) recorded the
+official lifecycle as **code 20 (1.3.1) PUBLISHED**. Console independently showed
+1.3.1 available on Google Play at 100% in the established countries/regions, as
+recorded in the [2026-11-18 Console summary](PLAY_CONSOLE.md#historical-production-submission--2026-11-18).
+This supersedes the earlier review-pending status above. It confirms store
+publication, not a Play-delivered installation or physical-device test. The
+latest published version is recorded in [1.4.1 notes](releases/1.4.1.md).

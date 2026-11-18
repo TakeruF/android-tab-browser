@@ -1,7 +1,9 @@
 # Favicons and app themes
 
-Status: included in the 1.4.0 release candidate; see
-[release verification](RELEASE_1.4.0_VERIFICATION.md) for distribution status.
+Status: shipped in Google Play 1.4.0 and retained in 1.4.1. See
+[1.4.0 publication](RELEASE_1.4.0_VERIFICATION.md#publication-confirmed--2026-11-19)
+and [the latest release status](releases/1.4.1.md). The dated validation and
+integration records below describe checks before publication.
 
 `FaviconStore` shares icons by normalized HTTP(S) origin across tabs, Favorites,
 history and drag previews. Each origin has independent light and dark indexes,
@@ -125,7 +127,7 @@ hashes are retained under ignored `artifacts/favicon-theme-20261117/`. Existing
 unrelated working-tree changes were preserved. No version bump or release action
 was performed.
 
-### Source integration for the next update
+### Historical source integration — 2026-11-17
 
 The favicon changes were isolated onto current `origin/main` after 1.3.1 release
 preparation. All 13 favicon source/test files match the implementation verified
@@ -136,5 +138,6 @@ waiting and was stopped; the unchanged case passed after restarting only the QA
 app. The legacy Favorite test initially ran at the narrow width left by that
 interruption; it passed after restoring the dedicated QA tablet width. All 11
 cases passed across these reruns without source changes. The existing version metadata
-was retained; this feature is planned for the next update, with no release upload
-or submission performed for it.
+was retained. At that point this feature was planned for the next update, with
+no release upload or submission performed during the integration task. It was
+subsequently included in the published 1.4.0 release.
