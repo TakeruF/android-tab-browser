@@ -137,11 +137,11 @@ private fun TranslationLanguagePicker(label: String?, value: String?, languages:
                 Text(value?.let { Locale.forLanguageTag(it).getDisplayLanguage(locale) } ?: auto.orEmpty(), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Icon(NagiIcons.ChevronDown, null, Modifier.size(18.dp))
             }
-            DropdownMenu(expanded, { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
-                if (auto != null) DropdownMenuItem(text = { Text(auto) }, modifier = Modifier.testTag("$tag-auto"),
+            NagiOverflowMenu(expanded, { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+                if (auto != null) NagiOverflowMenuItem(text = { Text(auto) }, modifier = Modifier.testTag("$tag-auto"),
                     onClick = { onSelect(null); expanded = false })
                 languages.forEach { code ->
-                    DropdownMenuItem(text = { Text(Locale.forLanguageTag(code).getDisplayLanguage(locale)) },
+                    NagiOverflowMenuItem(text = { Text(Locale.forLanguageTag(code).getDisplayLanguage(locale)) },
                         modifier = Modifier.testTag("$tag-$code"), onClick = { onSelect(code); expanded = false })
                 }
             }

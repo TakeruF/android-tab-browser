@@ -41,6 +41,9 @@ class SettingsPersistenceTest {
         cameraSideMargin = 47, cameraLeftRotation = 3, spacesEnabled = false,
         commandBar = CommandBarSettings(false, false, false, false, false),
         adaptiveDarkMode = true, darkModeExcludedHosts = setOf("light.example"),
+        compactUiMode = CompactUiMode.ON,
+        commandBarLayout = CommandBarLayout.CENTERED,
+        commandBarLayoutNoticeDismissed = true,
     )
 
     private class SettingsFile(val context: Application) {
@@ -107,6 +110,9 @@ class SettingsPersistenceTest {
             // A raw on-disk fixture detects accidental storage-key renames as well as missing fields.
             file.data.edit { p ->
                 p[stringPreferencesKey("theme")] = "DARK"
+                p[stringPreferencesKey("compact_ui_mode")] = "ON"
+                p[stringPreferencesKey("command_bar_layout")] = "CENTERED"
+                p[booleanPreferencesKey("command_bar_layout_notice_dismissed")] = true
                 p[floatPreferencesKey("sidebar_width")] = 337f
                 p[booleanPreferencesKey("sidebar_collapsed")] = true
                 p[stringPreferencesKey("default_search_engine")] = "bing"

@@ -1,0 +1,41 @@
+<en-US>
+Redesigned the search bar and new-tab background settings. You can switch to the previous search layout.
+Choose compact view: always on, always off, or with a physical keyboard.
+Browsing history is now separate for each Space. Improved tab and Favorite dragging.
+Fixed issues with video PiP return, tab switching and popup interactions.
+</en-US>
+
+<es-ES>
+Renovamos la barra de búsqueda y los ajustes del fondo de nuevas pestañas. Puedes volver al diseño anterior.
+Elige la vista compacta: siempre, nunca o con un teclado físico.
+El historial ahora se separa por Space. Mejoramos el arrastre de pestañas y favoritos.
+Corregimos problemas al volver de PiP, cambiar de pestaña e interactuar con ventanas emergentes.
+</es-ES>
+
+<fr-FR>
+La barre de recherche et les réglages du fond des nouveaux onglets ont été repensés. L’ancienne disposition reste disponible.
+Choisissez l’affichage compact : toujours, jamais ou avec un clavier physique.
+L’historique est séparé par Space. Le glisser-déposer des onglets et favoris a été amélioré.
+Correction du retour PiP, du changement d’onglet et des interactions avec les fenêtres contextuelles.
+</fr-FR>
+
+<ja-JP>
+検索バーと新しいタブの背景設定を刷新しました。従来の検索UIにも切り替えられます。
+コンパクト表示を、常にオン・常にオフ・物理キーボード連動から選べます。
+閲覧履歴をスペースごとに分け、タブやお気に入りのドラッグ操作を改善しました。
+動画のPiP復帰、タブ切り替え、ポップアップ操作などの不具合を修正しました。
+</ja-JP>
+
+<zh-CN>
+重新设计了搜索栏和新标签页背景设置，仍可切换回原来的搜索界面。
+紧凑显示可选择始终开启、始终关闭或连接实体键盘时开启。
+浏览历史现按空间分别保存，并改进了标签页和收藏夹的拖动操作。
+修复了视频画中画返回、标签页切换及弹出窗口交互等问题。
+</zh-CN>
+
+<ko-KR>
+검색창과 새 탭 배경 설정을 새롭게 디자인했습니다. 이전 검색 UI로 전환할 수도 있습니다.
+간결한 보기를 항상 켜기, 항상 끄기, 물리 키보드 연결 시 켜기 중에서 선택할 수 있습니다.
+방문 기록을 Space별로 분리하고 탭과 즐겨찾기 드래그를 개선했습니다.
+동영상 PiP 복귀, 탭 전환, 팝업 조작 등의 문제를 수정했습니다.
+</ko-KR>

@@ -16,6 +16,8 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
+Version 1.5.0 adds a new search design, keyboard-aware compact spacing, Space-specific history and improved dragging and video behavior. It is a local release candidate; store availability is not yet confirmed. See [1.5.0 notes](docs/releases/1.5.0.md).
+
 Version 1.4.1 retains the 1.4.0 phone/keyboard improvements and fixes custom-settings retention. Google Play code 22 is published, confirmed by the release lifecycle API on 2026-11-19. See [1.4.1 notes](docs/releases/1.4.1.md) for scope, verification and release status.
 
 Version 1.4.0 improves the phone UI and on-screen keyboard behavior, adds native
@@ -39,7 +41,7 @@ Version 1.1.0 adds on-device page translation, remembered target languages, same
 
 Version 1.0.0 adds narrow-window bottom navigation and a tab sheet, phone-style mobile sites, resize-safe pages and drafts, and empty blocked-ad container collapse. See [release notes](docs/play-store/release-notes-1.0.0.txt).
 
-- Spaces with ordinary and pinned tabs, shared Favorites, Bookmarks, and history.
+- Spaces with ordinary and pinned tabs and separate browsing history; shared Favorites and Bookmarks.
 - A Command Bar for URLs, search, tabs, Spaces, and commands.
 - Choose which suggestion categories the Command Bar lists in Settings → Command Bar; hiding Commands keeps their keyboard shortcuts working. See [Command Bar settings](docs/COMMAND_BAR.md).
 - Standard search and “Ask ChatGPT” actions, selected with arrow keys and Enter or by touch/click. Questions and requests for explanations or comparisons, and input of at least 80 characters, prioritize ChatGPT. Explicit URLs and engine keywords take precedence.
@@ -75,6 +77,12 @@ cd android-tab-browser
 adb install -r app/build/outputs/apk/play/debug/app-play-debug.apk
 adb shell am start -n com.takeruf.nagi/.MainActivity
 ```
+
+For a development APK that installs alongside the normal app, run
+`./gradlew :app:assemblePlayDebug -PnagiSideBySide=true --no-parallel`.
+It uses `com.takeruf.nagi.preview` and the launcher name **Nagi Test**, with its own
+tabs, settings and site data. The flag affects Debug only; ordinary builds keep
+their existing package/name. Use `-r` when updating an existing test install.
 
 Set `ANDROID_HOME` or add `sdk.dir` to the Git-ignored `local.properties`. Debug development needs no release keystore; Release signing is configured separately outside Git. With multiple devices, use `adb -s <serial>`.
 

@@ -13,8 +13,14 @@ import java.util.UUID
 class WorkspaceRepository(val database: NagiDatabase, private val settings: SettingsStore) {
     val dao = database.browserDao()
     val ready = CompletableDeferred<Unit>()
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val currentHistory = combine(dao.observeSpaces(), settings.settings) { spaces, prefs ->
+        spaces.firstOrNull { it.id == prefs.selectedSpaceId }?.id ?: spaces.firstOrNull()?.id
+    }.distinctUntilChanged().flatMapLatest { spaceId ->
+        if (spaceId == null) flowOf(emptyList()) else dao.observeHistoryForSpace(spaceId)
+    }
     val snapshot = combine(dao.observeSpaces(), dao.observeTabs(), dao.observeEngines(),
-        dao.observeHistory(), dao.observeBookmarks()) { spaces, tabs, engines, history, bookmarks ->
+        currentHistory, dao.observeBookmarks()) { spaces, tabs, engines, history, bookmarks ->
         WorkspaceSnapshot(spaces.map { it.model() }, tabs.map { it.model() },
             SearchEngineOrder.sorted(engines.map { it.model() }) { it.id }, history.map { it.model() }, bookmarks.map { it.model() })
     }
@@ -60,6 +66,10 @@ class WorkspaceRepository(val database: NagiDatabase, private val settings: Sett
                 }
                 // Engine deletion/editing is never undone by seeding on a later launch.
                 val prefs = settings.settings.first()
+                // A legacy database without any Spaces is seeded above. Preserve any visits
+                // whose migration could not yet select an owner, without copying them across Spaces.
+                val legacyOwner = dao.spaces().firstOrNull { it.id == "personal" } ?: dao.spaces().first()
+                dao.assignUnownedHistory(legacyOwner.id)
                 dao.spaces().forEach { space ->
                     val tabs = dao.tabs(space.id)
                     if (!prefs.restoreTabs) {

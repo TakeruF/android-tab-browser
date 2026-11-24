@@ -23,7 +23,7 @@
         </intent>
     </queries>
     <application android:name=".NagiApplication" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:label="@string/app_name" android:localeConfig="@xml/locales_config" android:supportsRtl="true"
+        android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:label="${nagiAppLabel}" android:localeConfig="@xml/locales_config" android:supportsRtl="true"
         android:theme="@style/Theme.Nagi" android:usesCleartextTraffic="true">
         <provider android:name="androidx.webkit.DropDataContentProvider"
             android:authorities="${applicationId}.DropDataProvider" android:exported="false"
@@ -43,10 +43,10 @@
         <service android:name=".browser.privacy.PrivateTaskService" android:exported="false"
             android:stopWithTask="false" />
         <activity android:name=".PrivateActivity" android:exported="false" android:excludeFromRecents="true"
-            android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize" />
+            android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation" />
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" android:supportsPictureInPicture="true"
-            android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize">
+            android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

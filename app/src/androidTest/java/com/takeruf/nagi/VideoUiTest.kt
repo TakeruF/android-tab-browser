@@ -12,6 +12,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
+import com.takeruf.nagi.domain.model.BrowserSettings
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -25,6 +26,8 @@ class VideoUiTest {
     private lateinit var server: FixtureServer
     private lateinit var container: AppContainer
     private lateinit var web: WebView
+    private lateinit var originalSettings: BrowserSettings
+    private val createdSpaces = mutableListOf<String>()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
     private fun waitFor(predicate: () -> Boolean) {
@@ -145,13 +148,23 @@ class VideoUiTest {
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
+            originalSettings = container.settings.settings.first()
             container.settings.update { it.copy(autoVideoPip = true, videoPopups = true, desktopDefault = false, automaticSearchRegion = false) }
             container.spaces.create("Video QA ${System.nanoTime()}")
+            createdSpaces += container.settings.settings.first().selectedSpaceId
             container.tabs.create(requireNotNull(container.settings.settings.first().selectedSpaceId), server.origin + "/one", select = false)
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Page menu").fetchSemanticsNodes().isNotEmpty() }
     }
-    @After fun cleanup() { returnToApp(); server.close() }
+    @After fun cleanup() {
+        try { returnToApp() } finally {
+            runBlocking {
+                createdSpaces.forEach { container.spaces.delete(it) }
+                if (::originalSettings.isInitialized) container.settings.update { originalSettings }
+            }
+            server.close()
+        }
+    }
 
     @Test fun fullscreenHomeKeepsPlayingInPipAndRestoresSamePlayer() {
         open(); tap("#start-video"); assertAdvances(); tap("#fullscreen-video")
@@ -204,6 +217,7 @@ class VideoUiTest {
     }
     @Test fun popupAutomaticallyKeepsPlayingAcrossTabsAndSupportsDragResizePauseAndReturn() {
         open(); tap("#start-video"); assertAdvances()
+        val sourceId = runBlocking { container.workspace.dao.observeTabs().first().first { it.url == server.origin + "/video" }.id }
         assertEquals("false", js("!!document.querySelector('[data-nagi-video-assistant]')"))
         switchToNewTab()
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
@@ -243,13 +257,19 @@ class VideoUiTest {
         compose.onNodeWithTag("video-popup-play-pause").performClick()
         waitFor { js("document.getElementById('player').paused") == "true" }
         compose.onNodeWithTag("video-popup-play-pause").performClick(); assertAdvances()
-        home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
-        returnToApp(); compose.onNodeWithTag("video-popup").assertExists()
-        assertEquals(resizedWidth, compose.onNodeWithTag("video-popup").fetchSemanticsNode().boundsInRoot.width, 1f)
         showPopupControls()
         compose.onNodeWithTag("video-popup-return").performClick()
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
         waitFor { js("!!document.querySelector('[data-nagi-video-target]')") == "false" }
+        assertPageSurfaceRestored()
+        assertAdvances()
+        switchToNewTab()
+        compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+        home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
+        returnToApp(); compose.onNodeWithTag("video-fullscreen").assertExists()
+        compose.onNodeWithTag("video-popup").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Exit fullscreen").performClick()
+        runBlocking { container.tabs.select(sourceId) }
         assertPageSurfaceRestored()
         assertAdvances()
         switchToNewTab()
@@ -305,7 +325,7 @@ class VideoUiTest {
         compose.onNodeWithTag("video-popup").assertDoesNotExist()
         waitFor { js("document.getElementById('player').paused") == "true" }
     }
-    @Test fun crossOriginFrameAutomaticallyPopsOutAndClosingSourceTabClosesPopup() {
+    @Test fun crossOriginFrameAutomaticallyPopsOutAndClosingSourceTabClosesPresentation() {
         open("/video-frame")
         fun tapFrame(name: String) {
             // A child can report DOM coordinates before the video metadata changes
@@ -325,12 +345,19 @@ class VideoUiTest {
         switchToNewTab()
         compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
         assertAdvances()
-        runBlocking { container.spaces.create("Other Video Space ${System.nanoTime()}") }
+        runBlocking {
+            container.spaces.create("Other Video Space ${System.nanoTime()}")
+            createdSpaces += container.settings.settings.first().selectedSpaceId
+        }
         compose.onNodeWithTag("video-popup").assertExists(); assertAdvances()
         home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances(); returnToApp()
+        compose.onNodeWithTag("video-fullscreen").assertExists()
         val sourceId = runBlocking { container.workspace.dao.observeTabs().first().first { it.url == server.origin + "/video-frame" }.id }
         runBlocking { container.tabs.close(sourceId) }
-        compose.waitUntil { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil {
+            compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() &&
+                compose.onAllNodesWithTag("video-fullscreen").fetchSemanticsNodes().isEmpty()
+        }
     }
     @Test fun oneTabInlineVideoDoesNotEnterHomePip() {
         open(); tap("#start-video"); assertAdvances()
@@ -397,6 +424,71 @@ class VideoUiTest {
         assertAdvances()
         assertTrue(ticks() > before)
         assertEquals(1, server.requests.count { it.path == "/video" })
+    }
+    @Test fun popupSystemPipReturnExpandsTheSamePlayingVideoToFullscreen() {
+        open(); tap("#start-video"); assertAdvances()
+        val source = web
+        val sourceId = runBlocking { container.workspace.dao.observeTabs().first().first { it.url == server.origin + "/video" }.id }
+        val otherId = runBlocking {
+            container.tabs.create(container.settings.settings.first().selectedSpaceId, server.origin + "/one")
+        }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+        assertAdvances()
+        home(); waitFor { compose.activity.isInPictureInPictureMode }; assertAdvances()
+        screenshot("video-popup-system-pip-before-expand")
+        returnToApp()
+        compose.onNodeWithTag("video-fullscreen").assertExists()
+        compose.onNodeWithTag("video-popup").assertDoesNotExist()
+        main {
+            val displayedSource = views(compose.activity.window.decorView).filterIsInstance<WebView>()
+                .first { it.url == server.origin + "/video" && it.isShown }
+            assertSame("Fullscreen return must retain the original native player", source, displayedSource)
+        }
+        assertAdvances()
+        assertEquals(otherId, runBlocking {
+            container.workspace.dao.spaces().first { it.id == container.settings.settings.first().selectedSpaceId }.activeTabId
+        })
+        screenshot("video-popup-system-pip-expanded-fullscreen")
+        compose.onNodeWithContentDescription("Exit fullscreen").performClick()
+        runBlocking { container.tabs.select(sourceId) }
+        assertPageSurfaceRestored()
+        assertAdvances()
+        assertEquals(1, server.requests.count { it.path == "/video" })
+    }
+    @Test fun repeatedPopupReturnsNeverAttachTheVideoOverAnotherLiveTab() {
+        open(); tap("#start-video"); assertAdvances()
+        val sourceId = runBlocking { container.workspace.dao.observeTabs().first().first { it.url == server.origin + "/video" }.id }
+        val otherId = runBlocking {
+            container.tabs.create(container.settings.settings.first().selectedSpaceId, server.origin + "/one")
+        }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+        var other: WebView? = null
+        waitFor {
+            main { views(compose.activity.window.decorView).filterIsInstance<WebView>()
+                .firstOrNull { it.url == server.origin + "/one" && it.progress == 100 }?.let { other = it } }
+            other != null
+        }
+        fun assertOnlyChild(view: View) = main {
+            val parent = view.parent as? ViewGroup
+            assertNotNull("The expected tab must own an attached surface", parent)
+            assertEquals("A native container must not retain a different tab's WebView", 1, parent!!.childCount)
+            assertSame(view, parent.getChildAt(0))
+        }
+        repeat(3) {
+            runBlocking { container.tabs.select(sourceId) }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isEmpty() }
+            assertPageSurfaceRestored()
+            assertOnlyChild(web)
+            assertAdvances()
+            runBlocking { container.tabs.select(otherId) }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-popup").fetchSemanticsNodes().isNotEmpty() }
+            assertOnlyChild(requireNotNull(other))
+            assertOnlyChild(web)
+            assertAdvances()
+        }
+        screenshot("video-popup-second-tab-single-native-owner")
+        assertEquals(1, server.requests.count { it.path == "/video" })
+        assertEquals(1, server.requests.count { it.path == "/one" })
     }
     @Test fun returningFromPopupPreservesDesktopPageZoomAcrossRepeatedTabSwitches() {
         open()

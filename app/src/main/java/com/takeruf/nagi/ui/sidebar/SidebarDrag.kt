@@ -12,8 +12,9 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import kotlinx.coroutines.delay
 
 enum class SidebarSection { FAVORITES, PINNED, TODAY, SPACE, SPLIT_LEFT, SPLIT_RIGHT, SPLIT_TAB }
-data class SidebarDestination(val section: SidebarSection, val id: String? = null, val after: Boolean = false, val atStart: Boolean = false)
-data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false, val siteUrl: String? = null, val pairRight: com.takeruf.nagi.domain.model.BrowserTab? = null, val pairLeft: com.takeruf.nagi.domain.model.BrowserTab? = null, val pairActiveTabId: String? = null)
+data class SidebarDestination(val section: SidebarSection, val id: String? = null, val after: Boolean = false,
+    val atStart: Boolean = false, val openInPane: Boolean = false)
+data class SidebarDragItem(val id: String, val title: String, val favicon: String?, val favorite: Boolean = false, val siteUrl: String? = null, val pairRight: com.takeruf.nagi.domain.model.BrowserTab? = null, val pairLeft: com.takeruf.nagi.domain.model.BrowserTab? = null, val pairActiveTabId: String? = null, val collapsed: Boolean = false)
 
 data class FavoriteLanding(val item: SidebarDragItem, val topLeft: Offset)
 

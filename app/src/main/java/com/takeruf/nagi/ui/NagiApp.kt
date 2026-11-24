@@ -5,6 +5,7 @@ import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -36,13 +38,18 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.RectangleShape
 import com.takeruf.nagi.ui.theme.NagiTheme
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 @Composable
 fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingUrls: Flow<String>) {
@@ -134,6 +141,13 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     LaunchedEffect(container.updates) { if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && container.updates.state.value.status == com.takeruf.nagi.updates.UpdateStatus.IDLE) container.updates.check() }
     var omniboxOpen by rememberSaveable { mutableStateOf(false) }
     var omniboxInitial by rememberSaveable { mutableStateOf("") }
+    var omniboxTabId by rememberSaveable { mutableStateOf<String?>(null) }
+    var omniboxEntryBounds by remember { mutableStateOf<Rect?>(null) }
+    var omniboxAnimateEntrance by remember { mutableStateOf(false) }
+    val addressBarBounds = remember { mutableStateMapOf<String, Rect>() }
+    LaunchedEffect(state.visibleTabs.map { it.id }) {
+        addressBarBounds.keys.retainAll(state.visibleTabs.map { it.id }.toSet())
+    }
     var pendingNewTabId by remember { mutableStateOf<String?>(null) }
     var translationRequest by remember { mutableStateOf<PageTranslationRequest?>(null) }
     val savedPair = state.visibleTabs.firstOrNull { tab ->
@@ -180,9 +194,13 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         if (destination == "browser") nav.popBackStack("browser", inclusive = false)
         else nav.navigate(destination) { launchSingleTop = true; popUpTo("browser") }
     }
-    fun openOmnibox(preselectUrl: Boolean = true) {
+    fun openOmnibox(preselectUrl: Boolean = true, tab: BrowserTab? = focusedTab,
+        entryBounds: Rect? = null, animate: Boolean = true) {
         if (sidebarAdaptation.compact) setSidebarCollapsed(true)
-        omniboxInitial = if (preselectUrl) (focusedEngine?.state?.value?.url ?: focusedTab?.url)
+        omniboxTabId = tab?.id
+        omniboxEntryBounds = entryBounds
+        omniboxAnimateEntrance = animate
+        omniboxInitial = if (preselectUrl) (tab?.let { sessions.pool.peek(it.id)?.state?.value?.url } ?: tab?.url)
             ?.takeUnless { it == "about:blank" }.orEmpty() else ""
         omniboxOpen = true
     }
@@ -203,6 +221,22 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         navigate("browser")
         val tab = focusedTab
         if (tab != null) sessions.navigate(tab, url, desktopDefault) else vm.newTab(url)
+    }
+    fun dropFavoriteIntoPane(favoriteId: String, destination: SidebarDestination) {
+        if (sidebarAdaptation.compact) return
+        val toRight = destination.section == SidebarSection.SPLIT_RIGHT
+        val paneId = (if (toRight) right ?: left else left)?.id ?: return
+        val targetId = destination.id ?: paneId
+        if (targetId != paneId) return
+        scope.launch {
+            val result = vm.prepareFavoritePaneDrop(favoriteId, targetId,
+                splitToRight = if (destination.openInPane) null else toRight) ?: return@launch
+            if (currentSettings.selectedSpaceId != result.tab.spaceId) return@launch
+            if (destination.openInPane) sessions.navigate(result.tab, result.url, desktopDefault)
+            else sessions.acquire(result.tab, desktopDefault)
+            rightFocused = if (destination.openInPane) result.tab.id == right?.id else toRight
+            navigate("browser")
+        }
     }
     val canCloseTabOnBack = focusedTab != null && !focusedTab.isPinned && state.visibleTabs.size > 1
     fun back() {
@@ -251,7 +285,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         }
         if ((zoomShortcut && (!pageShortcutAllowed || focusedEngine == null)) || (navigationShortcut && !state.ready)) false else {
             when (shortcut) {
-                Shortcut.OMNIBOX -> openOmnibox()
+                Shortcut.OMNIBOX -> openOmnibox(animate = false)
                 Shortcut.NEW_TAB -> command(BrowserCommand.NEW_TAB)
                 Shortcut.CLOSE_TAB -> focusedTab?.let { if (right != null && rightFocused) rightFocused = false; vm.closeTab(it.id) }
                 Shortcut.RESTORE_TAB -> command(BrowserCommand.RESTORE_TAB)
@@ -327,8 +361,39 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     BackHandler(enabled = fullscreen != null) { host.hideFullscreen() }
-    BackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { back() }
-    NagiTheme(state.settings.theme, com.takeruf.nagi.ui.theme.themeSeedColor(state.currentSpace?.color, state.settings.themeColor)) {
+    val historyBackPreview = remember { HistoryBackPreviewState() }
+    val latestFocusedEngine by rememberUpdatedState(focusedEngine)
+    val latestRoute by rememberUpdatedState(route)
+    LaunchedEffect(focusedEngine, route) { historyBackPreview.reset() }
+    PredictiveBackHandler(enabled = fullscreen == null && route == "browser" && (pages[focusedTab?.id]?.readerArticle != null || pages[focusedTab?.id]?.canGoBack == true || canCloseTabOnBack)) { events ->
+        val target = focusedEngine
+        // Keep the action selected at gesture start. A history gesture must never
+        // fall through to closing a tab if history/focus changes while settling.
+        val exitReader = target?.state?.value?.readerArticle != null
+        val traverseHistory = target?.canGoBack() == true
+        val closeOnBackId = focusedTab?.id?.takeIf { canCloseTabOnBack }
+        val owner = historyBackPreview.begin()
+        try {
+            events.collect { event ->
+                if (target != null && target === latestFocusedEngine && latestRoute == "browser")
+                    historyBackPreview.update(owner, target, event)
+            }
+            if (target === latestFocusedEngine && latestRoute == "browser") historyBackPreview.complete(owner) {
+                if (target === latestFocusedEngine && latestRoute == "browser") {
+                    if (exitReader) target?.toggleReader()
+                    else if (traverseHistory) target?.goBack()
+                    else closeOnBackId?.let { vm.closeTabOnBack(it); rightFocused = false; showFind = false }
+                }
+            }
+            else historyBackPreview.reset()
+        } catch (cancelled: CancellationException) {
+            withContext(NonCancellable) { historyBackPreview.cancel(owner) }
+            throw cancelled
+        }
+    }
+    NagiTheme(state.settings.theme, com.takeruf.nagi.ui.theme.themeSeedColor(state.currentSpace?.color, state.settings.themeColor),
+        compactUiMode = state.settings.compactUiMode) {
+        val uiDimensions = LocalNagiUiDimensions.current
         val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val displayRotation = rememberDisplayRotation()
@@ -385,7 +450,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                 var resizingCollapsed by remember { mutableStateOf<Boolean?>(null) }
                 val previewCollapsed = resizingCollapsed ?: sidebarCollapsed
                 val previewState = state.copy(settings = state.settings.copy(sidebarCollapsed = previewCollapsed))
-                val width = if (previewCollapsed) 72.dp else (resizingWidth ?: state.settings.sidebarWidth).dp
+                val width = if (previewCollapsed) LocalNagiUiDimensions.current.collapsedSidebarWidth
+                    else (resizingWidth ?: state.settings.sidebarWidth).dp
                 @Composable
                 fun SidebarContent(sidebarState: BrowserUiState) {
                     Sidebar(sidebarState, vm, pages.filterValues { it.isLoading }.keys,
@@ -415,7 +481,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                 vm.selectTab(id)
                                 navigate("browser")
                             }
-                        }, onSplitPair = { targetId, draggedId ->
+                        }, onFavoritePaneDrop = ::dropFavoriteIntoPane, onSplitPair = { targetId, draggedId ->
                             if (targetId != draggedId && state.visibleTabs.any { it.id == targetId } &&
                                 state.visibleTabs.any { it.id == draggedId }) {
                                 vm.pairTabs(targetId, draggedId)
@@ -445,11 +511,14 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                 NavHost(navController = nav, startDestination = "browser") {
                                     composable("browser") { BrowserScreen(state, vm, sessions, right?.id, rightFocused,
                                         onFocusRight = { rightFocused = it }, splitRatio, onSplitRatio = { splitRatio = it },
-                                        showFind, onFind = { showFind = it }, onOmnibox = { openOmnibox() }, onOpenUrl = ::openUrl,
+                                        showFind, onFind = { showFind = it }, onOmnibox = { openOmnibox(tab = it) }, onOpenUrl = ::openUrl,
                                         onSplit = ::split, onCloseSplit = ::closeSplit,
                                         onSwap = { right?.let { other -> left?.let { vm.pairTabs(other.id, it.id); vm.selectTab(other.id) } } },
                                         leftTabId = left?.id, compactWindow = sidebarAdaptation.compact, desktopDefault = desktopDefault,
                                         resizeForIme = !omniboxOpen,
+                                        historyBackPreview = historyBackPreview,
+                                        onAddressBarBounds = { id, bounds -> addressBarBounds[id] = bounds },
+                                        onNewTabSearch = { tab, bounds -> openOmnibox(tab = tab, entryBounds = bounds) },
                                         onNewTab = ::newTab, onTabs = { setSidebarCollapsed(false) },
                                         onTranslationOptions = { tab, engine ->
                                             translationRequest = PageTranslationRequest(tab.id, engine, engine.state.value.url)
@@ -472,17 +541,26 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         val minimumRatio = maxOf(0.25f, (180.dp / availableWidth).coerceAtMost(0.5f))
                                         val ratio = splitRatio.coerceIn(minimumRatio, 1f - minimumRatio)
                                         Row(Modifier.fillMaxSize()) {
-                                            listOf(SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT).forEach { side ->
+                                            val favoriteDrag = sidebarDrag.item?.favorite == true
+                                            val openInPane = favoriteDrag && right != null
+                                            val areas = listOf(SidebarSection.SPLIT_LEFT to if (right == null) 1f else ratio,
+                                                SidebarSection.SPLIT_RIGHT to if (right == null) 1f else 1f - ratio)
+                                            areas.forEach { (side, weight) ->
                                                 // A tab cannot be split with itself: when the dragged tab is already the one
                                                 // shown in this pane (or the only page), offer no drop target there.
                                                 val paneTab = if (right == null || side == SidebarSection.SPLIT_LEFT) left else right
                                                 val draggedTab = sidebarDrag.item?.takeIf { !it.favorite && it.pairRight == null }?.id
                                                 val selfDrop = draggedTab != null && draggedTab == paneTab?.id
-                                                val highlighted = !selfDrop && sidebarDrag.item?.favorite == false && sidebarDrag.destination?.section == side
+                                                val destination = SidebarDestination(side, if (favoriteDrag) paneTab?.id else null,
+                                                    openInPane = openInPane)
+                                                val highlighted = !selfDrop && sidebarDrag.item?.pairRight == null &&
+                                                    sidebarDrag.destination?.let { it.section == side && it.id == destination.id &&
+                                                        it.openInPane == openInPane } == true
                                                 if (right != null && side == SidebarSection.SPLIT_RIGHT) Spacer(Modifier.width(24.dp))
-                                                Box(Modifier.weight(if (right == null) 1f else if (side == SidebarSection.SPLIT_LEFT) ratio else 1f - ratio).fillMaxHeight()
-                                                    .testTag(if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right")
-                                                    .then(if (selfDrop) Modifier else Modifier.sidebarTarget(sidebarDrag, side.name, SidebarDestination(side)))) {
+                                                val targetTag = if (side == SidebarSection.SPLIT_LEFT) "split-drop-left" else "split-drop-right"
+                                                Box(Modifier.weight(weight).fillMaxHeight().testTag(targetTag)
+                                                    .then(if (selfDrop) Modifier else Modifier.sidebarTarget(sidebarDrag,
+                                                        side.name, destination))) {
                                                     if (highlighted) Box(Modifier.fillMaxSize().padding(12.dp)
                                                         .clip(NagiShapes.Rounded)
                                                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
@@ -516,13 +594,27 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                         modifier = Modifier.offset(x = width - 8.dp).width(24.dp).fillMaxHeight())
                 }
                 if (sidebarAdaptation.compact && !sidebarCollapsed) {
+                    DisposableEffect(sidebarDrag) {
+                        onDispose { sidebarDrag.cancel(); sidebarDrag.finishFavoriteLanding() }
+                    }
                     ModalBottomSheet(onDismissRequest = { setSidebarCollapsed(true); sidebarDrag.cancel() },
                         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                         sheetMaxWidth = 600.dp, dragHandle = null) {
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
-                            Box(Modifier.fillMaxWidth().heightIn(max = maxHeight * 0.85f).testTag("compact-tab-sheet")) {
+                            val density = LocalDensity.current
+                            var idleHeight by remember(maxWidth, maxHeight) { mutableIntStateOf(0) }
+                            val dragging = sidebarDrag.item != null || sidebarDrag.favoriteLanding != null
+                            LaunchedEffect(maxWidth, maxHeight) {
+                                sidebarDrag.cancel(); sidebarDrag.finishFavoriteLanding()
+                            }
+                            // Expanding drop sections must not move the sheet, its gesture origin
+                            // or the source row while a pointer is holding a tab.
+                            val heldHeight = if (dragging && idleHeight > 0)
+                                Modifier.height(with(density) { idleHeight.toDp() }) else Modifier
+                            Box(Modifier.fillMaxWidth().heightIn(max = maxHeight * 0.85f).then(heldHeight)
+                                .onSizeChanged { if (!dragging) idleHeight = it.height }.testTag("compact-tab-sheet")) {
                                 SidebarContent(state.copy(settings = state.settings.copy(sidebarCollapsed = false)))
-                                if (sidebarDrag.item != null || sidebarDrag.favoriteLanding != null) SidebarDragPreview(sidebarDrag)
+                                if (dragging) SidebarDragPreview(sidebarDrag, Modifier.matchParentSize())
                             }
                         }
                     }
@@ -538,13 +630,15 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                             }
                         },
                         onDismiss = { host.dismissBlockedExternalApp(request) },
-                        modifier = browserNoticePlacement((windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value)).dp))
+                        modifier = browserNoticePlacement((windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value)).dp,
+                            bottomBar = sidebarAdaptation.compact && state.settings.bottomSearchBar))
                 }
                 if (route == "browser" && blockedExternalApp == null) translationRequest?.let { request ->
                     val page by request.engine.state.collectAsStateWithLifecycle()
                     key(request) {
                         PageTranslationNotice(page.translation, onDismiss = { translationRequest = null },
-                            modifier = browserNoticePlacement((windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value)).dp),
+                            modifier = browserNoticePlacement((windowWidthDp - (if (sidebarAdaptation.compact) 0f else width.value)).dp,
+                                bottomBar = sidebarAdaptation.compact && state.settings.bottomSearchBar),
                             enabled = !page.isLoading && !page.readerLoading && page.error == null,
                             targetLanguage = state.settings.translationTargetLanguage,
                             alwaysTranslateLanguages = state.settings.alwaysTranslateLanguages,
@@ -563,9 +657,9 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     }
                 }
                 if (!sidebarAdaptation.compact && (sidebarDrag.item != null || sidebarDrag.favoriteLanding != null)) SidebarDragPreview(sidebarDrag)
-                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = if (sidebarAdaptation.compact && route == "browser") 56.dp else 0.dp))
+                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = if (sidebarAdaptation.compact && route == "browser") uiDimensions.toolbarHeight else 0.dp))
                 if (!container.isPrivate && com.takeruf.nagi.BuildConfig.APK_UPDATES_ENABLED && updateState.release != null && updateState.status in setOf(com.takeruf.nagi.updates.UpdateStatus.AVAILABLE, com.takeruf.nagi.updates.UpdateStatus.READY)) {
-                    TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (sidebarAdaptation.compact && route == "browser") 72.dp else 16.dp)) {
+                    TextButton(onClick = { updateDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (sidebarAdaptation.compact && route == "browser") uiDimensions.toolbarHeight + 16.dp else 16.dp)) {
                         Text(strings(R.string.ui_update_banner, updateState.release!!.versionName))
                     }
                 }
@@ -580,6 +674,10 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     }
                 }
                 if (omniboxOpen) CommandBar(omniboxInitial, state.workspace, state.settings, onDismiss = { omniboxOpen = false },
+                    onLayoutChange = { layout -> vm.updateSettings { it.copy(commandBarLayout = layout, commandBarLayoutNoticeDismissed = true) } },
+                    onDismissLayoutNotice = { vm.updateSettings { it.copy(commandBarLayoutNoticeDismissed = true) } },
+                    anchorBounds = (omniboxTabId ?: focusedTab?.id)?.let { addressBarBounds[it] }.takeIf { route == "browser" },
+                    phoneEntryBounds = omniboxEntryBounds, animateEntrance = omniboxAnimateEntrance,
                     splitEnabled = !sidebarAdaptation.compact,
                     onShortcut = { shortcutHandler(it) }, onExecute = { action ->
                     omniboxOpen = false

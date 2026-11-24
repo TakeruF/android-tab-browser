@@ -396,16 +396,18 @@ class AppearanceUiTest {
     @Test fun lightSidebarFavoritesAndNewTabRemainReadable() = sidebarAndHome(ThemeMode.LIGHT)
     @Test fun darkSidebarFavoritesAndNewTabRemainReadable() = sidebarAndHome(ThemeMode.DARK)
 
-    @Test fun themeChipsPersistAcrossRecreationAndSystemModeUsesSystemAppearance() {
+    @Test fun themeMenuPersistsAcrossRecreationAndSystemModeUsesSystemAppearance() {
         compose.onNodeWithContentDescription("Settings").performClick()
         for (mode in listOf(ThemeMode.DARK, ThemeMode.LIGHT, ThemeMode.SYSTEM)) {
             val label = mode.name.lowercase().replaceFirstChar(Char::uppercase)
             compose.selectSettingsCategory("appearance")
-            compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
-            compose.onNodeWithText(label).performClick()
+            compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("settings-theme-select"))
+            compose.onNodeWithTag("settings-theme-select").performClick()
+            compose.onNodeWithTag("settings-theme-${mode.name.lowercase()}").performClick()
             compose.waitUntil(10_000) { runBlocking { container.settings.settings.first().theme == mode } }
-            compose.waitUntil(10_000) { compose.onAllNodes(hasText(label) and isSelected()).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText(label).assertIsSelected()
+            compose.onNodeWithTag("settings-theme-select").assertTextContains(label)
+            compose.onNodeWithTag("settings-theme-select").performClick()
+            compose.onNodeWithTag("settings-theme-${mode.name.lowercase()}").assertIsSelected().performClick()
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Sidebar width"))
             contrast(text("Sidebar width"))
             compose.activityRule.scenario.recreate()
@@ -413,8 +415,9 @@ class AppearanceUiTest {
             assertEquals(mode, runBlocking { container.settings.settings.first().theme })
             theme(mode)
             compose.selectSettingsCategory("appearance")
-            compose.onNodeWithTag("settings-list").performScrollToNode(hasText(label))
-            compose.onNodeWithText(label).assertIsSelected()
+            compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("settings-theme-select"))
+            compose.onNodeWithTag("settings-theme-select").assertTextContains(label).performClick()
+            compose.onNodeWithTag("settings-theme-${mode.name.lowercase()}").assertIsSelected().performClick()
         }
         save("system-settings")
     }

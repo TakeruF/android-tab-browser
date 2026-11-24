@@ -18,12 +18,19 @@ The legacy GitHub source set may still be checked for historical regressions, bu
 
 ## Feature coverage and limitations
 
+- [New-tab background editor](NEW_TAB_APPEARANCE.md): preview, mode/color controls, saved-photo reuse and cancellation.
+
+- [Compact-view spacing](UI_DENSITY.md): Settings, tabs/history, toolbar spacing and retained input/page state when keyboard availability changes.
+- [Menu layout](MENU_LAYOUT.md): hardware-keyboard density, shared popup sizing, hover/dismissal and large-font reachability.
+- [Favorites](FAVORITES.md): sidebar/sheet editing, URL validation, retained identity/order, draft restoration and fixture WebView navigation.
 - [Command Bar settings](COMMAND_BAR.md): category/command visibility, saved choices, shortcut hints, empty-list navigation and retained live pages.
 - [Narrow-window browsing](COMPACT_UI.md): window boundaries, tab sheets, phone UA/Client Hints, per-site choices, and page/draft retention through resizing.
 - [Privacy, Reader, and blocking](PRIVACY_READER_BLOCKING.md): actual WebView requests, exceptions, storage isolation, Reader sanitization, and restoration of blocked-ad containers.
 - [Page translation](PAGE_TRANSLATION.md): page-menu/language controls, live DOM translation and restoration, session cancellation, and an opt-in real-model download/translation smoke test.
 - [Live-site advertising checks](AD_SLOT_COLLAPSE_VALIDATION.md): recorded DOM measurements, content preservation, and remaining detection gaps.
-- [Trackpad history](HISTORY_GESTURES.md): WebView history, gesture dispatch, nested scrolling, Split targeting, and touchscreen exclusion.
+- [History by Space](HISTORY_SPACES.md): scoped recording, suggestions, per-Space limits, schema-v4 upgrades and legacy ownership.
+- [History gestures](HISTORY_GESTURES.md): predictive edge-back previews, cancellation/commit, native WebView history, trackpad dispatch, nested scrolling and Split targeting. The 2026-11-23 record includes the baseline-matched horizontal mouse-wheel failure.
+- [Video presentation](VIDEO_PRESENTATION.md): fullscreen/system-PiP lifecycle, single-surface ownership, repeated source returns, playback and per-site limits.
 - [Password autofill](PASSWORD_AUTOFILL.md), [passkeys](PASSKEYS.md), [browser integrations](BROWSER_INTEGRATIONS.md), and [localization](LOCALIZATION.md): feature-specific scope and provider/device boundaries.
 
 Video instrumentation uses local HTML5 fixtures for playback, fullscreen, system PiP, pop-out movement/resizing, cross-origin frames, and source-tab lifecycle. The previous release includes the recorded video regression results. Regenerate the checked-in six-second looping fixture when needed:
@@ -397,3 +404,350 @@ errors; read-failure evidence is from the separate JVM tests.
 
 Evidence is under ignored `artifacts/commandbar-131-140-20261119/`. The actual
 user-device cause remains unconfirmed. No version bump or release action ran.
+
+## Reload, bottom notices and compact tab dragging (2026-11-23)
+
+The dedicated API-36 `Nagi_CompactPanel_QA_20261118` emulator (`emulator-5588`,
+WebView 133.0.6943.137) reproduced reload selecting native history before the
+requested document committed. The first HTTP load returned to `about:blank` /
+New tab; a subsequent pending load reloaded the previous page. A controlled
+late blank-history callback also overwrote the requested URL. Three of the four
+initial engine regressions failed before the fix; committed POST resubmission
+already passed. This is local fixture/provider evidence, not a reproduction on
+the user's physical device or the live Google Play website.
+
+The final source passed all 251 Play Debug unit tests (no failures, errors or
+skips), Debug/test APK assembly, and Play Debug/Release lint (zero errors and
+96 warnings each). Seventeen selected instrumentation cases passed without
+failures or skips:
+
+- Six `ReloadNavigationEngineTest` cases: pending initial/next GET, blank-history
+  callback, redirects, native committed-POST resubmission and retained Referer.
+  Header input is controlled; the original request is retried rather than
+  forwarding its headers directly to a redirect destination.
+- Two `ReloadButtonUiTest` cases: actual toolbar/menu controls at phone/bottom/
+  dark and tablet/top/light widths, retained selection/identity and a freshly
+  rendered document after a committed reload.
+- Two `BottomBrowserNoticeUiTest` cases: external-app and translation cards
+  above the bottom toolbar or actual IME, top-layout restoration, wide Split,
+  retained translation choice and the same live WebView/document/draft.
+- Two `CompactTabDragUiTest` cases: top/light and bottom/dark sheet bounds,
+  pointer tracking, cancellation without mutation and intended reorder.
+- Existing whole-row reorder/pin/cancel, Split-pair drag and Favorite landing
+  cases in `SidebarDragTest`, plus content-sized sheet and resize/draft/mode/
+  reload cases in `CompactBrowserUiTest`.
+
+Initial post-fix harness failures were corrected for a provider-omitted Referer,
+a legitimate pre-URL state-reset sample, and clipped off-screen preview bounds.
+The final runs above passed. Screenshots were visually inspected; logs, baseline
+and final hashes and compact results are under ignored
+`artifacts/parallel-browser-fixes-20261123/`. The full instrumentation suite,
+physical devices and other WebView/OEM versions remain unverified. No version
+bump, release build, tag, upload or publication was performed.
+
+## Mouse clicks through non-modal notices (2026-11-23)
+
+The supplied recording showed a translation-card click navigating a page link
+under the card. A raw-window-event fixture reproduced a page click from the
+card's inert title with a mouse; the touchscreen case passed before the fix.
+`NativeSurface` now accepts generic mouse button events only for its own
+device/down-time gesture, including a matching final release after `UP`.
+Clearing ownership immediately at `UP` dropped that late-release page click;
+the final implementation waits for the matching sequence to end instead.
+
+All 27 selected API-36 emulator cases passed in the final runs: four
+`BrowserNoticeInputUiTest`, two `BottomBrowserNoticeUiTest`, seven
+`HistorySwipeUiTest`, the nested/fractional/pane-targeted three
+`BrowserScrollTest` cases, seven `PageTranslationUiTest`, and four
+`OverflowMenuUiTest`. The input fixture checks inert areas, disabled controls,
+one translation callback, dismissal, both release orders, zero underlying page
+clicks/down events, and normal outside/subsequent page clicks. The translation
+callback fixture does not download models or establish live translation quality.
+Existing checks cover top/bottom/IME placement, wide Split and retained pages.
+
+Debug/test APK builds, Play Debug/Release lint (zero errors, 97 warnings each),
+and `git diff --check` passed. JVM and full instrumentation suites, physical
+input hardware, the original live article and other OEM/WebView versions were
+not rerun. The source video was inspected locally; frames, baseline/final logs
+and Debug-signed parallel-APK metadata are in ignored
+`artifacts/popup-input-20261123/`. The preview package remains
+`com.takeruf.nagi.preview`; no release/publication or version bump is included.
+
+## Single photo control in the background editor (2026-11-23)
+
+The separate Choose photo button was removed. Photo opens the picker when no
+photo is saved; switching from another style reuses a saved photo. Tapping an
+already selected Photo opens the picker again. Canceling keeps the current photo
+and style. The existing localized Choose photo label describes the picker action
+to accessibility services. Import progress remains visible, and the photo storage
+description is shown only in photo/import states. Private-mode import restrictions
+and the stored-photo pipeline remain in place.
+
+Both `NewTabAppearanceTest` cases passed at 1000 dp/light and 411 dp/dark
+(four executions), with an additional wide visual check. This covers removal of
+the duplicate control, picker launch and cancellation, reuse without launching a
+picker, settings navigation/recreation, bounded EXIF-oriented import and retained
+images after the source is deleted. Picker results are controlled through the
+real activity-result contract; cloud-photo providers and physical devices are
+not established by these fixtures. Phone/tablet editor screenshots were inspected.
+
+Debug/test APK builds, Play Debug lint (zero errors, 97 warnings) and
+`git diff --check` passed. JVM/full instrumentation suites and Release lint were
+not rerun for this small UI change. Evidence and the Debug-signed parallel test
+APK are under ignored `artifacts/photo-chip-20261123/`. No version bump or
+publication is included.
+
+## Compact preference and background editor (2026-11-24, local)
+
+Appearance now offers Always off, With a physical keyboard (default), and
+Always on for shared chrome spacing, menus and Command Bar suggestions.
+Settings category width stays 236 dp and browser window/Split breakpoints do
+not change. The background editor has a search-field preview, two-column mode
+samples and grouped preset/HEX color controls; its existing photo import,
+replacement, cancellation and saved-image reuse remain available.
+
+Empty Command Bar input lists only the selected Space's open tabs. Explicit
+search still includes other Spaces and prefixes those tab subtitles with their
+Space name. The previous global empty list could show a second, identically
+named blank tab from another Space even though the sidebar listed only one.
+Different tab IDs remain separate even when their URLs match; no tabs or
+workspace data are removed.
+
+Play Debug JVM tests passed 257 cases with no failures or skips, including
+mode defaults/unknown values, concurrent preference edits, disk reopening and
+cross-Space suggestion behavior. Play Debug/Release lint each reported zero
+errors and 97 warnings. Debug and instrumentation APK assembly passed. The
+first integration build caught two stale `dimensions.keyboard` references in
+the background editor after the shared field became `compact`; both were
+corrected before the final successful source build.
+
+On the dedicated API-36 emulator `Nagi_CompactPanel_QA_20261118`
+(`emulator-5588`), 17 selected cases passed: CompactUiSettingUiTest (2),
+HardwareKeyboardUiTest (2), CommandBarKeyboardLayoutUiTest (1),
+CommandBarDropdownUiTest (4), CommandBarFaviconUiTest (2), OverflowMenuUiTest
+(4), and NewTabAppearanceTest (2). The background cases ran at 1000 dp/light;
+both passed again at 411 dp/dark (19 successful executions total). Screenshots
+of both background layouts and compact Settings were visually inspected.
+Controlled Android keyboard configurations cover automatic and forced modes;
+these checks do not establish physical-keyboard/OEM behavior. Live WebView and
+Japanese draft retention, including Split, passed during preference changes.
+Photo results use the real picker contract with controlled test results, not a
+live cloud-photo provider. The full instrumentation suite was not run.
+
+The local debug APK `nagi-test-20261124-r6.apk` uses `com.takeruf.nagi.preview`,
+launcher label Nagi Test, and unchanged 1.4.1/code 22. APK metadata and its v2
+Android Debug signature were verified. Installing with `-r` retained both main
+and preview package UIDs, and the preview cold launch reached the foreground.
+SHA-256: `a96571e27ff1535764b66353a8b29ca7a7da36206b2aee9c360455705458ac61`.
+Logs, screenshots and artifact metadata are in ignored
+`artifacts/ui-refinement-20261124/`. No physical device, release upload, tag,
+publication or version change was performed.
+
+## Search layout choice, migration tip and AFPBB recovery (2026-11-24, local)
+
+Command Bar settings now save Address bar (new) or Centered (previous), defaulting
+to Address bar for existing/missing/unknown values. The new panel has a return
+and a Dismiss tip action pinned below its scrollable results. Explicit layout
+choices and dismissal suppress the migration tip persistently; Settings retains
+the selector. Changing layout keeps the same editor node, text, selection,
+focused suggestion and InputConnection. It does not rebuild the live page.
+Centered placement uses the safe area above the IME, independently of the
+browser toolbar's top/bottom choice and compact spacing. Five added labels are
+present once in each of the six locales. No analytics collection was added.
+
+Play Debug JVM tests passed 261 cases without failures/errors/skips, including
+layout/dismissal persistence, all-field concurrent settings retention and
+canonical main-document URL comparisons. Debug/test APK assembly and Play
+Debug/Release lint passed (zero errors and 97 warnings each). The final input
+placement follow-up was checked again with assembly and both lint tasks.
+
+On dedicated API-36 `emulator-5588`, the final 13-case UI run passed:
+CommandBarLayoutUiTest (2), CommandBarDropdownUiTest (4),
+CommandBarSettingsUiTest (2), CommandBarMotionUiTest (2),
+CommandBarReducedMotionUiTest (1), CommandBarInputUiTest (1) and the TLS/image/404
+case from PageErrorUiTest (1). The layout cases use 411 dp/light/bottom and
+1000 dp/dark/Split, covering touch and Tab/Enter return actions, current text
+selection at activation, candidate selection, compact spacing, persistent
+choice/dismissal, empty suggestions and retained live WebViews/Japanese drafts.
+Native InputConnection Japanese, Chinese and Korean cases each passed in both
+ANCHORED and CENTERED modes (six further executions). Screenshots of both
+layouts and the pinned actions were visually inspected.
+
+The initial layout checks found that moving the field between separate
+composable call sites collapsed the selection on a phone bottom-to-center
+switch. A stable two-child Layout now changes placement without recreating the
+field; both cases passed afterward. The tablet assertion was also corrected to
+compare selection at button activation, after ordinary Tab focus movement.
+The first bottom-motion case ran in a wide window (where bottom bars are
+inactive); the final run used phone width and passed both directions and reduced
+motion. No case was skipped in the final selected runs.
+
+An explicitly opted-in live Nagi-engine check first reproduced the AFPBB bare
+HTTPS timeout while a direct www control rendered the site. Accepting WebView's
+canonical root slash in the current-document check fixed the skipped recovery;
+both mobile and desktop live cases then reached the www site with no page error
+and an AFPBB title (two further executions). Certificate cancellation and normal
+validation of the new www navigation remain enforced. See
+[page-error recovery](PAGE_ERRORS.md#bare-https-host-recovery). There were 21
+successful final instrumentation executions in total. These selected emulator
+and time-sensitive live results are not a full instrumentation suite or a
+physical-device claim.
+
+The local parallel-install debug APK `nagi-test-20261124-r7.apk` uses
+`com.takeruf.nagi.preview` / Nagi Test, with unchanged 1.4.1/code 22. Its APK
+metadata and v2 Android Debug signature were verified. An in-place QA install
+preserved main/preview UIDs, and a cold launch reached the foreground.
+SHA-256: `bcd46f67910c89e9c455f73b28cb8162a8d585c4606d0a5644e304a982397c19`.
+Logs, inspected screenshots and compact evidence are retained in ignored
+`artifacts/command-layout-20261124/`. No release upload, tag or publication was
+performed.
+
+## Binary design and compact switches (2026-11-24, local)
+
+Command Bar now exposes Use the new design as a switch (on = anchored,
+off = centered). Appearance exposes Compact view as a switch showing the
+effective spacing. Its untouched AUTO default still follows physical keyboards;
+a manual toggle saves explicit ON/OFF. Existing saved layout/spacing values,
+new-design default and migration-tip dismissal remain intact. No preference
+keys, defaults or persistence mappings were changed for this UI follow-up.
+The obsolete popup choices were removed, and the new title has six-language
+resources.
+
+Debug/test APK assembly, Play Debug lint (zero errors, 97 warnings) and
+`git diff --check` passed. On dedicated API-36 emulator-5588, the existing two
+CommandBarLayoutUiTest and two CompactUiSettingUiTest cases all passed at
+411 dp/light and 1000 dp/dark, including Split. They use the real switches and
+check checked states, initial keyboard-following behavior, persistent manual
+overrides, Settings re-entry, saved layout, tip dismissal, 236 dp category width,
+and retained live WebViews/Japanese drafts. Phone/tablet Settings screenshots
+were visually inspected. No new tests were added. JVM, Release lint, the full
+instrumentation suite, live-provider checks and physical devices were not rerun
+for this display/control-only change.
+
+The parallel debug APK is `nagi-test-20261124-r8.apk`, com.takeruf.nagi.preview /
+Nagi Test, unchanged 1.4.1/code 22. APK metadata/v2 Android Debug signature,
+in-place coexistence with preserved package UIDs, and cold foreground launch
+were verified. SHA-256:
+`bfb3179ce10da8834f39e94f0da0d1a8c02ad6ec182d408bab53fb8d483db8ae`.
+Evidence is in ignored `artifacts/design-toggle-20261124/`. No release action
+was performed.
+
+## Adaptive settings, Space history, phone search, media and pane drops (2026-11-24, local)
+
+Theme and Compact interface use current-value/chevron menus with three choices
+and a checked current option. Compact keeps AUTO as its default and offers AUTO
+again after explicit OFF/ON overrides. Use the new design remains an on/off
+switch. The collapsed sidebar shows the current Space with a picker for the
+others, at 52dp with compact spacing or 72dp otherwise. Horizontal Space swipes
+retain the phone tab sheet; explicit selection, Back and close still dismiss it.
+
+History recording, display, removal and Command Bar candidates are scoped to
+the originating/selected Space. Room v4 preserves orbit.db, IDs and timestamps;
+older shared visits stay once in Personal or the first existing Space, without
+being copied to every Space. Favorites remain shared. See [HISTORY_SPACES.md](HISTORY_SPACES.md).
+
+On phones the new search design fills the safe viewport above the IME and moves
+the touched field to the top over 200ms, reversing on dismissal. Keyboard
+shortcut entry and zero-duration animation are immediate. The resting bottom
+address-bar preference, old centered design, wide Split dropdown, editor
+text/selection and retained background WebViews remain supported.
+
+Completed system PiP returns the resumed video presentation to fullscreen.
+Native holders declare their current surface owner and keep one child, avoiding
+restoration of a video over another live tab. The regressions distinguish
+completed entry, canceled entry, playback stop and finishing tasks.
+
+Collapsed wide-sidebar tab icons support touch-hold and primary-mouse dragging
+for insertion, combining standalone tabs and page Split creation/replacement.
+Saved pairs move together; cancellation and a resize below 600dp clear the drag.
+Favorites dropped into an existing pane open there and focus that side while
+retaining its partner's live WebView and draft. On a single page, the central
+60% opens in the current tab; each 20% edge atomically creates, inserts, pairs
+and selects a new tab. The shortcut's identity, editable fields and ordering
+remain unchanged; ordinary favicon caching is allowed. See [FAVORITES.md](FAVORITES.md).
+
+Play Debug's complete JVM suite passed 280 tests without failures, errors or
+skips, including four Favorite pane transaction cases, all 22 video-policy
+executions on API 26/35, and three v3 history migration cases. Debug/test APK
+assembly and Play Debug/Release lint passed; each lint report has zero errors
+and 97 warnings. The final test-only mouse-cancellation update rebuilt both
+Debug APKs. Six-locale resource checks and git diff --check passed.
+
+Staged selected UI runs on dedicated API-36 emulator-5588 (WebView 133) cover 62
+distinct cases; each case's final execution passed. They include VideoUiTest
+(14), PageVideoCompatibilityTest (4), phone/wide Command Bar dropdown (5), motion
+(3), reduced motion (1), layout (2), keyboard layout (2), CJK input (4), Settings
+navigation (3), Appearance (2), Compact UI settings (2), localization (6), Spaces
+(3), scoped history (2), private lifetime (1), passkey dispatch (4), collapsed
+sidebar drag (2) and Favorite pane drag (2). Coverage includes 411dp/light and
+1000dp/dark, Split, physical-keyboard policy, IME composition, retained live
+WebViews/Japanese drafts and both touch/mouse cancellation. Phone search,
+menus, collapsed rail, pane drops and PiP screenshots were visually inspected.
+These were staged runs as changes landed, not 62 executions against one final
+APK or a full instrumentation suite. The final four drag cases all passed
+against the final production source.
+
+Initial harness failures were corrected without relaxing product invariants:
+optional schema indices, editable text versus placeholders, obsolete phone
+Split grouping, width prerequisites, asynchronous sheet dismissal, visual-
+viewport geometry, and selection of the resumed non-finishing Activity.
+The engine-name CJK test now opens the phone tab sheet to reach Settings.
+Compose ui-test 1.10.1 routes mouse CANCEL differently from DOWN/MOVE/UP; the
+shared test helper clears its button state and sends native cancellation to
+the original Compose touch stream. Favorite comparisons allow only normal
+favicon enrichment; editable fields/order remain strict.
+
+The passkey probe confirms native credential-provider dispatch and the exact
+origin tuple, including Chromium's optional root slash. Its synthetic provider
+is debug-only and enabled on API 34+. Both provider settings were restored and
+read back. Actual external-provider selection UI, QR and account authentication
+remain unverified/unresolved. No production approval or trust gate was bypassed.
+See [PASSKEYS.md](PASSKEYS.md).
+
+The parallel-install debug APK is `nagi-test-20261124-r10.apk`,
+`com.takeruf.nagi.preview` / Nagi Test, unchanged 1.4.1/code 22. APK metadata,
+v2 Android Debug signature, in-place coexistence with unchanged package UIDs
+and a cold foreground launch were verified.
+SHA-256: `5a79b572a0e4604601bead974fd8a2b74607726a7c19a8090b7cba5062f62871`.
+Evidence, inspected screenshots, source/artifact metadata and the per-case
+staged UI result index are retained in ignored `artifacts/collapsed-drag-20261124/`,
+with earlier stage logs in `artifacts/choice-menus-20261124/`,
+`artifacts/phone-search-20261124/` and `artifacts/passkeys-20261124/`.
+Source is the dirty working tree at b1685db. Physical devices, arbitrary live
+sites/providers and release availability are separate and were not established.
+No tag, upload, rollout or publication occurred.
+
+## Favorite drag preview and source visibility follow-up (2026-11-24, local)
+
+The Favorite-only edge/center/edge targets added in r10 produced a narrow
+column-shaped Split preview. Favorite drags now use the same equal left/right
+halves as tab drags on a single wide page; either half creates and focuses a
+new adjacent tab. An existing Split still opens the Favorite in the actual
+destination pane and retains its partner. The original Favorite tile stays
+painted during dragging and landing, while a separate preview follows the
+pointer. Bookmark identity, editable fields and order remain unchanged.
+This supersedes the central-60%/edge-20% behavior recorded above for r10.
+
+Focused Play Debug unit tests passed 12 cases (FavoritePaneDropTest 4,
+TabSplitDragStateTest 5, FavoriteDragStateTest 3). Debug/test APK assembly and
+Play Debug lint passed with zero errors and 97 warnings. The final test APK
+was rebuilt after adding the touch half-width regression.
+
+On dedicated API-36 emulator-5588, all seven selected UI cases passed:
+FavoritePaneDropUiTest (3), CollapsedSidebarDragUiTest (2), and the existing
+SidebarDragTest Favorite mouse-reorder and touch-landing cases (2). Tests cover
+both equal-half destinations with touch/light and mouse/dark, absence of the
+third region, rendered source-tile pixels while held, cancellation, saved
+shortcut fields/order, unfocused existing Split panes, retained partner
+WebViews/Japanese drafts and the 599dp boundary. Left/light and right/dark held-
+drag screenshots were visually inspected. Full unit/instrumentation suites,
+Release lint, actual sites and physical devices were not rerun for this focused
+UI follow-up. git diff --check passed.
+
+The parallel-install debug APK is `nagi-test-20261124-r11.apk`,
+`com.takeruf.nagi.preview` / Nagi Test, unchanged 1.4.1/code 22. Metadata and its
+v2 Android Debug signature were verified. Evidence, hashes, check logs and
+inspected screenshots remain in ignored `artifacts/favorite-two-pane-20261124/`.
+SHA-256: `4294b895f8e3cca20dddce7ef3c3c7d63302618b9e36d35e03701dc84328ccc9`.
+In-place QA installation preserved all package UIDs, and a cold launch reached
+the preview foreground Activity. Source remains the dirty working tree at b1685db; no release action occurred.

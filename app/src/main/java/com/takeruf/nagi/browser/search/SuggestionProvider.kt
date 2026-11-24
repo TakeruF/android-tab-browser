@@ -21,6 +21,12 @@ data class Suggestion(val id: String, val category: SuggestionCategory, val titl
     val subtitle: String = "", val action: SuggestionAction)
 
 object SuggestionProvider {
+    private fun spaceTitle(space: Space, localize: (String) -> String): String = when {
+        space.id == "personal" && space.name == "Personal" -> localize(space.name)
+        space.id == "work" && space.name == "Work" -> localize(space.name)
+        else -> space.name
+    }
+
     private fun engineTitle(engine: SearchEngine, query: String, localize: (String) -> String, primary: Boolean = false): String {
         val name = SearchEngineNames.display(engine, localize = localize)
         return when {
@@ -67,15 +73,20 @@ object SuggestionProvider {
         }
         if (!commandOnly) {
             val currentSpaceId = workspace.spaces.firstOrNull { it.id == settings.selectedSpaceId }?.id ?: workspace.spaces.firstOrNull()?.id
-            workspace.tabs.filter { visibility.showTabs && (settings.spacesEnabled || it.spaceId == currentSpaceId) && it.closedAt == null && it.archivedAt == null &&
+            val searchAllSpaces = settings.spacesEnabled && query.isNotEmpty()
+            workspace.tabs.filter { visibility.showTabs && (searchAllSpaces || it.spaceId == currentSpaceId) && it.closedAt == null && it.archivedAt == null &&
                 (query.isEmpty() || it.title.contains(query, true) || it.url.contains(query, true)) }.take(5).forEach {
-                result += Suggestion("tab:${it.id}", SuggestionCategory.TABS, (if (it.url == "about:blank") localize("New tab") else it.title), it.url, SuggestionAction.SelectTab(it.id))
+                val otherSpace = workspace.spaces.firstOrNull { space -> space.id == it.spaceId && space.id != currentSpaceId }
+                    ?.takeIf { searchAllSpaces }
+                val subtitle = otherSpace?.let { space -> "${spaceTitle(space, localize)} · ${it.url}" } ?: it.url
+                result += Suggestion("tab:${it.id}", SuggestionCategory.TABS, (if (it.url == "about:blank") localize("New tab") else it.title), subtitle, SuggestionAction.SelectTab(it.id))
             }
-            if (visibility.showHistory && query.isNotEmpty()) workspace.history.distinctBy { it.url }.filter { it.title.contains(query, true) || it.url.contains(query, true) }.take(4).forEach {
+            if (visibility.showHistory && query.isNotEmpty()) workspace.history.filter { currentSpaceId != null && it.spaceId == currentSpaceId }
+                .distinctBy { it.url }.filter { it.title.contains(query, true) || it.url.contains(query, true) }.take(4).forEach {
                 result += Suggestion("history:${it.id}", SuggestionCategory.HISTORY, it.title, it.url, SuggestionAction.Navigate(it.url))
             }
             workspace.spaces.filter { visibility.showSpaces && settings.spacesEnabled && (query.isEmpty() || it.name.contains(query, true)) }.forEach {
-                result += Suggestion("space:${it.id}", SuggestionCategory.SPACES, localize("Switch to %1\$s").format(if (it.id in listOf("personal", "work") && it.name in listOf("Personal", "Work")) localize(it.name) else it.name), localize("Space"), SuggestionAction.SelectSpace(it.id))
+                result += Suggestion("space:${it.id}", SuggestionCategory.SPACES, localize("Switch to %1\$s").format(spaceTitle(it, localize)), localize("Space"), SuggestionAction.SelectSpace(it.id))
             }
         }
         BrowserCommand.entries.filter { visibility.showCommands }

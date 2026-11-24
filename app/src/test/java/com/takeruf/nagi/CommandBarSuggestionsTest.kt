@@ -11,7 +11,7 @@ class CommandBarSuggestionsTest {
         tabs = listOf(BrowserTab("open", "personal", "https://new.test", "New page"),
             BrowserTab("closed", "personal", title = "New closed", closedAt = 1),
             BrowserTab("archived", "personal", title = "New archived", archivedAt = 1)),
-        history = listOf(HistoryEntry(1, "https://new-history.test", "New visit")),
+        history = listOf(HistoryEntry(1, "https://new-history.test", "New visit", spaceId = "personal")),
         searchEngines = DefaultSearchEngines.all,
     )
 
@@ -51,5 +51,21 @@ class CommandBarSuggestionsTest {
         for (query in listOf("", "New", "https://new.test", ">"))
             assertTrue(SuggestionProvider.suggestions(query, workspace, hidden).isEmpty())
         assertTrue(SuggestionProvider.suggestions("New", workspace, BrowserSettings()).isNotEmpty())
+    }
+
+    @Test fun historySuggestionsNeverCrossSpacesEvenWhenTabsSearchAcrossThem() {
+        val sharedUrl = "https://same-history.test"
+        val mixed = workspace.copy(history = listOf(
+            HistoryEntry(2, sharedUrl, "New work visit", spaceId = "work"),
+            HistoryEntry(1, sharedUrl, "New personal visit", spaceId = "personal")))
+        for (spacesEnabled in listOf(true, false)) {
+            for (space in listOf("personal", "work")) {
+                val history = SuggestionProvider.suggestions("New", mixed,
+                    BrowserSettings(selectedSpaceId = space, spacesEnabled = spacesEnabled))
+                    .filter { it.category == SuggestionCategory.HISTORY }
+                assertEquals(1, history.size)
+                assertEquals("New $space visit", history.single().title)
+            }
+        }
     }
 }

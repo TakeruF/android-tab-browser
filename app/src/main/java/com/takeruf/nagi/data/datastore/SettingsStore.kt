@@ -20,6 +20,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val commandBarHistory = booleanPreferencesKey("command_bar_history")
         val commandBarSpaces = booleanPreferencesKey("command_bar_spaces")
         val commandBarCommands = booleanPreferencesKey("command_bar_commands")
+        val commandBarLayout = stringPreferencesKey("command_bar_layout")
+        val commandBarLayoutNoticeDismissed = booleanPreferencesKey("command_bar_layout_notice_dismissed")
         val avoidCameraOverlap = booleanPreferencesKey("avoid_camera_overlap")
         val cameraLeftRotation = intPreferencesKey("camera_left_rotation")
         val cameraSideMargin = intPreferencesKey("camera_side_margin")
@@ -28,6 +30,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         val adaptiveDarkMode = booleanPreferencesKey("adaptive_dark_mode")
         val darkModeExcludedHosts = stringSetPreferencesKey("dark_mode_excluded_hosts")
         val theme = stringPreferencesKey("theme")
+        val compactUiMode = stringPreferencesKey("compact_ui_mode")
         // Keep the original storage key so existing color choices survive this rename.
         val themeColor = longPreferencesKey("accent_color")
         val width = floatPreferencesKey("sidebar_width")
@@ -71,6 +74,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
     private fun readSettings(p: Preferences) = BrowserSettings(
         spacesEnabled = p[Keys.spacesEnabled] ?: true,
         commandBar = commandBarSettings(p),
+        commandBarLayout = enumOrDefault(p[Keys.commandBarLayout], CommandBarLayout.ANCHORED),
+        commandBarLayoutNoticeDismissed = p[Keys.commandBarLayoutNoticeDismissed] ?: false,
         bottomSearchBar = p[Keys.bottomSearchBar] ?: false,
         downloadFolder = p[Keys.downloadFolder],
         avoidCameraOverlap = p[Keys.avoidCameraOverlap] ?: false,
@@ -84,6 +89,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
         adaptiveDarkMode = p[Keys.adaptiveDarkMode] ?: false,
         darkModeExcludedHosts = p[Keys.darkModeExcludedHosts] ?: emptySet(),
         theme = enumOrDefault(p[Keys.theme], ThemeMode.SYSTEM),
+        compactUiMode = enumOrDefault(p[Keys.compactUiMode], CompactUiMode.AUTO),
         sidebarWidth = (p[Keys.width] ?: 264f).coerceIn(220f, 380f),
         sidebarCollapsed = p[Keys.collapsed] ?: false,
         defaultSearchEngineId = p[Keys.engine]?.takeUnless { it in AiSearchEngines.ids } ?: "google",
@@ -124,6 +130,8 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
             p[Keys.commandBarHistory] = next.commandBar.showHistory
             p[Keys.commandBarSpaces] = next.commandBar.showSpaces
             p[Keys.commandBarCommands] = next.commandBar.showCommands
+            p[Keys.commandBarLayout] = next.commandBarLayout.name
+            p[Keys.commandBarLayoutNoticeDismissed] = next.commandBarLayoutNoticeDismissed
             p[Keys.avoidCameraOverlap] = next.avoidCameraOverlap
             p[Keys.cameraSideMargin] = next.cameraSideMargin.coerceIn(0, 64)
             next.cameraLeftRotation?.takeIf { it in 0..3 }?.let { p[Keys.cameraLeftRotation] = it }
@@ -145,6 +153,7 @@ class SettingsStore(context: Context, private val store: androidx.datastore.core
             next.defaultAiEngineId?.let { p[Keys.aiEngine] = it } ?: p.remove(Keys.aiEngine)
             next.commonSearchEngineIds?.let { p[Keys.commonEngines] = it } ?: p.remove(Keys.commonEngines)
             p[Keys.themeColor] = next.themeColor
+            p[Keys.compactUiMode] = next.compactUiMode.name
             p[Keys.theme] = next.theme.name; p[Keys.width] = next.sidebarWidth.coerceIn(220f, 380f)
             p[Keys.collapsed] = next.sidebarCollapsed; p[Keys.engine] = next.defaultSearchEngineId
             p[Keys.space] = next.selectedSpaceId; p[Keys.restore] = next.restoreTabs

@@ -106,6 +106,15 @@ class WebViewBrowserEngine(
     private var fullscreenActive = false
     private var restoringScroll: Pair<Int, Int>? = null
     override val surface get() = webView
+    private val historyPreviews = WebViewHistoryPreviews(webView)
+    private val visualGeneration = MutableStateFlow(0L)
+    override val historyVisualGeneration = visualGeneration.asStateFlow()
+    override fun historyPagePreview(back: Boolean): HistoryPagePreview? {
+        if (destroyed || state.value.readerArticle != null) return null
+        // Native history may contain script-created entries which WebView disallows traversing.
+        if (if (back) !webView.canGoBack() else !webView.canGoForward()) return null
+        return historyPreviews.preview(back)
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(PageState(desktopMode = desktopDefault))
     override val state = mutableState.asStateFlow()
@@ -136,6 +145,10 @@ class WebViewBrowserEngine(
     private var faviconJob: Job? = null
     private var navigationGeneration = 0L
     private var navigationRequestGeneration = 0L
+    // Only explicit URL loads are known GETs. Native form submissions keep WebView's
+    // reload/resubmission path, including while an older document remains in history.
+    private data class PendingExplicitLoad(val url: String, val extraHeaders: Map<String, String>, val currentUrl: String = url)
+    private var pendingExplicitLoad: PendingExplicitLoad? = null
     private var iconGeneration = 0L
     private var receivedDocumentIcon = false
     private var faviconDocumentTheme = false
@@ -279,6 +292,10 @@ class WebViewBrowserEngine(
                     if (request.hasGesture() && openLinksInNewTab()) {
                         eventChannel.trySend(EngineEvent.OpenTab(url)); return true
                     }
+                    pendingExplicitLoad?.let { pending ->
+                        if (request.isRedirect && request.method.equals("GET", true)) pendingExplicitLoad = pending.copy(currentUrl = url)
+                        else if (request.hasGesture() || !request.method.equals("GET", true)) pendingExplicitLoad = null
+                    }
                     if (!isSameDocumentFragment(url) && !request.isRedirect) {
                         if (request.hasGesture()) translationNavigation.followLink()
                         else if (!state.value.isLoading) translationNavigation.reset()
@@ -298,6 +315,7 @@ class WebViewBrowserEngine(
                         }
                         return true
                     }
+                    historyPreviews.leaving()
                     applyPageDarkening(view, url)
                     // POST navigations keep their method/body and the current document UA.
                     return false
@@ -308,6 +326,8 @@ class WebViewBrowserEngine(
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
+                historyPreviews.started()
+                if (pendingExplicitLoad != null && pendingExplicitLoad?.currentUrl != url) pendingExplicitLoad = null
                 applyPageDarkening(view, url)
                 cancelZoomWork()
                 if (url != "about:blank" && restoredZoomUrl?.substringBefore('#')?.let { it != url.substringBefore('#') } == true) cancelSnapshotPresentationRestore()
@@ -343,13 +363,24 @@ class WebViewBrowserEngine(
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                 if (url == downloadUrl) return
+                // An initial/cancelled blank page must not replace a requested web page
+                // in PageState or Room. Start/finish callbacks enforce the same boundary.
+                if (url == "about:blank" && state.value.url != "about:blank") return
                 applyPageDarkening(view, url)
+                if (historyPreviews.historyUpdated()) visualGeneration.value++
                 if (url != state.value.url) humanVerification.locationChanged()
                 update { it.copy(url = url, visitBlockingExceptionSite = visitExceptionFor(url), canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 metadata()
             }
             override fun onPageCommitVisible(view: WebView, url: String) {
-                if (url != "about:blank" && url != downloadUrl && url == view.url && url == state.value.url) hasCommittedDocument = true
+                if (url == view.url && url == state.value.url) {
+                    historyPreviews.committed()
+                    visualGeneration.value++
+                }
+                if (url != "about:blank" && url != downloadUrl && url == view.url && url == state.value.url) {
+                    hasCommittedDocument = true
+                    pendingExplicitLoad = null
+                }
                 if (url == view.url && url == state.value.url) installCosmeticFiltering()
             }
             override fun onPageFinished(view: WebView, url: String) {
@@ -357,6 +388,9 @@ class WebViewBrowserEngine(
                 if (url != view.url || url != state.value.url) return
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 if (url == downloadUrl) return
+                historyPreviews.committed()
+                visualGeneration.value++
+                pendingExplicitLoad = null
                 if (url != "about:blank") hasCommittedDocument = true
                 loadingTimeout?.cancel()
                 update { it.copy(url = url, title = if (url == "about:blank") "New tab" else view.title?.takeIf { t -> t.isNotBlank() } ?: url,
@@ -401,7 +435,7 @@ class WebViewBrowserEngine(
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel() // Never bypass certificate validation.
                 // A rejected image/frame certificate must not replace a healthy main page.
-                if (error.url.substringBefore('#') != state.value.url.substringBefore('#')) return
+                if (!CertificateHostRecovery.matchesMainDocument(error.url, state.value.url)) return
                 wwwRetryUrl(error)?.let { retry -> loadUrl(retry); return }
                 loadingTimeout?.cancel()
                 failedNavigation = true
@@ -523,6 +557,7 @@ class WebViewBrowserEngine(
         webView.setDownloadListener { url, userAgent, disposition, mimeType, _ ->
             // An attachment is not a document navigation. Keep the source page restorable.
             downloadUrl = url
+            pendingExplicitLoad = null
             update { documentPage.copy(isLoading = false, progress = 100, desktopMode = it.desktopMode,
                 translation = it.translation, visitBlockingExceptionSite = visitExceptionFor(documentPage.url)) }
             metadata()
@@ -807,11 +842,13 @@ class WebViewBrowserEngine(
     private fun loadUrl(url: String, extraHeaders: Map<String, String>, preserveTranslation: Boolean = false) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
+        historyPreviews.leaving(traverse = false)
         val sameZoomDocument = isSameDocumentFragment(url)
         cancelZoomWork(); cancelSnapshotPresentationRestore()
         restoredZoomBaseScale = null
         if (url == "about:blank") { zoomBaseScale = 0f; pageScale = 0f }
         navigationRequestGeneration++
+        pendingExplicitLoad = PendingExplicitLoad(url, extraHeaders.toMap())
         if (!preserveTranslation) translationNavigation.reset()
         humanVerification.reset()
         blockingDocument = BlockingDocument(url)
@@ -835,6 +872,16 @@ class WebViewBrowserEngine(
         if (extraHeaders.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, extraHeaders)
     }
     override fun reload() { if (!destroyed) {
+        // reload() targets the committed native history entry. Before the requested
+        // GET commits, that entry may still be the previous page or initial blank tab.
+        pendingExplicitLoad?.takeIf { webView.copyBackForwardList().currentItem?.url != it.currentUrl }?.let { requested ->
+            webView.stopLoading()
+            translationNavigation.followLink()
+            // Restart the original request; WebView follows its redirects again. Do not
+            // attach the original headers directly to a potentially different origin.
+            loadUrl(requested.url, requested.extraHeaders, preserveTranslation = true)
+            return
+        }
         cancelZoomWork(); cancelSnapshotPresentationRestore()
         humanVerification.reset()
         translationNavigation.followLink()
@@ -867,14 +914,23 @@ class WebViewBrowserEngine(
     }
 
     override fun goBack() { if (state.value.readerArticle != null) { toggleReader(); return }; if (canGoBack()) {
+        historyPreviews.leaving(traverse = true)
+        pendingExplicitLoad = null
         cancelZoomWork(); cancelSnapshotPresentationRestore()
         translationNavigation.followLink()
         navigationRequestGeneration++
         applyHistoryDisplayMode(-1)
-        historyUrl(-1)?.let { applyPageDarkening(webView, it) }
+        historyUrl(-1)?.let { target ->
+            applyPageDarkening(webView, target)
+            // An explicit history traversal to the native new-tab entry is legitimate.
+            // Keep the stale-blank callback guard for pending HTTP loads/reloads.
+            if (target == "about:blank") update { it.copy(url = target) }
+        }
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
     } }
     override fun goForward() { if (canGoForward()) {
+        historyPreviews.leaving(traverse = true)
+        pendingExplicitLoad = null
         cancelZoomWork(); cancelSnapshotPresentationRestore()
         translationNavigation.followLink()
         navigationRequestGeneration++
@@ -1184,6 +1240,7 @@ class WebViewBrowserEngine(
     }
     override fun restoreState(snapshot: EngineSnapshot): Boolean {
         if (snapshot !is WebViewSnapshot) return false
+        pendingExplicitLoad = null
         cancelZoomWork(); cancelSnapshotPresentationRestore()
         navigationRequestGeneration++
         blockingDocument = BlockingDocument(snapshot.url)
@@ -1237,6 +1294,7 @@ class WebViewBrowserEngine(
         if (destroyed) return
         pageTranslation.reset(restore = false)
         destroyed = true
+        historyPreviews.clear()
         if (privateProfileName == null) autofillManager?.let { WebViewAutofillCallbacks.unregister(it, webView) }
         humanVerification.destroy()
         if (fullscreenActive) fullscreenHost.hideVideo(tabId)

@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -72,23 +73,32 @@ import com.takeruf.nagi.ui.theme.readableSpaceColor
 import com.takeruf.nagi.ui.theme.NagiSystemBars
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>, onNavigate: (String) -> Unit,
     onNewTab: () -> Unit, onOmnibox: () -> Unit, onOpenUrl: (String) -> Unit, onSplitTab: (String) -> Unit, drag: SidebarDragState, onSplitDrop: (String, Boolean) -> Unit, onSplitPair: (String, String) -> Unit = { _, _ -> },
+    onFavoritePaneDrop: (String, SidebarDestination) -> Unit = { _, _ -> },
     splitLeftTabId: String? = null, splitRightTabId: String? = null, splitRightFocused: Boolean = false, onFocusSplit: (Boolean) -> Unit = {}, onDetachSplit: (String) -> Unit = {},
     suspendedIds: Set<String> = emptySet(),
     pageUrl: String = state.activeTab?.url.orEmpty(), pageTitle: String = state.activeTab?.title.orEmpty(),
     onToggleSidebar: () -> Unit = { vm.updateSettings { it.copy(sidebarCollapsed = !it.sidebarCollapsed) } },
     overlay: Boolean = false, backgroundExtension: Dp = 0.dp) {
     val strings = rememberNagiStrings()
+    val dimensions = LocalNagiUiDimensions.current
     val collapsed = state.settings.sidebarCollapsed
+    LaunchedEffect(dimensions.compact) {
+        // A density change invalidates the pointer's cached source/target rectangles.
+        drag.cancel(); drag.finishFavoriteLanding()
+    }
     var spacesMenu by remember { mutableStateOf(false) }
     var editingSpace by remember { mutableStateOf<Space?>(null) }
+    var editingFavoriteId by rememberSaveable { mutableStateOf<String?>(null) }
     var createSpace by remember { mutableStateOf(false) }
     var deleteSpace by remember { mutableStateOf<Space?>(null) }
     var mouseInput by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val spacesEnabled = state.settings.spacesEnabled
+    var spaceSwitcherExpanded by remember(collapsed, spacesEnabled) { mutableStateOf(false) }
     val spaces = if (spacesEnabled) state.workspace.spaces else listOfNotNull(state.currentSpace)
     val splitLeft = state.visibleTabs.firstOrNull { it.id == splitLeftTabId }
     val splitRight = state.visibleTabs.firstOrNull { it.id == splitRightTabId && it.id != splitLeft?.id }
@@ -162,8 +172,9 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
         when (destination.section) {
             SidebarSection.SPLIT_TAB -> if (!item.favorite && destination.id != null && destination.id != item.id)
                 if (destination.after) onSplitPair(destination.id, item.id) else onSplitPair(item.id, destination.id)
-            SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT -> if (!item.favorite)
-                onSplitDrop(item.id, destination.section == SidebarSection.SPLIT_RIGHT)
+            SidebarSection.SPLIT_LEFT, SidebarSection.SPLIT_RIGHT -> if (item.favorite)
+                onFavoritePaneDrop(item.id, destination)
+            else onSplitDrop(item.id, destination.section == SidebarSection.SPLIT_RIGHT)
             SidebarSection.SPACE -> if (item.favorite) {
                 // Favorites stay shared; opening in a Space keeps the shortcut.
                 state.favorites.firstOrNull { it.id == item.id }?.let { vm.newTabInSpace(destination.id!!, it.url) }
@@ -216,7 +227,8 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 settle(next)
                 if (next != selectedPage && next in spaces.indices) {
                     vm.selectSpace(spaces[next].id)
-                    onNavigate("browser")
+                    // Swiping browses the sheet's Space pages; choosing a tab still dismisses it.
+                    if (!overlay) onNavigate("browser")
                 }
             })
         .pointerInput(Unit) {
@@ -265,45 +277,49 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 ToolButton(NagiIcons.Search, strings(R.string.ui_search_or_enter_url), onClick = onOmnibox)
                 ToolButton(NagiIcons.Plus, strings(R.string.ui_new_tab), onClick = onNewTab)
                 SpacePages(Modifier.weight(1f)) { state ->
+                    val currentPage = state.currentSpace?.id == spaces.getOrNull(selectedPage)?.id
                     val tabs = state.visibleTabs
                     val pairLefts = tabs.filter { tab -> tabs.any { it.id == tab.splitRightTabId } }
                     val listedTabs = tabs.filter { tab -> pairLefts.none { it.splitRightTabId == tab.id } }
-                    LazyColumn(Modifier.fillMaxSize()) { items(listedTabs, key = { it.id }) { tab ->
+                    val list = rememberLazyListState()
+                    var viewport by remember { mutableStateOf(Rect.Zero) }
+                    if (currentPage) SidebarAutoScroll(drag, list, viewport)
+                    LazyColumn(Modifier.fillMaxSize().onGloballyPositioned { viewport = it.boundsInRoot() }, state = list) { items(listedTabs, key = { it.id }) { tab ->
                         val pair = tab.splitRightTabId?.let { id -> tabs.firstOrNull { it.id == id } }?.let { listOf(tab, it) }.orEmpty()
                         val grouped = pair.size == 2
                         val selected = if (grouped) pair.any { it.id == state.activeTab?.id }
                             else tab.id == state.activeTab?.id
+                        val title = if (grouped) pair.joinToString(" / ") { strings.tabTitle(it) } else strings.tabTitle(tab)
+                        val item = SidebarDragItem(tab.id, title, tab.faviconUrl, siteUrl = tab.url,
+                            pairLeft = tab.takeIf { grouped }, pairRight = pair.getOrNull(1),
+                            pairActiveTabId = state.activeTab?.id, collapsed = true)
+                        val section = if (tab.isPinned) SidebarSection.PINNED else SidebarSection.TODAY
+                        val target = drag.destination?.takeIf { currentPage && it.id == tab.id && drag.item?.id != tab.id }
+                        Box(Modifier.padding(vertical = 2.dp).size(dimensions.controlSize)
+                            .testTag("collapsed-tab-${tab.id}")
+                            .then(if (currentPage) Modifier.sidebarTarget(drag, "collapsed-tab-${tab.id}",
+                                SidebarDestination(section, tab.id), canSplit = !grouped) else Modifier)) {
                         Surface(onClick = { selectTab(if (grouped && splitRightFocused) pair[1] else tab) }, shape = NagiShapes.Rounded,
                             color = if (selected) palette.secondaryContainer else Color.Transparent,
                             contentColor = if (selected) palette.onSecondaryContainer else palette.onSurface,
-                            modifier = Modifier.padding(vertical = 2.dp).size(48.dp)
+                            modifier = Modifier.fillMaxSize().alpha(if (currentPage && drag.item?.id == tab.id) 0.3f else 1f)
+                                .then(if (currentPage) Modifier.sidebarDraggable(drag, item) else Modifier)
                                 .then(if (grouped) Modifier.testTag("sidebar-split-group") else Modifier).semantics {
-                                contentDescription = strings(R.string.ui_tab_1_s,
-                                    if (grouped) pair.joinToString(" / ") { strings.tabTitle(it) } else strings.tabTitle(tab))
+                                contentDescription = strings(R.string.ui_tab_1_s, title)
                                 this.selected = selected
                             }) {
                             Box(contentAlignment = Alignment.Center) {
                                 if (grouped) {
-                                    Box(Modifier.width(29.dp).height(24.dp).clip(RoundedCornerShape(6.dp))) {
-                                        Row {
-                                            pair.forEachIndexed { index, page ->
-                                                // Leave 2dp on either side of the 1dp center divider.
-                                                if (index == 1) Spacer(Modifier.width(5.dp))
-                                                // Crop each full-sized icon at the seam; never squeeze it.
-                                                Box(Modifier.width(12.dp).height(24.dp).clipToBounds()) {
-                                                    Box(Modifier.wrapContentSize(
-                                                        if (index == 0) Alignment.CenterStart else Alignment.CenterEnd,
-                                                        unbounded = true).requiredSize(24.dp), contentAlignment = Alignment.Center) {
-                                                        CollapsedTabIcon(page)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        Box(Modifier.align(Alignment.Center).width(1.dp).fillMaxHeight()
-                                            .background(palette.outline))
-                                    }
+                                    CollapsedPairIcon(pair)
                                 } else CollapsedTabIcon(tab)
                             }
+                        }
+                        if (target?.section == SidebarSection.SPLIT_TAB) Box(Modifier.matchParentSize()) {
+                            Box(Modifier.align(if (target.after) Alignment.CenterEnd else Alignment.CenterStart)
+                                .fillMaxWidth(0.5f).fillMaxHeight().testTag("collapsed-tab-split-drop-${tab.id}")
+                                .background(palette.primary.copy(alpha = 0.28f), NagiShapes.Rounded))
+                        } else if (target?.section == section) Box(Modifier.align(if (target.after) Alignment.BottomCenter else Alignment.TopCenter)
+                            .fillMaxWidth().height(3.dp).testTag("collapsed-tab-insertion-${tab.id}").background(palette.primary))
                         }
                     } }
                 }
@@ -312,7 +328,8 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                     SidebarAddressBar(pageUrl, pageTitle, onOmnibox)
                     Spacer(Modifier.height(12.dp))
                 }
-                if (!overlay) FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark)
+                if (!overlay) FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark,
+                    onEdit = { editingFavoriteId = it.id })
                 SpacePages(Modifier.weight(1f, fill = !overlay)) { state ->
                     val tabs = state.visibleTabs
                     val pairLefts = tabs.filter { tab -> tabs.any { it.id == tab.splitRightTabId } }
@@ -415,7 +432,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                                     if (!overlay) HorizontalDivider(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), color = palette.onSurface.copy(alpha = 0.12f))
                                     if (!overlay) Row(Modifier.fillMaxWidth().testTag(if (state.currentSpace?.id == spaces.getOrNull(selectedPage)?.id)
                                         "new-tab-button" else "new-tab-button-${state.currentSpace?.id}").clip(NagiShapes.Rounded)
-                                        .clickable(onClick = onNewTab).height(48.dp).padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        .clickable(onClick = onNewTab).height(dimensions.rowHeight).padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                         // Same 40dp icon slot as tab rows, so the + lines up with their icons and titles.
                                         Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                                             Icon(NagiIcons.Plus, null, Modifier.size(20.dp), tint = palette.onSurfaceVariant)
@@ -440,14 +457,15 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                             openSection()
                             item("favorites-heading") {
                                 TextButton(onClick = { favoritesExpanded = !favoritesExpanded },
-                                    modifier = Modifier.heightIn(min = 48.dp)) {
+                                    modifier = Modifier.heightIn(min = dimensions.rowHeight)) {
                                     Icon(if (favoritesExpanded) NagiIcons.ChevronDown else NagiIcons.ChevronRight,
                                         null, Modifier.size(18.dp))
                                     Text(strings(R.string.ui_favorites_section), Modifier.padding(start = 8.dp))
                                 }
                             }
                             if (favoritesExpanded || drag.item != null || drag.favoriteLanding != null) item("favorites-grid") {
-                                FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark)
+                                FavoriteGrid(state.favorites, drag, !mouseInput, onOpenUrl, vm::removeBookmark,
+                                    onEdit = { editingFavoriteId = it.id })
                             }
                             pinnedSection()
                         } else {
@@ -466,14 +484,59 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                 }
             }
             Spacer(Modifier.height(if (collapsed) 0.dp else 8.dp))
-            if (spacesEnabled) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            if (spacesEnabled && collapsed) state.currentSpace?.let { current ->
+                val foreground = readableSpaceColor(Color(current.color), palette.onSurface,
+                    listOf(sidebarTop, sidebarBottom, palette.surfaceContainerHighest, palette.primaryContainer, palette.secondaryContainer))
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val tooltip = rememberTooltipState()
+                    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        tooltip = { PlainTooltip(Modifier.testTag("collapsed-space-tooltip")) { Text(strings.spaceName(current)) } },
+                        state = tooltip) {
+                        Box(Modifier.size(dimensions.controlSize).testTag("collapsed-space-switcher")
+                            .clip(NagiShapes.Rounded).clickable(role = Role.Button) {
+                                scope.launch { tooltip.dismiss() }
+                                spaceSwitcherExpanded = true
+                            }
+                            .semantics { contentDescription = "${strings(R.string.ui_spaces)}: ${strings.spaceName(current)}"; selected = true },
+                            contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(36.dp).clip(NagiShapes.Rounded).background(palette.secondaryContainer),
+                                contentAlignment = Alignment.Center) {
+                                SpaceIcon(current.icon, foreground, size = 16.dp)
+                            }
+                        }
+                    }
+                    NagiOverflowMenu(spaceSwitcherExpanded, { spaceSwitcherExpanded = false }) {
+                        state.workspace.spaces.forEach { space ->
+                            val active = space.id == current.id
+                            val menuForeground = readableSpaceColor(Color(space.color), palette.onSurface,
+                                listOf(palette.surfaceContainerHigh))
+                            NagiOverflowMenuItem(
+                                modifier = Modifier.testTag("collapsed-space-option-${space.id}")
+                                    .semantics { selected = active },
+                                leadingIcon = { SpaceIcon(space.icon, menuForeground, size = 16.dp) },
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(strings.spaceName(space), Modifier.weight(1f))
+                                        if (active) Icon(NagiIcons.Check, null, Modifier.size(18.dp))
+                                    }
+                                },
+                                onClick = { spaceSwitcherExpanded = false; vm.selectSpace(space.id); onNavigate("browser") },
+                            )
+                        }
+                        NagiOverflowMenuDivider()
+                        NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Plus, null) },
+                            text = { Text(strings(R.string.ui_new_space)) },
+                            onClick = { spaceSwitcherExpanded = false; createSpace = true })
+                    }
+                }
+            } else if (spacesEnabled) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 state.workspace.spaces.forEach { space ->
                     val highlighted = drag.destination?.section == SidebarSection.SPACE && drag.destination?.id == space.id
                     val active = space.id == state.currentSpace?.id
                     val foreground = readableSpaceColor(Color(space.color), palette.onSurface,
                         listOf(sidebarTop, sidebarBottom, palette.surfaceContainerHighest, palette.primaryContainer, palette.secondaryContainer))
-                    Box(Modifier.size(48.dp).sidebarTarget(drag, "space-${space.id}", SidebarDestination(SidebarSection.SPACE, space.id))
+                    Box(Modifier.size(dimensions.controlSize).sidebarTarget(drag, "space-${space.id}", SidebarDestination(SidebarSection.SPACE, space.id))
                         .clip(NagiShapes.Rounded)
                         .clickable { vm.selectSpace(space.id); onNavigate("browser") }.semantics { contentDescription = strings(R.string.ui_switch_to_1_s, strings.spaceName(space)); selected = active }, contentAlignment = Alignment.Center) {
                         Box(Modifier.size(36.dp).clip(NagiShapes.Rounded)
@@ -484,7 +547,7 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
                         }
                     }
                 }
-                IconButton(onClick = { createSpace = true }, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = { createSpace = true }, modifier = Modifier.size(dimensions.controlSize)) {
                     Icon(NagiIcons.Plus, strings(R.string.ui_new_space), modifier = Modifier.size(16.dp))
                 }
             }
@@ -497,6 +560,14 @@ fun Sidebar(state: BrowserUiState, vm: BrowserViewModel, loadingIds: Set<String>
             }
         }
 
+    }
+    editingFavoriteId?.let { id ->
+        state.favorites.firstOrNull { it.id == id }?.let { favorite ->
+            key(id) {
+                FavoriteEditor(favorite, state.favorites, onDismiss = { editingFavoriteId = null },
+                    onSave = { title, url -> vm.editFavorite(id, title, url); editingFavoriteId = null })
+            }
+        }
     }
     if (createSpace || editingSpace != null) {
         var name by remember(editingSpace) { mutableStateOf(editingSpace?.name ?: "") }
@@ -539,17 +610,38 @@ private fun CollapsedTabIcon(tab: BrowserTab) {
     else Favicon(tab.faviconUrl, siteUrl = tab.url)
 }
 
+@Composable
+private fun CollapsedPairIcon(pair: List<BrowserTab>) {
+    Box(Modifier.width(29.dp).height(24.dp).clip(RoundedCornerShape(6.dp))) {
+        Row {
+            pair.forEachIndexed { index, page ->
+                if (index == 1) Spacer(Modifier.width(5.dp))
+                // Crop at the seam without squeezing either site's icon.
+                Box(Modifier.width(12.dp).height(24.dp).clipToBounds()) {
+                    Box(Modifier.wrapContentSize(if (index == 0) Alignment.CenterStart else Alignment.CenterEnd,
+                        unbounded = true).requiredSize(24.dp), contentAlignment = Alignment.Center) {
+                        CollapsedTabIcon(page)
+                    }
+                }
+            }
+        }
+        Box(Modifier.align(Alignment.Center).width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline))
+    }
+}
+
 /** Slots stay fixed for hit testing while keyed tiles translate into the preview order. */
 @Composable
 private fun FavoriteGrid(favorites: List<Bookmark>, drag: SidebarDragState, touch: Boolean,
-    onOpen: (String) -> Unit, onRemove: (String) -> Unit) {
+    onOpen: (String) -> Unit, onRemove: (String) -> Unit, onEdit: (Bookmark) -> Unit) {
     val strings = rememberNagiStrings()
+    val tileHeight = LocalNagiUiDimensions.current.favoriteHeight
+    val stride = tileHeight + 6.dp
     val ids = favorites.map { it.id }
     SideEffect { drag.syncFavorites(ids) }
     // Freeze slot identities until release; Room remains the source of the committed order.
     val order = drag.favoriteOrder?.takeIf { it.toSet() == ids.toSet() } ?: ids
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("favorites-grid")
-        .heightIn(min = 58.dp, max = 220.dp)
+        .heightIn(min = tileHeight, max = 220.dp)
         .sidebarTarget(drag, "favorites", SidebarDestination(SidebarSection.FAVORITES))
         .verticalScroll(rememberScrollState())) {
         // Fit as many columns as the width allows, then balance rows: 4 favorites form 2 × 2
@@ -561,12 +653,12 @@ private fun FavoriteGrid(favorites: List<Bookmark>, drag: SidebarDragState, touc
         val rows = (favorites.size + columns - 1) / columns
         val density = LocalDensity.current
         fun position(index: Int) = with(density) {
-            IntOffset(((tileWidth + 6.dp) * (index % columns)).roundToPx(), (64.dp * (index / columns)).roundToPx())
+            IntOffset(((tileWidth + 6.dp) * (index % columns)).roundToPx(), (stride * (index / columns)).roundToPx())
         }
-        Box(Modifier.fillMaxWidth().height(if (rows == 0) 58.dp else 64.dp * rows - 6.dp)) {
+        Box(Modifier.fillMaxWidth().height(if (rows == 0) tileHeight else stride * rows - 6.dp)) {
             favorites.forEachIndexed { index, bookmark ->
                 key("slot-${bookmark.id}") {
-                    Box(Modifier.offset { position(index) }.width(tileWidth).height(58.dp)
+                    Box(Modifier.offset { position(index) }.width(tileWidth).height(tileHeight)
                         .sidebarTarget(drag, "favorite-${bookmark.id}", SidebarDestination(SidebarSection.FAVORITES, bookmark.id)))
                 }
             }
@@ -576,7 +668,7 @@ private fun FavoriteGrid(favorites: List<Bookmark>, drag: SidebarDragState, touc
                     val offset by animateIntOffsetAsState(position(order.indexOf(bookmark.id)),
                         tween(180, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)), label = "favorite-placement")
                     FavoriteTile(bookmark, Modifier.offset { offset }.width(tileWidth), drag, touch,
-                        { onOpen(bookmark.url) }, { onRemove(bookmark.id) })
+                        { onOpen(bookmark.url) }, { onRemove(bookmark.id) }, { onEdit(bookmark) })
                 }
             }
             if (favorites.isEmpty() && drag.item == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -588,7 +680,8 @@ private fun FavoriteGrid(favorites: List<Bookmark>, drag: SidebarDragState, touc
 }
 
 @Composable
-private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDragState, touch: Boolean, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDragState, touch: Boolean,
+    onOpen: () -> Unit, onRemove: () -> Unit, onEdit: () -> Unit) {
     val strings = rememberNagiStrings()
     var menu by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
@@ -601,7 +694,7 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
     }
     val target = drag.destination?.takeIf { it.section == SidebarSection.FAVORITES && it.id == bookmark.id && drag.item?.favorite != true }
     Box(modifier) {
-        Box(Modifier.fillMaxWidth().height(58.dp).alpha(if (drag.item?.id == bookmark.id || drag.favoriteLanding?.item?.id == bookmark.id) 0f else 1f)
+        Box(Modifier.fillMaxWidth().height(LocalNagiUiDimensions.current.favoriteHeight)
             .clip(NagiShapes.Rounded).background(MaterialTheme.colorScheme.surfaceBright)
             .sidebarDraggable(drag, SidebarDragItem(bookmark.id, bookmark.title, bookmark.faviconUrl, true, bookmark.url))
             .hoverable(interaction).sidebarContextMenu { menu = true }
@@ -618,7 +711,13 @@ private fun FavoriteTile(bookmark: Bookmark, modifier: Modifier, drag: SidebarDr
                         Icon(NagiIcons.Ellipsis, strings(R.string.ui_favorite_actions_for_1_s, bookmark.title), Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                NagiOverflowMenu(menu, { menu = false }) { NagiOverflowMenuItem(destructive = true, leadingIcon = { Icon(NagiIcons.Trash2, null) }, text = { Text(strings(R.string.ui_remove_favorite)) }, onClick = { onRemove(); menu = false }) }
+                NagiOverflowMenu(menu, { menu = false }) {
+                    NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Pencil, null) },
+                        text = { Text(strings(R.string.ui_edit_favorite)) },
+                        modifier = Modifier.testTag("edit-favorite-${bookmark.id}"), onClick = { menu = false; onEdit() })
+                    NagiOverflowMenuItem(destructive = true, leadingIcon = { Icon(NagiIcons.Trash2, null) },
+                        text = { Text(strings(R.string.ui_remove_favorite)) }, onClick = { onRemove(); menu = false })
+                }
             }
         }
         if (target != null) Box(Modifier.align(if (target.after) Alignment.CenterEnd else Alignment.CenterStart)
@@ -633,6 +732,8 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
     replacementRight: Boolean? = null, largeTouchTargets: Boolean = false, splitEnabled: Boolean = true) {
     val strings = rememberNagiStrings()
     var menu by remember { mutableStateOf(false) }
+    val dimensions = LocalNagiUiDimensions.current
+    val actionSize = if (dimensions.compact) dimensions.controlSize else if (largeTouchTargets) 48.dp else 40.dp
     val selected = selectedOverride ?: (state.activeTab?.id == tab.id)
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -658,7 +759,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
         Row(Modifier.fillMaxWidth().alpha(if (drag.item?.id == tab.id && drag.item?.pairRight == null) 0.3f else 1f)
             .clip(NagiShapes.Rounded).background(if (splitTarget || replacementTarget) Color.Transparent else if (selected && !compact) palette.secondaryContainer else if (compact) palette.surfaceContainerHigh else Color.Transparent)
             .sidebarDraggable(drag, item).hoverable(interaction).sidebarContextMenu { menu = true }.clickable(onClick = onSelect)
-            .heightIn(min = 48.dp).semantics { contentDescription = strings(R.string.ui_tab_1_s, strings.tabTitle(tab))
+            .heightIn(min = dimensions.rowHeight).semantics { contentDescription = strings(R.string.ui_tab_1_s, strings.tabTitle(tab))
                 this.selected = selected
                 customActions = buildList {
                     add(CustomAccessibilityAction(strings(R.string.ui_show_actions)) { menu = true; true })
@@ -677,12 +778,12 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
             if (suspended) Text("zZ", style = MaterialTheme.typography.labelSmall, color = palette.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp).semantics { contentDescription = strings(R.string.ui_tab_suspended) })
             Box {
-                if (showActions) IconButton(onClick = { if (compact) vm.closeTab(tab.id) else menu = true }, modifier = Modifier.size(if (largeTouchTargets) 48.dp else if (compact) 24.dp else 40.dp)) {
+                if (showActions) IconButton(onClick = { if (compact) vm.closeTab(tab.id) else menu = true }, modifier = Modifier.size(if (largeTouchTargets) actionSize else if (compact) 24.dp else actionSize)) {
                     Icon(if (compact) NagiIcons.X else NagiIcons.Ellipsis,
                         strings(if (compact) R.string.ui_close_1_s else R.string.ui_actions_for_1_s, strings.tabTitle(tab)),
                         Modifier.size(if (compact) 16.dp else 18.dp), tint = if (selected) contentColor else palette.onSurfaceVariant)
                 }
-                NagiOverflowMenu(menu, { menu = false }, modifier = Modifier.width((state.settings.sidebarWidth - 24f).dp)) {
+                NagiOverflowMenu(menu, { menu = false }) {
                     if (splitEnabled) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_open_in_right_pane)) }, onClick = { onSplit(); menu = false })
                     state.workspace.spaces.filter { state.settings.spacesEnabled && it.id != tab.spaceId }.forEach { space ->
                         NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_move_to_1_s, strings.spaceName(space))) }, onClick = { vm.moveTab(tab.id, space.id); menu = false })
@@ -691,7 +792,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                     NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_tab)) }, onClick = { vm.closeTab(tab.id); menu = false })
                 }
             }
-            if (showActions && !compact) IconButton(onClick = { vm.closeTab(tab.id) }, modifier = Modifier.size(if (largeTouchTargets) 48.dp else 40.dp)) { Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(16.dp), tint = contentColor) }
+            if (showActions && !compact) IconButton(onClick = { vm.closeTab(tab.id) }, modifier = Modifier.size(actionSize)) { Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(16.dp), tint = contentColor) }
         }
         if (target != null) Box(Modifier.align(if (target.after) Alignment.BottomCenter else Alignment.TopCenter)
             .fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
@@ -700,26 +801,29 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
 
 /** Render in the app root so the dragged tab follows the pointer beyond the sidebar. */
 @Composable
-fun SidebarDragPreview(drag: SidebarDragState) {
-    var origin by remember { mutableStateOf(Offset.Zero) }
-    Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.boundsInRoot().topLeft }) {
+fun SidebarDragPreview(drag: SidebarDragState, modifier: Modifier = Modifier) {
+    var origin by remember { mutableStateOf<Offset?>(null) }
+    Box(modifier.fillMaxSize().onGloballyPositioned { origin = it.boundsInRoot().topLeft }) {
+        // A sheet's root offset is non-zero. Do not draw one frame at root-relative
+        // coordinates before this overlay has received its actual position.
+        val previewOrigin = origin ?: return@Box
         (drag.item ?: drag.favoriteLanding?.item)?.let { item ->
             val density = LocalDensity.current
-            val offset = drag.point - origin
+            val offset = drag.point - previewOrigin
             if (item.favorite) {
                 val landing = drag.favoriteLanding
                 val landingOffset = remember(item.id, landing) { Animatable(offset - drag.grabOffset, Offset.VectorConverter) }
                 LaunchedEffect(landing) {
                     if (landing != null) {
-                        landingOffset.snapTo(drag.point - origin - drag.grabOffset)
-                        landingOffset.animateTo(landing.topLeft - origin,
+                        landingOffset.snapTo(drag.point - previewOrigin - drag.grabOffset)
+                        landingOffset.animateTo(landing.topLeft - previewOrigin,
                             tween(180, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)))
                         drag.finishFavoriteLanding()
                     }
                 }
                 Surface(Modifier.offset {
                     // Gesture updates are direct: only the final placement animates.
-                    val tileOffset = if (landing == null) drag.point - origin - drag.grabOffset else landingOffset.value
+                    val tileOffset = if (landing == null) drag.point - previewOrigin - drag.grabOffset else landingOffset.value
                     IntOffset(tileOffset.x.roundToInt(), tileOffset.y.roundToInt())
                 }
                     .testTag("favorite-drag-preview")
@@ -731,13 +835,28 @@ fun SidebarDragPreview(drag: SidebarDragState) {
                         Favicon(item.favicon, siteUrl = item.siteUrl, iconSize = FavoriteIconSize)
                     }
                 }
+            } else if (item.collapsed) {
+                val lift = with(density) { 12.dp.toPx() }
+                Surface(Modifier.offset {
+                    val topLeft = drag.point - previewOrigin - drag.grabOffset
+                    IntOffset(topLeft.x.roundToInt(), (topLeft.y - lift).roundToInt())
+                }.testTag("tab-drag-preview")
+                    .size(with(density) { drag.sourceSize.x.toDp() }, with(density) { drag.sourceSize.y.toDp() })
+                    .shadow(12.dp, NagiShapes.Rounded, clip = false), shape = NagiShapes.Rounded,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (item.pairLeft != null && item.pairRight != null) CollapsedPairIcon(listOf(item.pairLeft, item.pairRight))
+                        else if (item.siteUrl == "about:blank") Icon(NagiIcons.House, null, Modifier.size(20.dp))
+                        else Favicon(item.favicon, siteUrl = item.siteUrl)
+                    }
+                }
             } else if (item.pairLeft != null && item.pairRight != null) {
                 val palette = MaterialTheme.colorScheme
                 val strings = rememberNagiStrings()
                 val shape = RoundedCornerShape(NagiShapes.Radius + 6.dp)
                 val lift = with(density) { 12.dp.toPx() }
                 Surface(Modifier.offset {
-                    val topLeft = drag.point - origin - drag.grabOffset
+                    val topLeft = drag.point - previewOrigin - drag.grabOffset
                     IntOffset(topLeft.x.roundToInt(), (topLeft.y - lift).roundToInt())
                 }.testTag("tab-drag-preview")
                     .size(with(density) { drag.sourceSize.x.toDp() }, with(density) { drag.sourceSize.y.toDp() })
@@ -764,7 +883,7 @@ fun SidebarDragPreview(drag: SidebarDragState) {
             } else {
                 val lift = with(density) { 12.dp.toPx() }
                 Surface(Modifier.offset {
-                    val topLeft = drag.point - origin - drag.grabOffset
+                    val topLeft = drag.point - previewOrigin - drag.grabOffset
                     IntOffset(topLeft.x.roundToInt(), (topLeft.y - lift).roundToInt())
                 }.testTag("tab-drag-preview")
                     .width(with(density) { drag.sourceSize.x.toDp() }.coerceAtLeast(120.dp))

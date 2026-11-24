@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.components.NagiIcons
 import com.takeruf.nagi.ui.components.ToolButton
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,6 +52,7 @@ private const val INVENTORY = -1
 @Composable
 internal fun LicensesPane(wide: Boolean, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
+    val dimensions = LocalNagiUiDimensions.current
     var selected by rememberSaveable { mutableIntStateOf(NONE) }
     BackHandler { if (selected == NONE) onBack() else selected = NONE }
     val entry = LicenseCatalog.entries.getOrNull(selected)
@@ -59,7 +61,7 @@ internal fun LicensesPane(wide: Boolean, onBack: () -> Unit) {
         entry != null -> entry.name
         else -> strings(R.string.ui_open_source_licenses)
     }
-    val gutter = if (wide) 32.dp else 16.dp
+    val gutter = dimensions.gutter(wide)
     Column(Modifier.fillMaxSize().testTag("licenses-screen")) {
         if (wide) {
             // Wide: the pane title becomes a breadcrumb (About Nagi › Open-source licenses › …).
@@ -69,7 +71,7 @@ internal fun LicensesPane(wide: Boolean, onBack: () -> Unit) {
                 if (selected != NONE) add(strings(R.string.ui_open_source_licenses) to { selected = NONE })
                 add(title to null)
             }
-            Row(Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp, bottom = 20.dp)
+            Row(Modifier.fillMaxWidth().padding(start = gutter, end = gutter, top = 8.dp, bottom = if (dimensions.compact) 12.dp else 20.dp)
                 .testTag("licenses-breadcrumb"), verticalAlignment = Alignment.CenterVertically) {
                 crumbs.forEachIndexed { index, (label, onClick) ->
                     if (index > 0) Icon(NagiIcons.ChevronRight, null, Modifier.padding(horizontal = 6.dp).size(22.dp),
@@ -83,7 +85,7 @@ internal fun LicensesPane(wide: Boolean, onBack: () -> Unit) {
             }
         } else {
             // Compact: replaces the Settings top bar, so this is the screen's only back arrow.
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = dimensions.headerVerticalPadding), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(if (selected == NONE) R.string.ui_back_to_settings else R.string.ui_back)) {
                     if (selected == NONE) onBack() else selected = NONE
                 }
@@ -95,8 +97,8 @@ internal fun LicensesPane(wide: Boolean, onBack: () -> Unit) {
             selected == INVENTORY -> LicenseText(listOf(LicenseCatalog.INVENTORY), source = null, gutter)
             entry != null -> LicenseText(entry.files, entry.source, gutter)
             else -> LazyColumn(Modifier.fillMaxSize().testTag("licenses-list"),
-                contentPadding = PaddingValues(start = gutter, end = gutter, bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                contentPadding = PaddingValues(start = gutter, end = gutter, bottom = dimensions.gutter(true)),
+                verticalArrangement = Arrangement.spacedBy(dimensions.sectionGap)) {
                 item {
                     Text(strings(R.string.ui_open_source_licenses_description), Modifier.padding(horizontal = 4.dp),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

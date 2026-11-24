@@ -42,9 +42,13 @@
     <string name="ui_emoji_or_custom_icon">"Emoji or custom icon"</string>
     <string name="ui_icon">"Icon"</string>
     <string name="ui_theme">"Theme"</string>
-    <string name="ui_its_tabs_will_be_removed_shared_favorites_stay_available">"Its tabs will be removed. Shared favorites stay available."</string>
+    <string name="ui_its_tabs_will_be_removed_shared_favorites_stay_available">"Its tabs and browsing history will be removed. Shared favorites stay available."</string>
     <string name="ui_show_actions">"Show actions"</string>
     <string name="ui_remove_favorite">"Remove favorite"</string>
+    <string name="ui_edit_favorite">Edit favorite</string>
+    <string name="ui_url">URL</string>
+    <string name="ui_enter_valid_url">Enter a valid http or https URL</string>
+    <string name="ui_favorite_url_exists">This URL is already in Favorites</string>
     <string name="ui_unpin_tab">"Unpin tab"</string>
     <string name="ui_pin_tab">"Pin tab"</string>
     <string name="ui_add_to_favorites">"Add to favorites"</string>
@@ -99,7 +103,7 @@
     <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"Private browsing and content blocking are planned for a later release."</string>
     <string name="ui_nagi_0_1_0_made_for_a_little_more_room">"Nagi 0.1.0  ·  Made for a little more room."</string>
     <string name="ui_clear_browsing_history_199567">"Clear browsing history?"</string>
-    <string name="ui_this_removes_saved_visits_from_this_device">"This removes saved visits from this device."</string>
+    <string name="ui_this_removes_saved_visits_from_this_device">"This removes saved visits from all Spaces on this device."</string>
     <string name="ui_clear_history">"Clear history"</string>
     <string name="ui_edit_search_engine">"Edit search engine"</string>
     <string name="ui_name">"Name"</string>
@@ -471,4 +475,12 @@
     <string name="ui_page_certificate_description">The site’s certificate could not be verified. Please try again later.</string>
     <string name="ui_page_error_title">Unable to open this page</string>
     <string name="ui_page_error_description">Check the address or try again later.</string>
+    <string name="ui_compact_display">Compact interface</string>
+    <string name="ui_compact_display_description">Reduce spacing in menus, lists, and controls.</string>
+    <string name="ui_compact_display_off">Always off</string>
+    <string name="ui_compact_display_auto">With a physical keyboard</string>
+    <string name="ui_compact_display_on">Always on</string>
+    <string name="ui_command_bar_use_centered">Return to previous UI</string>
+    <string name="ui_command_bar_dismiss_notice">Dismiss tip</string>
+    <string name="ui_command_bar_use_new_design">Use the new design</string>
 </resources>

@@ -26,18 +26,27 @@ import java.util.*
 @Composable
 fun LibraryScreen(state: BrowserUiState, vm: BrowserViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) {
     val strings = rememberNagiStrings()
-    var query by remember { mutableStateOf("") }
+    val dimensions = LocalNagiUiDimensions.current
+    var query by remember(state.currentSpace?.id) { mutableStateOf("") }
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val formatter = remember(locale) { SimpleDateFormat("MMM d, HH:mm", locale) }
-    Column(Modifier.fillMaxSize().padding(28.dp)) {
+    Column(Modifier.fillMaxSize().padding(dimensions.pagePadding)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_browser), onClick = onBack)
-            Text(strings(R.string.ui_history), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(strings(R.string.ui_history), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                if (state.settings.spacesEnabled) state.currentSpace?.let { space ->
+                    Text(strings.spaceName(space), style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("history-space-name"))
+                }
+            }
         }
         OutlinedTextField(query, { query = it }, singleLine = true, placeholder = { Text(strings(R.string.ui_search_history)) },
             shape = NagiShapes.Rounded,
-            leadingIcon = { Icon(NagiIcons.Search, null) }, modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
-        val entries = state.workspace.history.filter { it.url.contains(query, true) || it.title.contains(query, true) }
+            leadingIcon = { Icon(NagiIcons.Search, null) }, modifier = Modifier.fillMaxWidth().padding(vertical = if (dimensions.compact) 12.dp else 20.dp))
+        val entries = state.history.filter { it.url.contains(query, true) || it.title.contains(query, true) }
         if (entries.isEmpty()) EmptyLibrary(strings(R.string.ui_your_browsing_history_will_appear_here))
         LazyColumn { items(entries, key = { it.id }) { entry ->
             LibraryRow(entry.title, entry.url, entry.faviconUrl, formatter.format(Date(entry.visitedAt)),
@@ -51,8 +60,11 @@ private fun EmptyLibrary(text: String) {
 @Composable
 private fun LibraryRow(title: String, url: String, icon: String?, detail: String, onOpen: () -> Unit, onDelete: () -> Unit) {
     val strings = rememberNagiStrings()
-    Row(Modifier.fillMaxWidth().testTag("library-row:$url").clip(NagiShapes.Rounded).clickable(onClick = onOpen).padding(12.dp).heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    val dimensions = LocalNagiUiDimensions.current
+    Row(Modifier.fillMaxWidth().testTag("library-row:$url").clip(NagiShapes.Rounded).clickable(onClick = onOpen)
+        .padding(horizontal = 12.dp, vertical = dimensions.rowVerticalPadding)
+        .heightIn(min = if (dimensions.compact) 40.dp else 52.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(dimensions.sectionInset)) {
         Favicon(icon, siteUrl = url)
         Column(Modifier.weight(1f)) {
             Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)

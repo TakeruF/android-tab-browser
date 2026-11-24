@@ -37,8 +37,8 @@ fun SidebarAddressBar(url: String, title: String, onOmnibox: () -> Unit) {
     Surface(onClick = onOmnibox, shape = NagiShapes.Pill,
         color = MaterialTheme.colorScheme.surfaceBright, contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.fillMaxWidth().testTag("sidebar-address")) {
-        Row(Modifier.heightIn(min = 48.dp).padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+        Row(Modifier.heightIn(min = LocalNagiUiDimensions.current.rowHeight).padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(vertical = if (LocalNagiUiDimensions.current.compact) 4.dp else 8.dp)) {
                 Text(if (hasPage) displayUrl else strings(R.string.ui_search_anything),
                     style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (hasPage && title.isNotBlank() && title != url) Text(title,

@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.components.NagiIcons
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 /** Cover-screen controls stay within thumb reach without reserving a sidebar column. */
@@ -23,7 +24,7 @@ fun CompactBrowserBar(tabCount: Int, canGoBack: Boolean, canGoForward: Boolean,
     onSearch: (() -> Unit)?, onTabs: () -> Unit) {
     val strings = rememberNagiStrings()
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Row(Modifier.fillMaxWidth().height(56.dp).testTag("compact-browser-bar"),
+        Row(Modifier.fillMaxWidth().height(LocalNagiUiDimensions.current.toolbarHeight).testTag("compact-browser-bar"),
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, enabled = canGoBack, modifier = Modifier.weight(1f).fillMaxHeight()) {
                 Icon(NagiIcons.ArrowBack, strings(R.string.ui_back), Modifier.size(21.dp))
@@ -45,7 +46,7 @@ fun CompactBrowserBar(tabCount: Int, canGoBack: Boolean, canGoForward: Boolean,
 @Composable
 internal fun CompactTabsButton(tabCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val strings = rememberNagiStrings()
-    IconButton(onClick = onClick, modifier = modifier.size(48.dp)
+    IconButton(onClick = onClick, modifier = modifier.size(LocalNagiUiDimensions.current.controlSize)
         .testTag("compact-tabs-button").semantics {
             contentDescription = strings(R.string.ui_tabs)
             stateDescription = tabCount.toString()

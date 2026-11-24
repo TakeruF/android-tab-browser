@@ -19,9 +19,10 @@ android {
         applicationId = "com.takeruf.nagi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 22
-        versionName = "1.4.1"
+        versionCode = 23
+        versionName = "1.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["nagiAppLabel"] = "@string/app_name"
         buildConfigField("boolean", "PASSWORD_AUTOFILL_DIAGNOSTICS", "false")
     }
     flavorDimensions += "distribution"
@@ -55,9 +56,14 @@ android {
     buildTypes {
         debug {
             val autofillDiagnostics = providers.gradleProperty("nagiAutofillDiagnostics").orNull == "true"
+            val sideBySide = providers.gradleProperty("nagiSideBySide").orNull == "true"
             buildConfigField("boolean", "PASSWORD_AUTOFILL_DIAGNOSTICS", autofillDiagnostics.toString())
             // A diagnostic install must not replace a user's Play workspace or signing identity.
             if (autofillDiagnostics) applicationIdSuffix = ".autofillqa"
+            if (sideBySide) {
+                applicationIdSuffix = (applicationIdSuffix ?: "") + ".preview"
+                manifestPlaceholders["nagiAppLabel"] = "Nagi Test"
+            }
         }
         release { signingConfig = signingConfigs.getByName("release"); isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") }
     }

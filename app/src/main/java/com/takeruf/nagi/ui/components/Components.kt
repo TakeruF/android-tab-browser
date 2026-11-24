@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import android.content.ContextWrapper
 import com.takeruf.nagi.browser.favicon.FaviconStore
 import com.takeruf.nagi.browser.favicon.faviconOrigin
 import coil3.compose.AsyncImage
@@ -43,10 +44,10 @@ fun hardwareKeyboardConnected(): Boolean {
 @Composable
 fun AddressActionButton(modifier: Modifier = Modifier, enabled: Boolean = true,
     onClick: () -> Unit, content: @Composable () -> Unit) {
-    // Keep paired actions compact in both address bars: a 32 x 48dp touch area whose
+    // Keep paired actions compact in both address bars: a 32dp-wide action whose
     // pressed/hover feedback is a full 32dp circle, not a stretched pill.
     val color = LocalContentColor.current
-    Box(modifier.width(32.dp).height(48.dp)
+    Box(modifier.width(32.dp).height(LocalNagiUiDimensions.current.controlSize)
         .clickable(enabled = enabled, role = Role.Button, interactionSource = null,
             indication = ripple(bounded = false, radius = 16.dp), onClick = onClick),
         contentAlignment = Alignment.Center) {
@@ -57,7 +58,7 @@ fun AddressActionButton(modifier: Modifier = Modifier, enabled: Boolean = true,
 @Composable
 fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true,
     iconSize: androidx.compose.ui.unit.Dp = 21.dp, onClick: () -> Unit) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(LocalNagiUiDimensions.current.controlSize)) {
         Icon(icon, contentDescription = label, modifier = Modifier.size(iconSize))
     }
 }
@@ -66,7 +67,12 @@ fun ToolButton(icon: ImageVector, label: String, enabled: Boolean = true,
 fun Favicon(path: String?, modifier: Modifier = Modifier, siteUrl: String? = null,
     iconSize: androidx.compose.ui.unit.Dp = 18.dp) {
     val context = LocalContext.current
-    if ((context as? com.takeruf.nagi.MainActivity)?.isPrivateBrowsing == true) {
+    // Dialogs wrap the Activity context; preserve private-mode isolation there too.
+    val activity = remember(context) {
+        generateSequence(context) { (it as? ContextWrapper)?.baseContext }
+            .filterIsInstance<com.takeruf.nagi.MainActivity>().firstOrNull()
+    }
+    if (activity?.isPrivateBrowsing == true) {
         Box(modifier.size(24.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
             Icon(NagiIcons.Globe, null, Modifier.size(16.dp))
         }

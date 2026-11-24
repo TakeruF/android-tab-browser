@@ -19,11 +19,12 @@ class PrivateBrowsingLifetimeTest {
     @get:Rule val compose = createEmptyComposeRule()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
-    private fun privateActivity(): PrivateActivity {
+    private fun privateActivity(excluding: PrivateActivity? = null): PrivateActivity {
         var activity: PrivateActivity? = null
         compose.waitUntil(15_000) {
             main { activity = ActivityLifecycleMonitorRegistry.getInstance()
-                .getActivitiesInStage(Stage.RESUMED).filterIsInstance<PrivateActivity>().firstOrNull() }
+                    .getActivitiesInStage(Stage.RESUMED).filterIsInstance<PrivateActivity>()
+                    .firstOrNull { it !== excluding && !it.isFinishing && !it.isDestroyed } }
             activity != null
         }
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("close-private-mode")
@@ -40,7 +41,23 @@ class PrivateBrowsingLifetimeTest {
             var activity = privateActivity()
             lateinit var original: AppContainer
             main { original = app.privateWorkspaces.acquire(activity.taskId) }
+            val ownerTaskId = activity.taskId
+            fun assertRetainedSession(current: PrivateActivity) = main {
+                assertFalse("A finishing Activity is not the active private screen", current.isFinishing)
+                assertFalse("A destroyed Activity cannot identify the live task", current.isDestroyed)
+                assertEquals("Returning to private browsing must retain its app task", ownerTaskId, current.taskId)
+                assertSame(original, app.privateWorkspaces.acquire(current.taskId))
+            }
             runBlocking { original.workspace.ready.await(); original.tabs.create("personal", server.origin + "/privacy?private-retain") }
+            compose.waitUntil(15_000) {
+                var loaded = false
+                main { activity.findViewById<android.webkit.WebView>(R.id.browser_web_view)?.let { web ->
+                    loaded = web.url?.contains("private-retain") == true && web.progress == 100
+                } }
+                loaded
+            }
+            assertTrue(runBlocking { original.workspace.dao.observeHistory().first().isEmpty() })
+            assertFalse(runBlocking { app.container.workspace.dao.observeHistory().first().any { it.url.startsWith(server.origin) } })
             val profile = original.privateProfileName
             val before = runBlocking { original.workspace.snapshot.first().tabs.map { it.id }.toSet() }
 
@@ -64,20 +81,28 @@ class PrivateBrowsingLifetimeTest {
             }
             main { normal.openPrivateBrowsing() }
             activity = privateActivity()
-            main { assertSame(original, app.privateWorkspaces.acquire(activity.taskId)) }
+            assertRetainedSession(activity)
 
             val previousActivity = activity
             main { activity.recreate() }
             compose.waitUntil(15_000) { previousActivity.isDestroyed }
             activity = privateActivity()
-            main { assertSame(original, app.privateWorkspaces.acquire(activity.taskId)) }
+            assertRetainedSession(activity)
 
-            // Finishing only the Activity (e.g. Back or launcher singleTask delivery) must retain tabs.
-            main { activity.finish() }
-            compose.waitForIdle()
+            // A finishing Activity can remain RESUMED until its exit transition
+            // completes. Do not acquire its session through a stale taskId (-1).
+            val finishedActivity = activity
+            main { finishedActivity.finish() }
+            compose.waitUntil(15_000) { finishedActivity.isDestroyed }
+            compose.waitUntil(10_000) {
+                var resumed = false
+                main { resumed = ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED).contains(normal) }
+                resumed
+            }
             main { normal.openPrivateBrowsing() }
-            activity = privateActivity()
-            main { assertSame(original, app.privateWorkspaces.acquire(activity.taskId)) }
+            activity = privateActivity(excluding = finishedActivity)
+            assertRetainedSession(activity)
             assertEquals(before, runBlocking { original.workspace.snapshot.first().tabs.map { it.id }.toSet() })
 
             // Check the EditorInfo delivered through Android's real Compose input connection.

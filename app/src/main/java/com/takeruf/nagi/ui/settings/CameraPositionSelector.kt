@@ -16,12 +16,13 @@ import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 import com.takeruf.nagi.ui.theme.NagiShapes
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 
 @Composable
 internal fun CameraPositionSelector(leftRotation: Int?, rotation: Int, landscape: Boolean, onSelect: (Int) -> Unit) {
     val strings = rememberNagiStrings()
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().padding(16.dp).testTag("settings-camera-position"),
+    Column(Modifier.fillMaxWidth().padding(LocalNagiUiDimensions.current.sectionInset).testTag("settings-camera-position"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(strings(R.string.ui_camera_position), style = MaterialTheme.typography.titleSmall)
         Text(strings(if (landscape) R.string.ui_camera_position_hint else R.string.ui_camera_position_rotate),

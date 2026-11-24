@@ -37,7 +37,9 @@ fun ContentBlockingShield(page: PageState, settings: BrowserSettings, onFocus: (
                 "${strings(R.string.ui_ad_blocking)}, $status", Modifier.size(18.dp))
         }
         NagiOverflowMenu(expanded, { expanded = false }, Modifier.testTag("ad-blocking-popup")) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            val dimensions = LocalNagiMenuDimensions.current
+            Column(Modifier.padding(horizontal = dimensions.horizontalPadding, vertical = dimensions.verticalPadding),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(host.orEmpty(), style = MaterialTheme.typography.titleSmall)
                 Text(status, style = MaterialTheme.typography.bodySmall)
                 Text(strings(R.string.ui_blocking_count, page.blockedRequests),
@@ -52,7 +54,7 @@ fun ContentBlockingShield(page: PageState, settings: BrowserSettings, onFocus: (
                     enabled = host != null && settings.adBlockingEnabled,
                     modifier = Modifier.testTag("blocking-visit-toggle"),
                     onClick = { expanded = false; onPauseVisit(!paused) })
-                Text(strings(R.string.ui_blocking_visit_scope), Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                Text(strings(R.string.ui_blocking_visit_scope), Modifier.padding(horizontal = dimensions.horizontalPadding, vertical = 4.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             NagiOverflowMenuItem(

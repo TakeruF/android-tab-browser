@@ -13,7 +13,8 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
     private val redirects: Map<String, String> = emptyMap(),
     private val icons: Map<String, Int> = emptyMap(),
     private val iconDelaysMs: Map<String, Long> = emptyMap(),
-    private val statusCodes: Map<String, Int> = emptyMap(), port: Int = 0) : AutoCloseable {
+    private val statusCodes: Map<String, Int> = emptyMap(), port: Int = 0,
+    private val pageDelaysMs: Map<String, Long> = emptyMap()) : AutoCloseable {
     private val socket = ServerSocket(port)
     private val executor = Executors.newCachedThreadPool()
     val origin = "http://127.0.0.1:${socket.localPort}"
@@ -35,6 +36,7 @@ class FixtureServer(private val rootIconAvailable: Boolean = true, private val h
                     headers[line.substringBefore(':').lowercase()] = line.substringAfter(':').trim()
                 }
                 requests.add(Request(path, headers["user-agent"].orEmpty(), headers["referer"], headers["sec-ch-ua-mobile"]))
+                pageDelaysMs[path]?.let { Thread.sleep(it) }
                 redirects[path]?.let { destination ->
                     client.getOutputStream().write(("HTTP/1.1 302 Found\r\nLocation: $destination\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").toByteArray())
                     return@use

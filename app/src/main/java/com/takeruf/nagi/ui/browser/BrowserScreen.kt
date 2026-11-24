@@ -3,7 +3,9 @@ package com.takeruf.nagi.ui.browser
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
+import com.takeruf.nagi.domain.model.BrowserTab
 import com.takeruf.nagi.browser.tabs.BrowserSessionController
 import com.takeruf.nagi.ui.splitview.SplitLayout
 
@@ -11,10 +13,13 @@ import com.takeruf.nagi.ui.splitview.SplitLayout
 fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: BrowserSessionController,
     rightTabId: String?, rightFocused: Boolean, onFocusRight: (Boolean) -> Unit,
     splitRatio: Float, onSplitRatio: (Float) -> Unit, showFind: Boolean, onFind: (Boolean) -> Unit,
-    onOmnibox: () -> Unit, onOpenUrl: (String) -> Unit, onSplit: () -> Unit,
+    onOmnibox: (BrowserTab) -> Unit, onOpenUrl: (String) -> Unit, onSplit: () -> Unit,
     onCloseSplit: () -> Unit, onSwap: () -> Unit,
     leftTabId: String? = null, compactWindow: Boolean = false, desktopDefault: Boolean = state.settings.desktopDefault,
     resizeForIme: Boolean = true,
+    historyBackPreview: HistoryBackPreviewState? = null,
+    onAddressBarBounds: (String, Rect) -> Unit = { _, _ -> },
+    onNewTabSearch: (BrowserTab, Rect?) -> Unit = { tab, _ -> onOmnibox(tab) },
     onNewTab: () -> Unit = {}, onTabs: () -> Unit = {},
     onTranslationOptions: (com.takeruf.nagi.domain.model.BrowserTab, com.takeruf.nagi.browser.engine.BrowserEngine) -> Unit = { _, _ -> }) {
     var customizingNewTab by remember { mutableStateOf(false) }
@@ -32,7 +37,10 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
         Box(Modifier.fillMaxSize().testTag(if (isRight) "browser-pane-right-${tab.id}" else "browser-pane-left-${tab.id}")) {
             BrowserPane(tab, engine, state, focused = right == null || rightFocused == isRight,
                 split = right != null, showFind = showFind, onCloseFind = { onFind(false) }, onFind = { onFind(true) },
-                onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = onOmnibox, onOpen = onOpenUrl,
+                onFocus = { onFocusRight(isRight); vm.selectTab(tab.id) }, onOmnibox = { onOmnibox(tab) }, onOpen = onOpenUrl,
+                onAddressBarBounds = { onAddressBarBounds(tab.id, it) },
+                onNewTabSearch = { onNewTabSearch(tab, it) },
+                historyBackPreview = historyBackPreview,
                 onCustomizeNewTab = { customizingNewTab = true },
                 onResumeTab = { id -> onFocusRight(false); vm.selectTab(id) },
                 onTranslationOptions = { onTranslationOptions(tab, engine) },

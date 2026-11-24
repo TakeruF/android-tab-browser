@@ -68,6 +68,7 @@ class WorkspaceRepositoryTest {
             for (i in 0 until queries.length()) old.execSQL(queries.getString(i))
             old.execSQL("INSERT INTO spaces VALUES ('personal', 'Personal', 'P', 0, 0, 'saved')")
             old.execSQL("INSERT INTO tabs VALUES ('saved', 'personal', 'https://example.com', 'Saved', NULL, 0, 0, 1, NULL, NULL)")
+            old.execSQL("INSERT INTO history VALUES (9, 'https://earlier.test', 'Earlier visit', NULL, 7)")
             old.version = 1
         }
         val migrated = Room.databaseBuilder(context, NagiDatabase::class.java, name).allowMainThreadQueries().build()
@@ -76,6 +77,10 @@ class WorkspaceRepositoryTest {
             assertEquals("https://example.com", saved.url)
             assertNull(saved.parentTabId)
             assertEquals("saved", migrated.browserDao().spaces().single().activeTabId)
+            val history = migrated.browserDao().observeHistoryForSpace("personal").first().single()
+            assertEquals(9L, history.id)
+            assertEquals("https://earlier.test", history.url)
+            assertEquals(7L, history.visitedAt)
         } finally { migrated.close(); context.deleteDatabase(name) }
     }
     @Test fun splitPairsMovePinAndRestoreWithTheirLeftRightIdentity() = runBlocking {

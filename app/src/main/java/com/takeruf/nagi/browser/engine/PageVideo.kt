@@ -84,10 +84,14 @@ internal class PageVideo(private val view: WebView,
         } }
         inlineActive = false
         release()
-        val destination = (view.getTag(R.id.video_source_container) as? ViewGroup) ?: sourceParent
+        val destination = ((view.getTag(R.id.video_source_container) as? ViewGroup) ?: sourceParent)
+            ?.takeIf { it.getTag(R.id.native_surface_owner) === view }
         view.setTag(R.id.video_source_container, null)
         destination?.takeIf { it.isAttachedToWindow && view.parent !== it }?.let { parent ->
             (view.parent as? ViewGroup)?.removeView(view)
+            // A source holder is a single-surface slot, including when returning
+            // before its AndroidView update has removed the preceding tab.
+            parent.removeAllViews()
             parent.addView(view, sourceLayout)
         }
         sourceParent = null

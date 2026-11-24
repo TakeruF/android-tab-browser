@@ -37,6 +37,9 @@ class VideoPresentationController(private val activity: Activity) {
     private var openTabIds = emptySet<String>()
     private var visibleTabIds = emptySet<String>()
     private var popupSourceWasHidden = false
+    private var enteredSystemPip = false
+    private var fullscreenAfterPip = false
+    private var hostResumed = false
     private data class InlineVideo(val view: View, val tabId: String, val playback: VideoPlayback,
         val prepare: () -> Unit, val restore: () -> Unit, val control: (String) -> Unit)
     private val inlineVideos = linkedMapOf<String, InlineVideo>()
@@ -133,6 +136,7 @@ class VideoPresentationController(private val activity: Activity) {
         if (tabId != null && current.tabId != tabId) return
         // Clear first: onCustomViewHidden can synchronously call onHideCustomView again.
         mutablePresentation.value = null
+        fullscreenAfterPip = false
         if (pause) current.control("pause")
         current.exit()
         refreshPip()
@@ -150,11 +154,29 @@ class VideoPresentationController(private val activity: Activity) {
     }
     fun onPipTransition() { mutableSystemPip.value = true }
     fun onPipChanged(inPip: Boolean) {
+        val returning = enteredSystemPip && !inPip
+        enteredSystemPip = inPip
+        if (inPip) fullscreenAfterPip = false
+        else if (returning) fullscreenAfterPip = presentation.value?.popup == true
+        if (!inPip) restoreFullscreenAfterPip()
         mutableSystemPip.value = inPip
     }
+    fun onResumed() { hostResumed = true; restoreFullscreenAfterPip() }
+    fun onPaused() { hostResumed = false }
+    private fun restoreFullscreenAfterPip() {
+        if (!fullscreenAfterPip || !hostResumed || enteredSystemPip) return
+        fullscreenAfterPip = false
+        if (activity.isFinishing || activity.isDestroyed) return
+        // Expanding Android's PiP returns to the same video at fullscreen size,
+        // rather than reviving its earlier in-browser pop-out dimensions.
+        expand()
+    }
     fun onStopped() {
-        (presentation.value?.control ?: visibleInline()?.control)?.invoke("pause")
-        if (activity.isInPictureInPictureMode) close(pause = true)
+        hostResumed = false
+        val closingPip = activity.isInPictureInPictureMode || enteredSystemPip || fullscreenAfterPip
+        fullscreenAfterPip = false
+        if (closingPip) close(pause = true)
+        else (presentation.value?.control ?: visibleInline()?.control)?.invoke("pause")
     }
     fun refreshPip() {
         if (supported()) runCatching { activity.setPictureInPictureParams(params()) }

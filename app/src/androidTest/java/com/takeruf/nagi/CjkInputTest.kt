@@ -26,16 +26,22 @@ class CjkInputTest {
     private lateinit var spaceId: String
     private lateinit var ime: TestIme
     private lateinit var server: FixtureServer
+    private lateinit var originalSettings: BrowserSettings
     @Before fun setup() {
         ime = TestIme()
         server = FixtureServer()
         container = (compose.activity.application as NagiApplication).container
         runBlocking {
             container.workspace.ready.await()
+            originalSettings = container.settings.settings.first()
             // A device-local provider avoids redirects/CAPTCHAs rewriting the asserted query.
             // Insert at the test seam; HTTPS provider validation has separate coverage.
             container.workspace.dao.putEngine(SearchEngine("cjk-fixture", "CJK Fixture", "cjkfixture", "${server.origin}/one?q={query}").entity())
-            container.settings.update { BrowserSettings(defaultSearchEngineId = "cjk-fixture", automaticSearchRegion = false) }
+            val layout = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("commandBarTestLayout")
+                ?.let { name -> com.takeruf.nagi.domain.model.CommandBarLayout.entries.firstOrNull { it.name == name } }
+                ?: com.takeruf.nagi.domain.model.CommandBarLayout.ANCHORED
+            container.settings.update { BrowserSettings(defaultSearchEngineId = "cjk-fixture", automaticSearchRegion = false,
+                commandBarLayout = layout) }
             container.spaces.create("CJK ${System.nanoTime()}")
             spaceId = container.settings.settings.first().selectedSpaceId
         }
@@ -44,7 +50,11 @@ class CjkInputTest {
     }
     @After fun cleanup() {
         ime.close(); server.close()
-        runBlocking { container.engines.delete("cjk-fixture") }
+        runBlocking {
+            container.engines.delete("cjk-fixture")
+            if (::spaceId.isInitialized) container.spaces.delete(spaceId)
+            if (::originalSettings.isInitialized) container.settings.update { originalSettings }
+        }
     }
     private var selectedConnection: InputConnection? = null
     private var selectedStartSequence = 0L
@@ -116,6 +126,8 @@ class CjkInputTest {
     @Test fun chinesePinyinCommitAndImeGo() = exercise(listOf("zh", "zhongwen", "zhongwensousuo"), "中文搜索", true)
     @Test fun koreanJamoCompositionAndEnter() = exercise(listOf("ㅎ", "하", "한", "한구", "한국어 검색"), "한국어 검색", false)
     @Test fun engineNameKeepsJapaneseChineseAndKoreanComposition() {
+        if (compose.onAllNodesWithContentDescription("Settings").fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithTag("compact-tabs-button").performClick()
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.selectSettingsCategory("search")
         compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("customize-search-engines"))

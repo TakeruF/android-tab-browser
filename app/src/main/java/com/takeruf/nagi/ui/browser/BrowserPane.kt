@@ -32,6 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,6 +45,8 @@ import com.takeruf.nagi.ui.components.ToolButton
 import com.takeruf.nagi.ui.components.AddressActionButton
 import com.takeruf.nagi.ui.components.NagiOverflowMenu
 import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
+import com.takeruf.nagi.ui.components.LocalNagiMenuDimensions
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -53,9 +58,13 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onSiteDarkModeChange: (String, Boolean) -> Unit = { _, _ -> },
     onVisitBlockingChange: (Boolean) -> Unit = {}, onCustomizeNewTab: () -> Unit = {}, compactWindow: Boolean = false,
     onNewTab: () -> Unit = {}, onTabs: () -> Unit = {},
-    onTranslationOptions: () -> Unit = {}, onResumeTab: (String) -> Unit = {}) {
+    onTranslationOptions: () -> Unit = {}, onResumeTab: (String) -> Unit = {},
+    historyBackPreview: HistoryBackPreviewState? = null,
+    onAddressBarBounds: (Rect) -> Unit = {},
+    onNewTabSearch: (Rect?) -> Unit = { onOmnibox() }) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
+    var newTabSearchBounds by remember(tab.id) { mutableStateOf<Rect?>(null) }
     val context = LocalContext.current
     val canShareLink = page.url.isNotBlank() && page.url != "about:blank"
     var linkCopied by remember(page.url) { mutableStateOf(false) }
@@ -81,6 +90,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     val darkTheme = state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.DARK ||
         state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.SYSTEM && isSystemInDarkTheme()
     val bottomSearchBar = compactWindow && state.settings.bottomSearchBar
+    val uiDimensions = LocalNagiUiDimensions.current
     // Keep the native error document detached during retry so it cannot flash behind loading.
     var retainedError by remember(engine) { mutableStateOf<PageErrorKind?>(null) }
     val visibleError = if (page.error != null) page.errorKind else retainedError?.takeIf { page.isLoading }
@@ -96,7 +106,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 val inlineShare = !bottomSearchBar && maxWidth >= 296.dp
                 val inlineCopy = !bottomSearchBar && maxWidth >= 328.dp
                 val inlineBlocking = !bottomSearchBar && maxWidth >= 360.dp
-                Row(Modifier.fillMaxWidth().height(56.dp).testTag("browser-address-bar-${tab.id}")
+                Row(Modifier.fillMaxWidth().height(uiDimensions.toolbarHeight).testTag("browser-address-bar-${tab.id}")
                     .then(if (bottomSearchBar) Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow) else Modifier)
                     .padding(start = if (bottomSearchBar) 8.dp else 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
@@ -106,7 +116,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                         color = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f).height(if (bottomSearchBar) 44.dp else 40.dp)
                             .testTag("url-drop-${tab.id}")) {
-                        Box {
+                        // Measure the visible field, excluding Surface's larger touch target.
+                        Box(Modifier.fillMaxSize().onGloballyPositioned { onAddressBarBounds(it.boundsInWindow()) }) {
                         WebUrlDropTarget(Modifier.matchParentSize(), shape = NagiShapes.Pill) { url -> onFocus(); engine.loadUrl(url) }
                         Row(Modifier.fillMaxSize().padding(start = if (bottomSearchBar) 16.dp else 14.dp, end = if (inlineShare) 6.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (!bottomSearchBar) Icon(if (page.url.startsWith("https://")) NagiIcons.Lock else NagiIcons.Search, null, Modifier.size(16.dp))
@@ -138,35 +149,36 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                         }
                     }
                     if (bottomSearchBar) {
-                        IconButton(onClick = onNewTab, modifier = Modifier.size(48.dp).testTag("compact-new-tab-button")) {
+                        IconButton(onClick = onNewTab, modifier = Modifier.size(uiDimensions.controlSize).testTag("compact-new-tab-button")) {
                             Icon(NagiIcons.Plus, strings(R.string.ui_new_tab), Modifier.size(24.dp))
                         }
                         CompactTabsButton(state.visibleTabs.size, onTabs)
                     }
                     Box {
-                        IconButton(onClick = { onFocus(); pageMenu = true }, modifier = Modifier.size(48.dp).testTag("page-menu-${tab.id}")) {
+                        IconButton(onClick = { onFocus(); pageMenu = true }, modifier = Modifier.size(uiDimensions.controlSize).testTag("page-menu-${tab.id}")) {
                             Icon(NagiIcons.Ellipsis, strings(R.string.ui_page_menu), Modifier.size(21.dp)
                                 .then(if (bottomSearchBar) Modifier.rotate(90f) else Modifier))
                         }
                         NagiOverflowMenu(pageMenu, { pageMenu = false }) {
+                            val dimensions = LocalNagiMenuDimensions.current
                             if (engine.supportsPageZoom && canShareLink && page.readerArticle == null) {
                                 val zoomEnabled = !page.isLoading && !page.readerLoading && page.error == null
-                                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().heightIn(min = dimensions.rowHeight).padding(start = dimensions.horizontalPadding), verticalAlignment = Alignment.CenterVertically) {
                                     Text(strings(R.string.ui_page_zoom), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                                     IconButton(onClick = { onFocus(); engine.zoomOut() }, enabled = zoomEnabled && page.canZoomOut,
-                                        modifier = Modifier.size(48.dp).testTag("page-zoom-out")) {
+                                        modifier = Modifier.size(dimensions.rowHeight).testTag("page-zoom-out")) {
                                         Text("−", style = MaterialTheme.typography.headlineSmall,
                                             modifier = Modifier.semantics { contentDescription = strings(R.string.ui_page_zoom_out) })
                                     }
                                     TextButton(onClick = { onFocus(); engine.resetZoom() }, enabled = zoomEnabled && page.pageZoomPercent != 100,
                                         shape = NagiShapes.Rounded, contentPadding = PaddingValues(horizontal = 8.dp),
-                                        modifier = Modifier.widthIn(min = 64.dp).heightIn(min = 48.dp).testTag("page-zoom-reset")
+                                        modifier = Modifier.widthIn(min = 64.dp).heightIn(min = dimensions.rowHeight).testTag("page-zoom-reset")
                                             .semantics { contentDescription = strings(R.string.ui_page_zoom_reset) }) {
                                         Text(java.text.NumberFormat.getPercentInstance().format(page.pageZoomPercent / 100.0))
                                     }
                                     IconButton(onClick = { onFocus(); engine.zoomIn() }, enabled = zoomEnabled && page.canZoomIn,
-                                        modifier = Modifier.size(48.dp).testTag("page-zoom-in")) {
-                                        Icon(NagiIcons.Plus, strings(R.string.ui_page_zoom_in), Modifier.size(20.dp))
+                                        modifier = Modifier.size(dimensions.rowHeight).testTag("page-zoom-in")) {
+                                        Icon(NagiIcons.Plus, strings(R.string.ui_page_zoom_in), Modifier.size(dimensions.iconSize))
                                     }
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -243,10 +255,10 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
         Column {
             if (!bottomSearchBar) AddressBar()
             // Keep page titles aligned across both split panes.
-            if (split) Row(Modifier.fillMaxWidth().height(48.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (split) Row(Modifier.fillMaxWidth().height(uiDimensions.controlSize).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings.tabTitle(tab), Modifier.weight(1f).testTag("split-title-${tab.id}").semantics { selected = focused },
                     style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                IconButton(onClick = onCloseTab, modifier = Modifier.size(48.dp).testTag("close-split-tab:${tab.id}")) {
+                IconButton(onClick = onCloseTab, modifier = Modifier.size(uiDimensions.controlSize).testTag("close-split-tab:${tab.id}")) {
                     Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(21.dp))
                 }
             }
@@ -266,15 +278,19 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 HumanVerificationRecoveryBar(page,
                     onRetry = { onFocus(); engine.setDesktopMode(false) })
             }
-            Box(Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}")) {
+            HistoryBackPreview(historyBackPreview, engine,
+                Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}"),
+                newTab = { NewTabPage({}, compactWindow, state.settings, {}, requestInitialFocus = false) }) {
+              Box(Modifier.fillMaxSize()) {
                 if (visibleError != null) BrowserErrorPage(visibleError, page.isLoading, onFocus) { onFocus(); engine.reload() }
                 else if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
                     val tabs = state.visibleTabs
                     val shortcuts = remember(tabs, tab.id, compactWindow) { newTabShortcuts(tabs, tab.id, compactWindow) }
                     key(tab.id) {
-                        NewTabPage({ onFocus(); onOmnibox() }, compactWindow, state.settings, onCustomizeNewTab,
-                            shortcuts = shortcuts, onResumeTab = onResumeTab, requestInitialFocus = focused)
+                        NewTabPage({ onFocus(); onNewTabSearch(newTabSearchBounds) }, compactWindow, state.settings, onCustomizeNewTab,
+                            shortcuts = shortcuts, onResumeTab = onResumeTab, requestInitialFocus = focused,
+                            onSearchBounds = { newTabSearchBounds = it })
                     }
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
@@ -287,6 +303,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     if (findQuery.isEmpty()) "" else "${if (page.findMatches == 0) 0 else page.activeFindMatch + 1}/${page.findMatches}",
                     onPrevious = { engine.findNext(false) }, onNext = { engine.findNext(true) }, onClose = onCloseFind,
                     modifier = Modifier.align(Alignment.TopEnd))
+              }
             }
             if (bottomSearchBar && !WindowInsets.isImeVisible) AddressBar()
         }

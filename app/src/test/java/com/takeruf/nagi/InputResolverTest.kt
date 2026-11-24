@@ -92,7 +92,7 @@ class InputResolverTest {
         val workspace = WorkspaceSnapshot(spaces = listOf(Space("work", "Work")),
             tabs = listOf(BrowserTab("open", "work", title = "Android Docs"),
                 BrowserTab("closed", "work", title = "Android", closedAt = 1)),
-            searchEngines = engines, history = listOf(HistoryEntry(url = "https://android.com", title = "Android")))
+            searchEngines = engines, history = listOf(HistoryEntry(url = "https://android.com", title = "Android", spaceId = "work")))
         val results = SuggestionProvider.suggestions("android", workspace, BrowserSettings())
         assertTrue(results.any { it.id == "tab:open" })
         assertFalse(results.any { it.id == "tab:closed" })

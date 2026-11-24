@@ -88,6 +88,8 @@ open class MainActivity : ComponentActivity() {
         return false
     }
     override fun onUserLeaveHint() { super.onUserLeaveHint(); host.video.onUserLeave() }
+    override fun onResume() { super.onResume(); host.video.onResumed() }
+    override fun onPause() { host.video.onPaused(); super.onPause() }
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         host.video.onPipChanged(isInPictureInPictureMode)

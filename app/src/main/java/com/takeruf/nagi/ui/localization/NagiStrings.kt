@@ -195,6 +195,8 @@ class NagiStrings(private val context: Context) {
         "Device region" -> invoke(R.string.ui_device_region)
         "Unavailable" -> invoke(R.string.ui_unavailable)
         "Name is required" -> invoke(R.string.ui_name_is_required)
+        "Enter a valid http or https URL" -> invoke(R.string.ui_enter_valid_url)
+        "This URL is already in Favorites" -> invoke(R.string.ui_favorite_url_exists)
         "Keyword must use lowercase letters, numbers, - or _" -> invoke(R.string.ui_keyword_must_use_lowercase_letters_numbers_or)
         "Search URL must contain {query}" -> invoke(R.string.ui_search_url_must_contain_query)
         "Use a valid https search URL" -> invoke(R.string.ui_use_a_valid_https_search_url)

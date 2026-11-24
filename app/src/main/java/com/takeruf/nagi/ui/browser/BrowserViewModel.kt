@@ -14,6 +14,7 @@ data class BrowserUiState(val workspace: WorkspaceSnapshot = WorkspaceSnapshot()
     val visibleTabs get() = workspace.tabs.filter { it.spaceId == currentSpace?.id && it.closedAt == null && it.archivedAt == null }
     val activeTab get() = visibleTabs.firstOrNull { it.id == currentSpace?.activeTabId } ?: visibleTabs.firstOrNull()
     val favorites get() = workspace.bookmarks.filter { it.isFavorite }
+    val history get() = currentSpace?.id?.let { id -> workspace.history.filter { it.spaceId == id } } ?: emptyList()
 }
 
 private data class SpacePreview(val id: String, val name: String, val icon: String, val color: Long)
@@ -47,6 +48,8 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     fun newTab(url: String = "about:blank") = action { state.value.currentSpace?.let { container.tabs.create(it.id, url) } }
     fun newTabInSpace(spaceId: String, url: String) = action { container.tabs.create(spaceId, url, select = false) }
     suspend fun createTab(url: String = "about:blank", select: Boolean = true): String? = state.value.currentSpace?.let { container.tabs.create(it.id, url, select) }
+    suspend fun prepareFavoritePaneDrop(favoriteId: String, targetId: String, splitToRight: Boolean? = null) =
+        container.tabs.prepareFavoritePaneDrop(favoriteId, targetId, splitToRight)
     fun selectTab(id: String) = action { container.tabs.select(id) }
     fun closeTab(id: String) = action { container.tabs.close(id) }
     fun closeSplitTab(id: String, remainingId: String, onClosed: () -> Unit) = action {
@@ -90,8 +93,9 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
     fun deleteSpace(id: String) = action { container.spaces.delete(id) }
     fun selectSpace(id: String) = action { container.spaces.select(id) }
     fun removeBookmark(id: String) = action { container.library.removeBookmark(id) }
+    fun editFavorite(id: String, title: String, url: String) = action { container.library.editFavorite(id, title, url) }
     fun clearHistory() = action { container.library.clearHistory() }
-    fun deleteHistory(id: Long) = action { container.library.deleteHistory(id) }
+    fun deleteHistory(id: Long) = action { state.value.currentSpace?.let { container.library.deleteHistory(id, it.id) } }
     fun importNewTabPhoto(uri: android.net.Uri) {
         if (!canChooseNewTabPhoto || importingNewTabPhoto.value) return
         importingNewTabPhoto.value = true

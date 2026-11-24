@@ -20,6 +20,10 @@ import androidx.core.view.WindowCompat
 import android.app.Activity
 import com.takeruf.nagi.R
 import com.takeruf.nagi.domain.model.ThemeMode
+import com.takeruf.nagi.domain.model.CompactUiMode
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
+import com.takeruf.nagi.ui.components.NagiUiDimensions
+import com.takeruf.nagi.ui.components.hardwareKeyboardConnected
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF426B5A), onPrimary = Color.White,
@@ -92,13 +96,17 @@ internal fun NagiSystemBars(dark: Boolean = MaterialTheme.colorScheme.background
 }
 
 @Composable
-fun NagiTheme(mode: ThemeMode, themeColor: Long = 0xFF426B5A, content: @Composable () -> Unit) {
+fun NagiTheme(mode: ThemeMode, themeColor: Long = 0xFF426B5A,
+    compactUiMode: CompactUiMode = CompactUiMode.AUTO, content: @Composable () -> Unit) {
     val dark = mode == ThemeMode.DARK || mode == ThemeMode.SYSTEM && isSystemInDarkTheme()
     NagiSystemBars(dark)
     // Retarget from the current color on rapid switches. Compose respects animator duration scale.
     val seed by animateColorAsState(Color(themeColor or 0xFF000000),
         animationSpec = tween(250, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)), label = "space-theme")
-    CompositionLocalProvider(LocalNagiDarkTheme provides dark) {
+    val dimensions = NagiUiDimensions(compactUiMode.enabled(hardwareKeyboardConnected()))
+    CompositionLocalProvider(LocalNagiDarkTheme provides dark,
+        LocalNagiUiDimensions provides dimensions,
+        LocalMinimumInteractiveComponentSize provides dimensions.controlSize) {
         MaterialTheme(colorScheme = themeColorScheme(dark, seed.toArgb().toLong()), shapes = NagiShapes.Material, content = content)
     }
 }

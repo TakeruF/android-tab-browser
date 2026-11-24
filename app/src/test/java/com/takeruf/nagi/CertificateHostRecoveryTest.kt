@@ -7,6 +7,20 @@ import org.junit.Test
 class CertificateHostRecoveryTest {
     private val wwwOnly = listOf("www.afpbb.com")
 
+    @Test fun mainDocumentMatchingAcceptsWebViewsCanonicalRoot() {
+        assertTrue(CertificateHostRecovery.matchesMainDocument("https://afpbb.com/", "https://afpbb.com"))
+        assertTrue(CertificateHostRecovery.matchesMainDocument("https://afpbb.com/", "https://AFPBB.com:443/#top"))
+        assertTrue(CertificateHostRecovery.matchesMainDocument("https://afpbb.com/news/a%2Fb?q=%E5%A4%A7", "https://afpbb.com/news/a%2Fb?q=%E5%A4%A7#top"))
+    }
+
+    @Test fun canonicalRootMatchingStillExcludesOtherPagesAndOrigins() {
+        for (error in listOf("https://www.afpbb.com/", "http://afpbb.com/", "https://afpbb.com:444/",
+            "https://afpbb.com/image.jpg", "https://afpbb.com/?other=1", "https://user@afpbb.com/", "not a url")) {
+            assertFalse(error, CertificateHostRecovery.matchesMainDocument(error, "https://afpbb.com"))
+        }
+        assertFalse(CertificateHostRecovery.matchesMainDocument("https://afpbb.com", "invalid"))
+    }
+
     @Test fun movesBareHostToWwwWhenTheCertificateNamesWww() {
         assertEquals("https://www.afpbb.com/", CertificateHostRecovery.wwwRetryUrl("https://afpbb.com", wwwOnly))
         assertEquals("https://www.afpbb.com/", CertificateHostRecovery.wwwRetryUrl("https://AFPBB.com/", listOf("WWW.AFPBB.COM.")))

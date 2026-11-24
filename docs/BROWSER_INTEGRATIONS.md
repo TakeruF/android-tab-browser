@@ -3,6 +3,29 @@
 Page loading failures use a native replacement screen; see [page errors](PAGE_ERRORS.md)
 for transport/certificate handling, preserved site responses and retry/history behavior.
 
+## Mouse input over native pages
+
+`NativeSurface` keeps Compose as the pointer owner above a native WebView. Mouse
+`BUTTON_PRESS` / `BUTTON_RELEASE` events can otherwise reach the focused native
+child through generic dispatch even when a Compose notice owns the click.
+The container forwards these events only for a mouse gesture whose `DOWN` it
+received, matching its device ID and down time. This prevents a translation-card
+button or inert card area from activating a page link underneath it.
+
+A matching final button release is accepted before or after `UP`; a new press
+cannot inherit ownership from an ended gesture. Cancellation, engine replacement,
+child removal and detachment clear ownership. Clicking outside a non-modal notice
+and clicking the page after dismissal still work. Touchscreen input, wheel
+dispatch, keyboard actions and accessibility actions keep their existing paths.
+Android's [cursor input mapper](https://android.googlesource.com/platform/frameworks/native/+/c497a09eb5d2eea5999915a7163e6e44d5185dfd/services/inputflinger/reader/mapper/CursorInputMapper.cpp)
+documents the separate mouse button and pointer events.
+
+`BrowserNoticeInputUiTest` sends raw window events over a real WebView link trap:
+touch and mouse, card padding, disabled/enabled translation controls, dismissal,
+both final-release orders and subsequent page clicks. The translation-action
+case records the real notice's callback without downloading ML Kit models.
+Semantics-only clicks do not establish this Compose/native routing behavior.
+
 ## Camera uploads
 
 `FileSelectionRequest` preserves WebView's capture preference. Single-image JPEG-compatible or unrestricted inputs offer Take photo / Choose files; image inputs requesting capture launch the camera directly. Other MIME types and multiple selection retain the document picker. Android camera permission is requested when the user selects photography.
@@ -97,6 +120,16 @@ above the touch point. Address-bar drop feedback follows the bar's pill shape
 with a thin outline and subtle tint; blank-page targets keep their rounded shape.
 WebView-started drags use the same card while preserving their original payload.
 Their preview fits the native drag surface, which can reduce its size.
+
+## Reloading a pending page
+
+Before an explicit URL navigation commits, WebView's current history entry can
+still be the previous document or `about:blank`. Reload restarts that original
+GET request, including its supplied headers, and lets WebView follow redirects
+again. Headers are not attached directly to a redirect destination. A late
+blank-page history callback cannot replace an active web page's URL or saved
+metadata. Once a document commits, native reload remains responsible for normal
+refreshes and POST resubmission handling.
 
 ## Sleeping tabs
 

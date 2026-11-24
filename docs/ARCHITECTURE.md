@@ -52,23 +52,23 @@ app/src/main/java/com/takeruf/nagi/
 
 The `github` source set owns release metadata, APK verification, and installation under `updates/`; `play` supplies the Play listing action without the APK transport or installer. Both flavors share the browser code. The debug source set contains an IME and autofill provider used only by instrumentation tests. They are absent from release variants.
 
-## Room schema v3
+## Room schema v4
 
 | Table | Primary key | Fields / indexes |
 | --- | --- | --- |
 | spaces | id: String | name, icon, color, position, activeTabId |
 | tabs | id: String | spaceId FK cascade, url, title, faviconUrl, isPinned, position, lastAccessedAt, closedAt, archivedAt, parentTabId, splitRightTabId; indexes on spaceId / closedAt / lastAccessedAt |
 | search_engines | id: String | name, keyword unique index, urlTemplate, iconUrl |
-| history | id: Long auto | url, title, faviconUrl, visitedAt; indexes on url / visitedAt |
+| history | id: Long auto | url, title, faviconUrl, visitedAt, nullable spaceId FK cascade; indexes on url / visitedAt / (spaceId, visitedAt) |
 | bookmarks | id: String | url, title, faviconUrl, nullable spaceId FK cascade, isFavorite, createdAt; indexes on spaceId / url |
 
-`Space.activeTabId` is a logical reference to avoid a cyclic foreign key. Tab deletion, movement, and restoration update the affected Space selection in Room transactions; closing its final tab creates a new tab. The final Space and search engine cannot be deleted. Shared Favorites use `isFavorite=true` and `spaceId=null`; ordinary Bookmarks use `isFavorite=false` and `spaceId=null`. Legacy Space-scoped Favorites are migrated to shared entries on startup. Favorite ordering updates the existing `createdAt` field as an order value.
+`Space.activeTabId` is a logical reference to avoid a cyclic foreign key. Tab deletion, movement, and restoration update the affected Space selection in Room transactions; closing its final tab creates a new tab. The final Space and search engine cannot be deleted. Shared Favorites use `isFavorite=true` and `spaceId=null`; ordinary Bookmarks use `isFavorite=false` and `spaceId=null`. Legacy Space-scoped Favorites are migrated to shared entries on startup. Favorite ordering updates the existing `createdAt` field as an order value. [Favorite editing](FAVORITES.md) updates the name and URL in place, preserving identity and ordering; only a changed URL clears the old favicon.
 
-The 30 most recently closed tabs are retained. History stores up to 5,000 records, exposing the latest 2,000 to suggestions and the history screen. Favicons refer to content-addressed PNGs in app-private files. A bounded origin index selects independent light/dark variants, with legacy paths retained as unclassified fallbacks; see [favicon storage and theme behavior](FAVICONS.md).
+The 30 most recently closed tabs are retained. History stores up to 5,000 records per Space, exposing that Space's latest 2,000 to suggestions and the history screen. The selected Space scopes the repository observation; UI and suggestion filtering also reject stale rows from another Space while selection changes. Favicons refer to content-addressed PNGs in app-private files. A bounded origin index selects independent light/dark variants, with legacy paths retained as unclassified fallbacks; see [favicon storage and theme behavior](FAVICONS.md).
 
-Room JSON schemas are exported to `app/schemas/`. Schema v2 adds nullable `parentTabId`; v3 adds nullable `splitRightTabId` for saved left/right pairs. Non-destructive auto-migrations cover v1 → v2 → v3. The normal workspace retains the database filename `orbit.db` for upgrade continuity. Future schema changes require explicit migration coverage; destructive migration is not used.
+Room JSON schemas are exported to `app/schemas/`. Schema v2 adds nullable `parentTabId`; v3 adds nullable `splitRightTabId` for saved left/right pairs; v4 adds history ownership and its foreign key/index. Non-destructive auto-migrations cover v1 → v2 → v3 → v4. Older shared visits contain no trustworthy Space information: the v4 migration preserves their ids, metadata and timestamps in existing Personal, or the first existing Space if Personal was deleted. A database without Spaces keeps unowned rows until initialization seeds an owner. The normal workspace retains the database filename `orbit.db` for upgrade continuity. Future schema changes require explicit migration coverage; destructive migration is not used.
 
-`LibraryRepository` tracks the last URL and history-row ID per tab for the application lifetime. Reloading or updating the same URL updates its metadata without creating another visit; visiting a different URL then returning creates a new row. `SiteDisplayModeStore` separately persists explicit desktop/mobile choices by normalized host in `site_display_modes` SharedPreferences and applies them before page loads and restoration.
+`LibraryRepository` tracks the last URL, history-row ID and owner Space per tab for the application lifetime. Completion callbacks resolve ownership from that tab in a Room transaction, including background pages; deleted or closed tabs cannot recreate history. Reloading or updating the same URL in the same Space updates metadata without creating another visit; visiting a different URL then returning, or moving the tab to another Space, creates a new row. Space deletion cascades its visits. Individual history-screen removals are scoped to the current Space; Settings → Privacy → Clear history deliberately removes all Spaces after an explicit confirmation. See [Space history](HISTORY_SPACES.md). `SiteDisplayModeStore` separately persists explicit desktop/mobile choices by normalized host in `site_display_modes` SharedPreferences and applies them before page loads and restoration.
 
 DataStore persists theme, sidebarWidth, sidebarCollapsed, defaultSearchEngineId, selectedSpaceId, restoreTabs, desktopDefault, openLinksInNewTab, and archivePeriod, along with theme-color, search, native page-drag, external-app blocking, video PiP/pop-out, and content-blocking preferences. Changes read and apply the current value inside atomic `edit` operations.
 
@@ -92,6 +92,11 @@ last observed settings retained. No read-recovery path writes or clears data.
 
 Navigation starts at `browser` and includes `settings` and `history`. The sidebar is shared; the session controller is retained outside NavHost. Command Bar, Space editing, and search-engine editing use dialogs. Navigation does not destroy every WebView.
 
+System edge-back progress is composition-owned and translates only the focused
+page. `AndroidEngineSurface` supplies bounded, memory-only recent viewport
+previews and native visual-commit signals; history moves only when the gesture
+commits. See [history gestures](HISTORY_GESTURES.md).
+
 ## Engine lifecycle
 
 1. A Compose pane retrieves a session by tab ID.
@@ -99,6 +104,12 @@ Navigation starts at `browser` and includes `settings` and `history`. The sideba
 3. Compact windows render only the selected tab and retain saved Split relationships. Both members of the selected saved pair remain protected from suspension and archiving, so widening can reattach the same live pages. Only the displayed member is visible to the lifecycle and video controllers. In wide windows, both visible Split IDs are provided. Hidden sessions receive `onPause`, visible sessions `onResume`; leaving the browser screen or stopping the Activity also pauses sessions.
 4. Returning to a live tab or Space reuses its engine/page. A suspended tab recreates its engine and restores a history/scroll snapshot where available, otherwise loading the last URL. At most 32 full snapshots are retained in memory.
 5. Closing, archiving, or deleting a tab detaches and destroys its native surface/session. Ending the Activity destroys all sessions.
+
+Video overlays temporarily own their source's native surface. The normal pane
+holder records its currently bound owner and holds at most one child, so a
+returning video cannot attach over a different tab in a reused holder. Actual
+system-PiP exit followed by host resume promotes an existing pop-out to
+fullscreen without replacing its live player. See [video presentation](VIDEO_PRESENTATION.md).
 
 Selected and Split tabs remain protected during Settings and Activity stops. Suspension checks reject unsafe pages, including edited forms, active media, pending uploads/downloads, and permission requests; eligibility is rechecked before disposal. WebView `pauseTimers()` affects the entire process and is not called. `onPause()` does not guarantee that every JavaScript timer stops. Snapshots do not preserve live DOM or arbitrary JavaScript state. After Activity/process termination, pages reload from their Room URLs. See [browser integrations](BROWSER_INTEGRATIONS.md).
 
@@ -136,4 +147,21 @@ References: [TextFieldValue and composition](https://developer.android.com/refer
 
 `SidebarDragState` registers visible row / section / Space rectangles in root coordinates. The stable sidebar owns the pointer gesture, so `LazyColumn` recycling the source row during edge scrolling does not cancel the drag. Touch holds a row; the favicon and mouse use touch-slop-based immediate dragging. Cancel only clears the preview. A drop uses an explicit insertion side, removes the source before calculating its new index, and updates pin status and positions in one Room transaction. Favorite conversion and removal are transactional; Favorites remain a shared shortcut model and do not preserve an active WebView session.
 
-`RegionalSearchDefaults` runs outside workspace initialization, on launch and foreground transitions. An injectable IP lookup and fallback provider make the country policy testable without external requests. A mutex serializes checks; the DataStore atomic edit rechecks the automatic-mode flag so manual choices made during a request win. Region/source/timestamp and the one-time Baidu seed marker are DataStore preferences. The regional-search implementation did not change Room schema v1; current schema v3 is described above. An existing saved default from older versions is treated as manual because the old schema had no manual-choice flag. Fresh installs default to automatic mode; existing users can enable it in Settings.
+Favorite-to-page drops open the shortcut without changing the Bookmark. An
+existing Split pane is navigated and focused explicitly, leaving its partner's
+live engine alone. A single wide page has two equal left/right drop regions
+that create an adjacent tab and pair it atomically with the anchor. The shared
+Favorite tile stays visible while its separate drag preview moves.
+Repository validation rejects stale/cross-Space targets and newly paired
+anchors. Browser navigation remains in `BrowserSessionController`; the ViewModel
+only returns the validated tab and URL. See [Favorite pane drops](FAVORITES.md#drop-into-a-browser-pane).
+
+Collapsed wide rails register the current Space's icon tiles with this same drag
+host and transactional destinations. Touch holds an icon; a primary mouse drag
+starts after touch slop. Tile edges insert/reorder, while a standalone tile's
+center combines tabs and browser-pane targets create or replace Split panes.
+Grouped icons move the whole saved pair and cannot re-split over a page.
+Collapsed previews keep their icon-sized geometry, list edges auto-scroll, and
+resizing into narrow browsing cancels the gesture before a drop can commit.
+
+`RegionalSearchDefaults` runs outside workspace initialization, on launch and foreground transitions. An injectable IP lookup and fallback provider make the country policy testable without external requests. A mutex serializes checks; the DataStore atomic edit rechecks the automatic-mode flag so manual choices made during a request win. Region/source/timestamp and the one-time Baidu seed marker are DataStore preferences. The regional-search implementation did not change Room schema v1; current schema v4 is described above. An existing saved default from older versions is treated as manual because the old schema had no manual-choice flag. Fresh installs default to automatic mode; existing users can enable it in Settings.

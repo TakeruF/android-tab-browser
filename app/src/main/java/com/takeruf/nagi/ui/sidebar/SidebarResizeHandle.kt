@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.takeruf.nagi.domain.model.BrowserSettings
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 import kotlin.math.abs
 
 /** An invisible boundary target; only an active resize reveals the neutral guide. */
@@ -32,6 +33,7 @@ import kotlin.math.abs
 internal fun SidebarResizeHandle(settings: BrowserSettings, onPreview: (Float?, Boolean?) -> Unit,
     onCommit: (Float, Boolean) -> Unit, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
+    val collapsedWidth = LocalNagiUiDimensions.current.collapsedSidebarWidth.value
     val currentSettings by rememberUpdatedState(settings)
     val preview by rememberUpdatedState(onPreview)
     val commit by rememberUpdatedState(onCommit)
@@ -43,7 +45,7 @@ internal fun SidebarResizeHandle(settings: BrowserSettings, onPreview: (Float?, 
     Box(modifier.testTag("sidebar-resize-handle")
         .onGloballyPositioned { originX = it.positionInRoot().x }
         .pointerHoverIcon(cursor)
-        .pointerInput(density) {
+        .pointerInput(density, collapsedWidth) {
             awaitEachGesture {
                 val down = awaitFirstDown()
                 if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
@@ -63,8 +65,8 @@ internal fun SidebarResizeHandle(settings: BrowserSettings, onPreview: (Float?, 
                         if (abs(delta) > slop) dragging = true
                         if (dragging) {
                             resizing = true
-                            val raw = (if (startCollapsed) 72f else startWidth) + delta / density.density
-                            nextCollapsed = raw <= (if (startCollapsed) 102f else 220f)
+                            val raw = (if (startCollapsed) collapsedWidth else startWidth) + delta / density.density
+                            nextCollapsed = raw <= (if (startCollapsed) collapsedWidth + 30f else 220f)
                             nextWidth = raw.coerceIn(220f, 380f)
                             preview(nextWidth, nextCollapsed)
                         }

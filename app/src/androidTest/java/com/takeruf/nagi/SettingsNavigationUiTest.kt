@@ -135,8 +135,9 @@ class SettingsNavigationUiTest {
         closeMenu()
         openSettings()
         compose.selectSettingsCategory("appearance")
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Dark"))
-        compose.onNodeWithText("Dark").performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("settings-theme-select"))
+        compose.onNodeWithTag("settings-theme-select").performClick()
+        compose.onNodeWithTag("settings-theme-dark").performClick()
         capture("adaptive-setting-dark")
         compose.returnToBrowserFromSettings()
         before.forEach { awaitCanvas(it, true) }
@@ -210,8 +211,9 @@ class SettingsNavigationUiTest {
         compose.onNodeWithContentDescription("Back to settings").performClick()
         compose.onNodeWithTag("settings-category-search").assertIsSelected()
         compose.selectSettingsCategory("appearance")
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Dark"))
-        compose.onNodeWithText("Dark").performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("settings-theme-select"))
+        compose.onNodeWithTag("settings-theme-select").performClick()
+        compose.onNodeWithTag("settings-theme-dark").performClick()
         compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().theme == ThemeMode.DARK } }
         capture("wide-appearance-dark")
         compose.selectSettingsCategory("privacy")

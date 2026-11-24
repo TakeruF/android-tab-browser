@@ -4,8 +4,11 @@ import androidx.room.withTransaction
 import com.takeruf.nagi.data.datastore.SettingsStore
 import com.takeruf.nagi.data.room.*
 import com.takeruf.nagi.domain.model.*
+import com.takeruf.nagi.browser.search.InputResolver
 import kotlinx.coroutines.flow.first
 import java.util.UUID
+
+data class FavoritePaneDropResult(val tab: BrowserTab, val url: String)
 
 class TabRepository(private val workspace: WorkspaceRepository, private val settings: SettingsStore) {
     private val dao = workspace.dao
@@ -37,6 +40,40 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
             tab.spaceId
         }
         if (spaceId != null) settings.update { it.copy(selectedSpaceId = spaceId) }
+    }
+    /** Resolve a shared shortcut without moving it; create/pair/select a new pane atomically if requested. */
+    suspend fun prepareFavoritePaneDrop(favoriteId: String, targetId: String,
+        splitToRight: Boolean? = null): FavoritePaneDropResult? {
+        workspace.ready.await()
+        val selectedSpaceId = settings.settings.first().selectedSpaceId
+        return db.withTransaction {
+            val favorite = dao.observeBookmarks().first().firstOrNull { it.id == favoriteId && it.isFavorite }
+                ?: return@withTransaction null
+            val url = InputResolver.normalizeUrl(favorite.url) ?: return@withTransaction null
+            val target = dao.tab(targetId)?.takeIf {
+                it.closedAt == null && it.archivedAt == null && it.spaceId == selectedSpaceId
+            } ?: return@withTransaction null
+            val space = dao.spaces().firstOrNull { it.id == target.spaceId } ?: return@withTransaction null
+            if (splitToRight == null) {
+                dao.putSpace(space.copy(activeTabId = target.id))
+                dao.touchTab(target.id, System.currentTimeMillis())
+                FavoritePaneDropResult(target.model(), url)
+            } else {
+                // A stale edge target must not detach a pair created since the drag began.
+                if (dao.tabs(space.id).any { it.splitRightTabId == target.id ||
+                        it.id == target.id && it.splitRightTabId != null }) return@withTransaction null
+                val id = create(space.id, url, select = false, parentTabId = target.id)
+                val created = dao.tab(id)!!.copy(title = favorite.title, faviconUrl = favorite.faviconUrl,
+                    isPinned = target.isPinned)
+                dao.putTab(created)
+                // Insert beside the anchor before pairing, so a new left member
+                // does not move the pair's sidebar group to the end of the list.
+                drop(id, target.isPinned, target.id, after = splitToRight)
+                if (splitToRight) pair(target.id, id) else pair(id, target.id)
+                dao.putSpace(space.copy(activeTabId = id))
+                FavoritePaneDropResult(dao.tab(id)!!.model(), url)
+            }
+        }
     }
     suspend fun close(id: String, selectNext: Boolean = false) {
         workspace.ready.await()

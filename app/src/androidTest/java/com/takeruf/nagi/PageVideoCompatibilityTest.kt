@@ -36,6 +36,23 @@ class PageVideoCompatibilityTest {
     private fun waitFor(predicate: () -> Boolean) = runBlocking {
         withTimeout(10_000) { while (!predicate()) delay(100) }
     }
+    private fun assertVideoFitsVisualViewport() {
+        val matches = """
+            (()=>{const r=document.getElementById('playing').getBoundingClientRect(),v=visualViewport;
+            return Math.abs(r.left-v.offsetLeft)<1 && Math.abs(r.top-v.offsetTop)<1 &&
+                Math.abs(r.width-v.width)<1 && Math.abs(r.height-v.height)<1 &&
+                getComputedStyle(document.getElementById('playing')).objectFit==='contain';})()
+        """.trimIndent()
+        try { waitFor { js(matches) == "true" } }
+        catch (failure: TimeoutCancellationException) {
+            throw AssertionError("Video does not fit its visual viewport: " + js("""
+                (()=>{const r=document.getElementById('playing').getBoundingClientRect(),v=visualViewport;
+                return JSON.stringify({rect:{left:r.left,top:r.top,width:r.width,height:r.height},
+                    viewport:{left:v.offsetLeft,top:v.offsetTop,width:v.width,height:v.height,scale:v.scale},
+                    layout:{width:innerWidth,height:innerHeight}});})()
+            """.trimIndent()), failure)
+        }
+    }
     @Before fun setup() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         val media = instrumentation.context.assets.open("video.mp4").use { Base64.encodeToString(it.readBytes(), Base64.NO_WRAP) }
@@ -89,9 +106,9 @@ class PageVideoCompatibilityTest {
         js("window.__nagiVideo.control('present'); true")
         assertEquals("false", js("document.getElementById('playing').controls"))
         assertEquals("true", js("document.getElementById('playing').hasAttribute('data-nagi-video-target')"))
-        assertEquals("true", js("(()=>{const r=document.getElementById('playing').getBoundingClientRect();return r.x===0 && r.y===0 && r.width===innerWidth && r.height===innerHeight})()"))
+        assertVideoFitsVisualViewport()
         js("document.getElementById('playing').style.width='100px'; document.getElementById('playing').style.top='30px'; true")
-        assertEquals("true", js("(()=>{const r=document.getElementById('playing').getBoundingClientRect();return r.x===0 && r.y===0 && r.width===innerWidth && r.height===innerHeight})()"))
+        assertVideoFitsVisualViewport()
         js("window.__nagiVideo.control('restore'); true")
         assertEquals(original, js("document.getElementById('playing').getAttribute('style')"))
         assertEquals("\"controls\"", js("document.getElementById('playing').getAttribute('controls')"))
@@ -120,12 +137,7 @@ class PageVideoCompatibilityTest {
                 web.requestLayout()
             }
             waitFor { web.width == width }
-            waitFor { js("""
-                (()=>{const r=document.getElementById('playing').getBoundingClientRect(),v=visualViewport;
-                return Math.abs(r.left-v.offsetLeft)<1 && Math.abs(r.top-v.offsetTop)<1 &&
-                    Math.abs(r.width-v.width)<1 && Math.abs(r.height-v.height)<1 &&
-                    getComputedStyle(document.getElementById('playing')).objectFit==='contain';})()
-            """.trimIndent()) == "true" }
+            assertVideoFitsVisualViewport()
             assertEquals("false", js("document.getElementById('playing').paused"))
         }
         js("window.__nagiVideo.control('restore'); true")

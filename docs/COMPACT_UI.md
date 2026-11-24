@@ -5,13 +5,21 @@ use full-width pages. With the default top-address layout, a 56dp bottom bar
 provides Back, Forward, New tab, Search, and a tab-count button. The optional
 bottom-address layout combines its controls into one row, described below.
 The tab button opens the existing tabs, Favorites, and Spaces interface in a
-modal bottom sheet; selecting a tab, Space, or favorite closes it. History and
+modal bottom sheet. Horizontal Space swipes keep the sheet open so the new
+Space's tabs can be browsed before selecting one; canceled swipes leave the
+current Space unchanged. Selecting a tab or Favorite, clicking a Space icon,
+Back and the close button dismiss it. History and
 Settings remain available in that sheet. Tab action/close buttons have 48dp
 targets in the sheet.
 
 The tab sheet wraps its visible content, so small tab collections keep the header
 and actions near the bottom of the screen. It grows as tabs or expanded sections
 need more room, up to 85% of the available sheet height; larger lists scroll.
+While dragging a tab or Favorite, the sheet holds its measured height and the
+preview is a non-measuring overlay. Temporary drop-section expansion scrolls
+inside that fixed area, so lifting a tab cannot move the sheet or change the
+pointer's coordinate origin. Drop or cancel returns to normal content sizing;
+resizing or dismissing the sheet cancels the drag and clears any landing preview.
 With the software keyboard visible, compact navigation and the optional bottom
 address bar are hidden instead of moving above it. They return when the keyboard
 closes. The browser shell, including the wide sidebar footer and new-tab palette,
@@ -30,6 +38,13 @@ and disappears on release or cancellation; hovering or pressing alone does
 not reveal it. Dragging still collapses at the minimum width, reopens a
 collapsed sidebar, and saves the width only on release.
 
+Collapsed wide-sidebar tab icons accept the same drag destinations as expanded
+rows. Hold an icon on touch, or drag with the primary mouse button, to reorder
+at another tile's edge, combine standalone tabs at its center, or create/replace
+a Split pane over the page. A saved pair moves together without being split
+again. Compact spacing uses the narrower rail without removing these targets;
+resizing below 600dp cancels the drag and retains the saved pair.
+
 **Settings → Appearance → Search bar at bottom** uses one 56dp row below the page:
 the address field, New tab, tab count/list and a vertical three-dot page menu.
 It has no Home button or separate Back/Forward row. The address field shows the
@@ -37,9 +52,20 @@ host (and explicit port); tapping it opens the full URL in the Command Bar.
 Share, Copy link and blocking controls move into the page menu, as does Forward.
 Android Back and keyboard history shortcuts remain available. The choice
 persists across launches and applies only below 600dp; wide windows retain the
-top address bar. With this option enabled, search suggestions appear above the
-input and the input stays above the keyboard. The default remains the top
-address bar with the existing compact navigation controls.
+top address bar. This preference positions the resting browser toolbar. With
+the new search design active, phone search moves its input to the top and fills
+the safe viewport above the keyboard with suggestions on an opaque themed
+surface. Dismissal returns toward the touched entry field. The previous
+centered search design remains selectable. Wide windows keep the address-field
+dropdown over the page at normal brightness. See [COMMAND_BAR.md](COMMAND_BAR.md)
+for placement, motion and editor-state ownership.
+
+External-app and translation notice cards also follow the address-bar position.
+In the compact bottom layout, they sit 16dp above its 56dp toolbar. While page
+input shows the software keyboard and hides that toolbar, notices sit 16dp above
+the keyboard. Switching back to a top address bar or widening the window moves
+the same notice to the top-right position; pending requests and translation
+language selection are retained. Wide and Split windows keep the top placement.
 
 The top-address compact layout moves Back/Forward to the bottom bar and Reload
 into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split is available only in wide windows. Below 600dp, the selected tab fills the page, including either member of a saved pair. The tab sheet lists both members individually; page/tab menus, Command Bar commands, and drag targets do not offer Split creation, replacement, swapping or closing. New-tab resume links also open individual pages in compact mode.
@@ -80,9 +106,23 @@ The page menu offers **Use mobile site** and **Use desktop site**, with the curr
 
 **Settings → General → Use Spaces** (the first setting) defaults to on, preserving existing installations. Both directions first show a confirmation dialog explaining the affected controls, search/restoration scope, colors, retained data and unaffected Favorites/pins/Split. Cancel or dismiss leaves the preference unchanged. Turning it off uses the currently selected Space as a single tab collection. Its tabs, pins, saved Split pairs, Favorites and archive remain available. Other Spaces and their tabs stay in Room and become accessible again when Spaces are enabled; disabling does not merge, move or delete tabs.
 
-Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Space switcher, creation/edit/delete controls, move-to-Space actions and horizontal Space swipes. The expanded list labels its pinned section “Pinned tabs” instead of showing a Space name/icon. The UI keeps the current Space's theme color, so turning Spaces on or off never changes the color; Settings › Appearance › Theme color edits that Space either way. Command Bar suggestions and closed-tab restoration stay within the current Space. Shared Favorites and browsing history remain available. Changing this setting does not reload pages or destroy live WebViews, including either Split pane. The preference persists across restarts.
+Both the wide sidebar (expanded or collapsed) and compact tab sheet hide the Space switcher, creation/edit/delete controls, move-to-Space actions and horizontal Space swipes. The expanded list labels its pinned section “Pinned tabs” instead of showing a Space name/icon. The UI keeps the current Space's theme color, so turning Spaces on or off never changes the color; Settings › Appearance › Theme color edits that Space either way. Command Bar suggestions and closed-tab restoration stay within the current Space. Shared Favorites remain available; history stays within the selected Space. Changing this setting does not reload pages or destroy live WebViews, including either Split pane. The preference persists across restarts.
+
+The collapsed wide sidebar shows only the current Space icon. Its button opens
+an anchored Space picker with the current Space checked and a New Space action;
+the expanded sidebar retains the icon row. Hover or long press shows the current
+Space name. Effective compact spacing uses a 52 dp rail with 36 dp controls;
+standard spacing keeps the 72 dp rail with 48 dp controls. Resizing uses the same
+policy-dependent collapsed width and preserves the saved expanded width.
 
 ## Settings navigation
+
+Settings and other app controls share [compact-view spacing](UI_DENSITY.md).
+Appearance settings provide a current-value button and a three-option anchored
+menu: Always off, With a physical keyboard (the default), and Always on. Theme
+uses the same menu style for System, Light and Dark. Each selected option is
+checked. The category column keeps its 236 dp width in every mode.
+This spacing preference is independent of the 600 dp phone/window layout boundary.
 
 Settings uses a category-and-detail layout. At 760 dp of available settings
 content width, categories stay on the left and the selected category opens on

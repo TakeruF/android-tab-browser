@@ -3,12 +3,14 @@ package com.takeruf.nagi
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.webkit.WebView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.takeruf.nagi.browser.engine.*
+import com.takeruf.nagi.testing.PasskeyHarnessService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -30,6 +32,9 @@ class PasskeyEngineTest {
         override fun hideFullscreen() {}
     }
     private fun main(block: () -> Unit) = InstrumentationRegistry.getInstrumentation().runOnMainSync(block)
+    private fun shell(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command))
+        .bufferedReader().use { it.readText().trim() }
     private fun title(prefix: String): String = runBlocking {
         withTimeout(10_000) { engine.state.first { it.title.startsWith(prefix) }.title }
     }
@@ -83,5 +88,57 @@ class PasskeyEngineTest {
               .then(()=>document.title='cancel:unexpected-success',e=>document.title='cancel:'+e.name);
         """) }
         assertEquals("cancel:AbortError", title("cancel:"))
+    }
+
+    @Test fun validAuthenticationReachesNativeProviderWithWebsiteOrigin() {
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= 34)
+        Assume.assumeTrue(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION))
+        val previous = shell("settings get secure credential_service")
+        val previousPrimary = shell("settings get secure credential_service_primary")
+        // UiAutomation executes the command directly; shell quoting would become part
+        // of the stored provider name. Component lists contain no shell whitespace.
+        val componentList = Regex("[A-Za-z0-9_./:$]+")
+        listOf(previous, previousPrimary).filter { it != "null" && it.isNotBlank() }
+            .forEach { require(componentList.matches(it)) { "Unexpected credential provider setting format" } }
+        val packageName = InstrumentationRegistry.getInstrumentation().targetContext.packageName
+        val component = "$packageName/com.takeruf.nagi.testing.PasskeyHarnessService"
+        val origin = server.origin.replace("127.0.0.1", "localhost")
+        fun restore(key: String, value: String) {
+            shell(if (value == "null" || value.isBlank()) "settings delete secure $key" else "settings put secure $key $value")
+        }
+        try {
+            PasskeyHarnessService.expectedOrigin = origin
+            PasskeyHarnessService.matchingRequests.set(0)
+            PasskeyHarnessService.receivedRequests.set(0)
+            PasskeyHarnessService.lastCallerMatched = false
+            PasskeyHarnessService.lastOriginMatched = false
+            PasskeyHarnessService.lastTypeMatched = false
+            PasskeyHarnessService.lastOriginProbe = "no-provider"
+            shell("settings put secure credential_service $component")
+            shell("settings put secure credential_service_primary $component")
+            assertEquals(component, shell("settings get secure credential_service"))
+            assertEquals(component, shell("settings get secure credential_service_primary"))
+            main { engine.loadUrl("$origin/passkey") }
+            title("Passkey fixture")
+            main { engine.evaluateJavascript("""
+                navigator.credentials.get({publicKey:{challenge:new Uint8Array(32),rpId:'localhost',timeout:5000}})
+                  .then(()=>document.title='native:unexpected-success',e=>document.title='native:'+e.name);
+            """) }
+            assertEquals("native:NotAllowedError", title("native:"))
+            // Only fixture-origin comparison flags; never log a challenge or credential.
+            android.util.Log.i("NagiPasskeyProbe", PasskeyHarnessService.lastOriginProbe)
+            assertTrue("Native GET must reach the provider with its website origin: " +
+                "received=${PasskeyHarnessService.receivedRequests.get()}, " +
+                "caller=${PasskeyHarnessService.lastCallerMatched}, " +
+                "origin=${PasskeyHarnessService.lastOriginMatched}, type=${PasskeyHarnessService.lastTypeMatched}, " +
+                PasskeyHarnessService.lastOriginProbe,
+                PasskeyHarnessService.matchingRequests.get() > 0)
+        } finally {
+            PasskeyHarnessService.expectedOrigin = null
+            restore("credential_service", previous)
+            restore("credential_service_primary", previousPrimary)
+            assertEquals(previous.takeUnless { it.isBlank() } ?: "null", shell("settings get secure credential_service"))
+            assertEquals(previousPrimary.takeUnless { it.isBlank() } ?: "null", shell("settings get secure credential_service_primary"))
+        }
     }
 }

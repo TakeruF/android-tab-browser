@@ -199,4 +199,68 @@ class VideoPresentationTest {
             assertNull(controller.presentation.value)
         } finally { controller.dispose() }
     }
+
+    @Test fun returningFromActualSystemPipExpandsPopupOnlyAfterHostResumes() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        val controller = VideoPresentationController(activity)
+        val view = View(activity)
+        try {
+            controller.setTabContext(setOf("a", "b"), setOf("b"))
+            controller.show(view, "a", VideoPlayback(playing = true, hasVideo = true), popup = true) {}
+            controller.onResumed()
+            controller.onPaused()
+            controller.onPipTransition()
+            controller.onPipChanged(true)
+            controller.onPipChanged(false)
+            assertTrue(controller.presentation.value!!.popup)
+            controller.onResumed()
+            assertFalse(controller.presentation.value!!.popup)
+            assertSame(view, controller.presentation.value!!.view)
+            assertEquals("a", controller.presentation.value!!.tabId)
+            assertTrue(controller.canAutoEnter)
+        } finally { controller.dispose() }
+    }
+
+    @Test fun cancelledPipEntryDoesNotExpandAndDismissedPipCannotReviveOnResume() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        val controller = VideoPresentationController(activity)
+        val commands = mutableListOf<String>()
+        var exits = 0
+        try {
+            controller.setTabContext(setOf("a", "b"), setOf("b"))
+            controller.show(View(activity), "a", VideoPlayback(playing = true, hasVideo = true), popup = true,
+                control = { commands += it }) { exits++ }
+            controller.onPipTransition()
+            controller.onPipChanged(false)
+            controller.onResumed()
+            assertTrue(controller.presentation.value!!.popup)
+
+            controller.onPaused()
+            controller.onPipChanged(true)
+            controller.onPipChanged(false)
+            // The user dismissed the system window instead of resuming the app.
+            controller.onStopped()
+            controller.onResumed()
+            assertNull(controller.presentation.value)
+            assertEquals(listOf("pause"), commands)
+            assertEquals(1, exits)
+        } finally { controller.dispose() }
+    }
+
+    @Test fun taskFinishingDoesNotPromoteItsPendingPopupReturn() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        org.robolectric.Shadows.shadowOf(activity.application).grantPermissions("${activity.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        val controller = VideoPresentationController(activity)
+        try {
+            controller.setTabContext(setOf("a", "b"), setOf("b"))
+            controller.show(View(activity), "a", VideoPlayback(playing = true, hasVideo = true), popup = true) {}
+            controller.onPipChanged(true)
+            controller.onPipChanged(false)
+            activity.finish()
+            controller.onResumed()
+            assertTrue(controller.presentation.value!!.popup)
+        } finally { controller.dispose() }
+    }
 }

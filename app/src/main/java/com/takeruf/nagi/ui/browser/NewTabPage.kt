@@ -1,6 +1,7 @@
 package com.takeruf.nagi.ui.browser
 
 import com.takeruf.nagi.ui.components.hardwareKeyboardConnected
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
@@ -29,6 +30,8 @@ import com.takeruf.nagi.domain.model.BrowserSettings
 import com.takeruf.nagi.domain.model.BrowserTab
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -59,7 +62,7 @@ internal fun newTabShortcuts(tabs: List<BrowserTab>, currentTabId: String, compa
 internal fun NewTabPage(onSearch: () -> Unit, compactWindow: Boolean = false,
     settings: BrowserSettings = BrowserSettings(), onCustomize: () -> Unit = {},
     shortcuts: List<NewTabShortcut> = emptyList(), onResumeTab: (String) -> Unit = {},
-    requestInitialFocus: Boolean = true) {
+    requestInitialFocus: Boolean = true, onSearchBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {}) {
     val strings = rememberNagiStrings()
     val focus = remember { FocusRequester() }
     var pageFocused by remember { mutableStateOf(false) }
@@ -74,13 +77,16 @@ internal fun NewTabPage(onSearch: () -> Unit, compactWindow: Boolean = false,
         contentAlignment = Alignment.Center) {
         NewTabBackground(settings, Modifier.matchParentSize())
         val compact = compactWindow || maxWidth < 320.dp
-        val content = Modifier.padding(bottom = if (shortcuts.isEmpty()) 0.dp else 64.dp)
-            .padding(if (compact) 16.dp else 32.dp).widthIn(max = 440.dp)
+        val dimensions = LocalNagiUiDimensions.current
+        val content = Modifier.padding(bottom = if (shortcuts.isEmpty()) 0.dp else if (dimensions.compact) 48.dp else 64.dp)
+            .padding(dimensions.gutter(!compact)).widthIn(max = 440.dp)
         Column(if (shortcuts.isEmpty()) content else content.verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(onClick = onSearch, shape = NagiShapes.Pill, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            Surface(onClick = onSearch, modifier = Modifier.testTag("new-tab-search")
+                .onGloballyPositioned { onSearchBounds(it.boundsInWindow()) },
+                shape = NagiShapes.Pill, color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurface) {
-                Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().height(dimensions.toolbarHeight).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(NagiIcons.Search, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(if (compact) strings(R.string.ui_search) else strings(R.string.ui_where_would_you_like_to_go), Modifier.weight(1f).padding(start = 12.dp),
                         style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -88,7 +94,7 @@ internal fun NewTabPage(onSearch: () -> Unit, compactWindow: Boolean = false,
                 }
             }
             if (shortcuts.isNotEmpty()) {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(if (dimensions.compact) 16.dp else 24.dp))
                 Surface(shape = NagiShapes.Rounded, color = MaterialTheme.colorScheme.surfaceContainerLow,
                     modifier = Modifier.fillMaxWidth().testTag("new-tab-shortcuts")) {
                     Column {
@@ -99,7 +105,7 @@ internal fun NewTabPage(onSearch: () -> Unit, compactWindow: Boolean = false,
                             val right = shortcut.rightTab
                             Surface(onClick = { onResumeTab(shortcut.tab.id) }, color = Color.Transparent,
                                 modifier = Modifier.fillMaxWidth().testTag("new-tab-shortcut-${shortcut.tab.id}")) {
-                                Row(Modifier.heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 6.dp),
+                                Row(Modifier.heightIn(min = if (dimensions.compact) 40.dp else 56.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Icon(if (right != null) NagiIcons.Columns2 else if (shortcut.tab.isPinned) NagiIcons.Pin else NagiIcons.PanelsTopLeft,
                                         if (right != null) strings(R.string.ui_saved_split) else if (shortcut.tab.isPinned) strings(R.string.ui_pinned_tab) else null,

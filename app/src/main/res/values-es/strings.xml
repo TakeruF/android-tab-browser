@@ -41,9 +41,13 @@
     <string name="ui_emoji_or_custom_icon">"Emoji o icono personalizado"</string>
     <string name="ui_icon">"Icono"</string>
     <string name="ui_theme">"Tema"</string>
-    <string name="ui_its_tabs_will_be_removed_shared_favorites_stay_available">"Se eliminarán sus pestañas. Los favoritos compartidos seguirán disponibles."</string>
+    <string name="ui_its_tabs_will_be_removed_shared_favorites_stay_available">"Se eliminarán sus pestañas y su historial de navegación. Los favoritos compartidos seguirán disponibles."</string>
     <string name="ui_show_actions">"Mostrar acciones"</string>
     <string name="ui_remove_favorite">"Quitar de favoritos"</string>
+    <string name="ui_edit_favorite">Editar favorito</string>
+    <string name="ui_url">URL</string>
+    <string name="ui_enter_valid_url">Introduce una URL http o https válida</string>
+    <string name="ui_favorite_url_exists">Esta URL ya está en Favoritos</string>
     <string name="ui_unpin_tab">"Desfijar pestaña"</string>
     <string name="ui_pin_tab">"Fijar pestaña"</string>
     <string name="ui_add_to_favorites">"Añadir a favoritos"</string>
@@ -98,7 +102,7 @@
     <string name="ui_private_browsing_and_content_blocking_are_planned_for_a_later_release">"La navegación privada y el bloqueo de contenido están previstos para una versión posterior."</string>
     <string name="ui_nagi_0_1_0_made_for_a_little_more_room">"Nagi 0.1.0  ·  Un poco más de espacio para ti."</string>
     <string name="ui_clear_browsing_history_199567">"¿Borrar el historial de navegación?"</string>
-    <string name="ui_this_removes_saved_visits_from_this_device">"Se eliminarán las visitas guardadas en este dispositivo."</string>
+    <string name="ui_this_removes_saved_visits_from_this_device">"Se eliminarán las visitas guardadas en todos los espacios de este dispositivo."</string>
     <string name="ui_clear_history">"Borrar historial"</string>
     <string name="ui_edit_search_engine">"Editar motor de búsqueda"</string>
     <string name="ui_name">"Nombre"</string>
@@ -470,4 +474,12 @@
     <string name="ui_page_certificate_description">No se pudo verificar el certificado del sitio. Inténtalo más tarde.</string>
     <string name="ui_page_error_title">No se pudo abrir esta página</string>
     <string name="ui_page_error_description">Comprueba la dirección o inténtalo más tarde.</string>
+    <string name="ui_compact_display">Interfaz compacta</string>
+    <string name="ui_compact_display_description">Reduce el espacio en menús, listas y controles.</string>
+    <string name="ui_compact_display_off">Siempre desactivada</string>
+    <string name="ui_compact_display_auto">Con un teclado físico</string>
+    <string name="ui_compact_display_on">Siempre activada</string>
+    <string name="ui_command_bar_use_centered">Volver a la interfaz anterior</string>
+    <string name="ui_command_bar_dismiss_notice">Ocultar aviso</string>
+    <string name="ui_command_bar_use_new_design">Usar el nuevo diseño</string>
 </resources>

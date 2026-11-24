@@ -1,6 +1,7 @@
 package com.takeruf.nagi.ui.settings
 
 import com.takeruf.nagi.ui.components.hardwareKeyboardConnected
+import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
@@ -36,9 +37,11 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.drawWithContent
@@ -49,6 +52,7 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import com.takeruf.nagi.browser.search.InputResolver
 import com.takeruf.nagi.browser.search.AiSearchEngines
 import com.takeruf.nagi.browser.search.CommonSearchEngines
@@ -74,6 +78,7 @@ internal enum class SettingsCategory(val title: Int) {
 private fun SettingsCategoryRow(category: SettingsCategory, selected: Boolean, compact: Boolean,
     shape: androidx.compose.ui.graphics.Shape? = null, onClick: () -> Unit) {
     val strings = rememberNagiStrings()
+    val dimensions = LocalNagiUiDimensions.current
     val icon = when (category) {
         SettingsCategory.GENERAL -> NagiIcons.SlidersHorizontal
         SettingsCategory.APPEARANCE -> NagiIcons.Palette
@@ -90,9 +95,9 @@ private fun SettingsCategoryRow(category: SettingsCategory, selected: Boolean, c
         .background(if (selected) MaterialTheme.colorScheme.secondaryContainer
             else if (shape != null) MaterialTheme.colorScheme.surfaceBright else Color.Transparent)
         .selectable(selected = selected, role = if (compact) Role.Button else Role.Tab, onClick = onClick)
-        .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Icon(icon, null, Modifier.size(22.dp), tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+        .heightIn(min = dimensions.categoryHeight).padding(horizontal = dimensions.sectionInset, vertical = dimensions.rowVerticalPadding), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(dimensions.sectionInset)) {
+        Icon(icon, null, Modifier.size(if (dimensions.compact) 20.dp else 22.dp), tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
         Text(strings(category.title), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
             color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
@@ -101,9 +106,11 @@ private fun SettingsCategoryRow(category: SettingsCategory, selected: Boolean, c
 
 @Composable
 internal fun SettingsAction(title: String, modifier: Modifier = Modifier, subtitle: String? = null, onClick: () -> Unit) {
+    val dimensions = LocalNagiUiDimensions.current
     // Chrome rows carry no chevron; an optional supporting line explains the action.
     Column(modifier.fillMaxWidth().clickable(onClick = onClick)
-        .heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.Center) {
+        .heightIn(min = dimensions.settingsRowHeight).padding(horizontal = dimensions.rowHorizontalPadding,
+            vertical = dimensions.actionVerticalPadding), verticalArrangement = Arrangement.Center) {
         Text(title)
         if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -112,6 +119,7 @@ internal fun SettingsAction(title: String, modifier: Modifier = Modifier, subtit
 @Composable
 fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData: () -> Unit = {}, updateSection: @Composable () -> Unit = {}, onSuspendTabs: () -> Unit = {}, displayRotation: Int = 0, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
+    val dimensions = LocalNagiUiDimensions.current
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val autofillAvailable = com.takeruf.nagi.browser.engine.PasswordAutofillAvailability.enabled
@@ -164,7 +172,8 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
         val licensesOpen = showingLicenses && category == SettingsCategory.ABOUT && !showCategories
         val searchEnginesOpen = customizingEngines && category == SettingsCategory.SEARCH && !showCategories
         Column(Modifier.fillMaxSize()) {
-            if (!((licensesOpen || searchEnginesOpen) && !wide)) Row(Modifier.fillMaxWidth().padding(horizontal = if (wide) 24.dp else 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!((licensesOpen || searchEnginesOpen) && !wide)) Row(Modifier.fillMaxWidth().padding(horizontal = if (wide) (if (dimensions.compact) 20.dp else 24.dp) else 12.dp,
+                vertical = dimensions.headerVerticalPadding), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(if (wide || showCategories) R.string.ui_back_to_browser else R.string.ui_back_to_settings),
                     onClick = { if (wide || showCategories) onBack() else selectedCategory = null })
                 Text(strings(if (wide || showCategories) R.string.ui_settings else category.title), Modifier.padding(start = 12.dp),
@@ -172,7 +181,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
             }
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 if (wide || showCategories) {
-                    LazyColumn(Modifier.then(if (wide) Modifier.width(236.dp) else Modifier.fillMaxWidth()).fillMaxHeight()
+                    LazyColumn(Modifier.then(if (wide) Modifier.width(dimensions.categoryWidth) else Modifier.fillMaxWidth()).fillMaxHeight()
                         .testTag("settings-categories"), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(if (wide) 4.dp else SegmentGap)) {
                         categories.forEachIndexed { index, destination -> item(key = destination.name) {
@@ -188,12 +197,13 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                 } else if (searchEnginesOpen) Column(Modifier.weight(1f).fillMaxHeight()) {
                     SearchEnginesPane(state, vm, wide, onBack = { customizingEngines = false })
                 } else if (!showCategories) Column(Modifier.weight(1f).fillMaxHeight()) {
-                    if (wide) Text(strings(category.title), Modifier.padding(start = 32.dp, top = 8.dp, bottom = 20.dp),
+                    if (wide) Text(strings(category.title), Modifier.padding(start = dimensions.gutter(true), top = 8.dp,
+                        bottom = if (dimensions.compact) 12.dp else 20.dp),
                         style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                     key(category) {
                         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("settings-list"),
-                            contentPadding = PaddingValues(start = if (wide) 32.dp else 16.dp, end = if (wide) 32.dp else 16.dp, bottom = 32.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            contentPadding = PaddingValues(start = dimensions.gutter(wide), end = dimensions.gutter(wide), bottom = dimensions.gutter(true)),
+                            verticalArrangement = Arrangement.spacedBy(dimensions.sectionGap)) {
                             if (category == SettingsCategory.GENERAL) item { SettingsSection(strings(R.string.ui_general), NagiIcons.Globe, showHeading = false) {
                                 SettingToggle(strings(R.string.ui_spaces_enabled), null, prefs.spacesEnabled) { value ->
                                     pendingSpacesEnabled = value
@@ -206,6 +216,14 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                 DownloadLocationSetting(prefs.downloadFolder, onChange = vm::updateDownloadFolder)
                             } }
                             if (category == SettingsCategory.COMMAND_BAR) {
+                                item { SettingsSection(strings(R.string.ui_command_bar_use_new_design), NagiIcons.Search, showHeading = false) {
+                                    SettingToggle(strings(R.string.ui_command_bar_use_new_design), null,
+                                        prefs.commandBarLayout == CommandBarLayout.ANCHORED,
+                                        Modifier.testTag("command-bar-layout-setting")) { enabled ->
+                                        vm.updateSettings { it.copy(commandBarLayout = if (enabled) CommandBarLayout.ANCHORED else CommandBarLayout.CENTERED,
+                                            commandBarLayoutNoticeDismissed = true) }
+                                    }
+                                } }
                                 item { Text(strings(R.string.ui_command_bar_description),
                                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                 item { SettingsSection(strings(R.string.ui_command_bar_suggestions), NagiIcons.Search, showHeading = false) {
@@ -227,7 +245,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                             } }
                             if (category == SettingsCategory.SEARCH) item { SettingsSection(strings(R.string.ui_search_engines), NagiIcons.Search, showHeading = false) {
                                 var defaultsMenu by remember { mutableStateOf(false) }
-                                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().padding(dimensions.sectionInset), verticalAlignment = Alignment.CenterVertically) {
                                     Text(strings(R.string.ui_default_search_engine), Modifier.weight(1f))
                                     Box {
                                         TextButton(shape = NagiShapes.Rounded, onClick = { defaultsMenu = true }) {
@@ -242,7 +260,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                     }
                                 }
                                 var aiDefaultsMenu by remember { mutableStateOf(false) }
-                                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().padding(dimensions.sectionInset), verticalAlignment = Alignment.CenterVertically) {
                                     Text(strings(R.string.ui_default_ai_engine), Modifier.weight(1f))
                                     Box {
                                         TextButton(shape = NagiShapes.Rounded, modifier = Modifier.testTag("default-ai-engine"), onClick = { aiDefaultsMenu = true }) {
@@ -270,7 +288,17 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                 SettingsAction(strings(R.string.ui_customize_search_engines), Modifier.testTag("customize-search-engines")) { customizingEngines = true }
                             } }
                             if (category == SettingsCategory.APPEARANCE) item { SettingsSection(strings(R.string.ui_appearance), NagiIcons.Palette, showHeading = false) {
-                                SettingToggle(strings(R.string.ui_bottom_search_bar), strings(R.string.ui_bottom_search_bar_description), prefs.bottomSearchBar) { value ->
+                                SettingChoice(strings(R.string.ui_compact_display), prefs.compactUiMode,
+                                    CompactUiMode.entries, "compact-ui-setting", NagiIcons.SlidersHorizontal,
+                                    label = { mode -> strings(when (mode) {
+                                        CompactUiMode.OFF -> R.string.ui_compact_display_off
+                                        CompactUiMode.AUTO -> R.string.ui_compact_display_auto
+                                        CompactUiMode.ON -> R.string.ui_compact_display_on
+                                    }) }, subtitle = strings(R.string.ui_compact_display_description)) { mode ->
+                                    vm.updateSettings { it.copy(compactUiMode = mode) }
+                                }
+                                SettingToggle(strings(R.string.ui_bottom_search_bar), strings(R.string.ui_bottom_search_bar_description), prefs.bottomSearchBar,
+                                    Modifier.testTag("settings-bottom-search-bar")) { value ->
                                     vm.updateSettings { it.copy(bottomSearchBar = value) }
                                 }
                                 SettingToggle(strings(R.string.ui_avoid_camera_overlap), strings(R.string.ui_avoid_camera_overlap_description), prefs.avoidCameraOverlap) { value ->
@@ -317,11 +345,13 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                     }
                                 }
                                 SettingsAction(strings(R.string.ui_new_tab_background), Modifier.testTag("settings-new-tab-background")) { customizingNewTab = true }
-                                Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp)) {
-                                    Text(strings(R.string.ui_theme))
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        ThemeMode.entries.forEach { mode -> FilterChip(selected = prefs.theme == mode, onClick = { vm.updateSettings { it.copy(theme = mode) } }, label = { Text(strings(when (mode) { ThemeMode.SYSTEM -> R.string.ui_system; ThemeMode.LIGHT -> R.string.ui_light; ThemeMode.DARK -> R.string.ui_dark })) }) }
-                                    }
+                                SettingChoice(strings(R.string.ui_theme), prefs.theme, ThemeMode.entries,
+                                    "settings-theme", NagiIcons.Palette, label = { mode -> strings(when (mode) {
+                                        ThemeMode.SYSTEM -> R.string.ui_system
+                                        ThemeMode.LIGHT -> R.string.ui_light
+                                        ThemeMode.DARK -> R.string.ui_dark
+                                    }) }) { mode ->
+                                    vm.updateSettings { it.copy(theme = mode) }
                                 }
                                 val pageDarkeningSupported = remember { com.takeruf.nagi.browser.engine.PageDarkening.supported }
                                 SettingToggle(strings(R.string.ui_adaptive_dark_mode),
@@ -338,7 +368,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                     if (themeSpace != null) vm.editSpace(themeSpace.id, themeSpace.name, themeSpace.icon, value)
                                     else vm.updateSettings { it.copy(themeColor = value) }
                                 }
-                                Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(dimensions.rowHorizontalPadding)) {
                                     Text(strings(R.string.ui_theme_color))
                                     if (themeSpace != null && prefs.spacesEnabled) Text(strings(R.string.ui_theme_color_applies_to_1_s, strings.spaceName(themeSpace)),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -350,7 +380,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                     editingThemeColor = false
                                 }
                                 var width by remember(prefs.sidebarWidth) { mutableFloatStateOf(prefs.sidebarWidth) }
-                                Column(Modifier.padding(16.dp)) {
+                                Column(Modifier.padding(dimensions.sectionInset)) {
                                     Row { Text(strings(R.string.ui_sidebar_width), Modifier.weight(1f)); Text(if (prefs.sidebarCollapsed) strings(R.string.ui_collapsed) else "${width.toInt()} dp", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                                     Slider(value = width, onValueChange = { width = it }, valueRange = 220f..380f,
                                         onValueChangeFinished = {
@@ -362,21 +392,21 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                 }
                             } }
                             if (category == SettingsCategory.TABS) item { SettingsSection(strings(R.string.ui_tabs), NagiIcons.PanelsTopLeft, showHeading = false) {
-                                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.padding(dimensions.sectionInset), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
                                         Text(strings(R.string.ui_restore_a_closed_tab))
                                         if (hardwareKeyboardConnected()) Text("Ctrl Shift T", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     TextButton(shape = NagiShapes.Rounded, onClick = { vm.restoreClosed() }) { Text(strings(R.string.ui_restore)) }
                                 }
-                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(Modifier.padding(dimensions.sectionInset), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(strings(R.string.ui_sleep_tabs_description), style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     TextButton(shape = NagiShapes.Rounded, onClick = onSuspendTabs, modifier = Modifier.testTag("suspend-background-tabs")) {
                                         Text(strings(R.string.ui_sleep_tabs))
                                     }
                                 }
-                                Column(Modifier.padding(16.dp)) {
+                                Column(Modifier.padding(dimensions.sectionInset)) {
                                     Text(strings(R.string.ui_archive_inactive_tabs))
                                     Text(strings(R.string.ui_checked_on_launch_or_when_you_choose_archive_now_pinned_b64b52e0),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -390,7 +420,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
                                 }
                             } }
                             if (category == SettingsCategory.AUTOFILL && autofillAvailable) item { SettingsSection(strings(R.string.ui_password_autofill), NagiIcons.KeyRound, showHeading = false) {
-                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(Modifier.padding(dimensions.sectionInset), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(strings(if (autofillManager?.isAutofillSupported != true) R.string.ui_autofill_unsupported
                                         else if (autofillEnabled) R.string.ui_autofill_enabled else R.string.ui_autofill_disabled),
                                         modifier = Modifier.testTag("autofill-status"), style = MaterialTheme.typography.titleSmall)
@@ -458,6 +488,7 @@ fun SettingsScreen(state: BrowserUiState, vm: BrowserViewModel, onClearSiteData:
 @Composable
 private fun SearchEnginesPane(state: BrowserUiState, vm: BrowserViewModel, wide: Boolean, onBack: () -> Unit) {
     val strings = rememberNagiStrings()
+    val dimensions = LocalNagiUiDimensions.current
     val prefs = state.settings
     val commonIds = CommonSearchEngines.ids(prefs)
     val enginesById = state.workspace.searchEngines.associateBy { it.id }
@@ -467,10 +498,10 @@ private fun SearchEnginesPane(state: BrowserUiState, vm: BrowserViewModel, wide:
     var editing by remember { mutableStateOf<SearchEngine?>(null) }
     var adding by remember { mutableStateOf(false) }
     BackHandler(onBack = onBack)
-    val gutter = if (wide) 32.dp else 16.dp
+    val gutter = dimensions.gutter(wide)
     Column(Modifier.fillMaxSize().testTag("search-engines-screen")) {
         if (wide) {
-            Row(Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 8.dp, bottom = 20.dp)
+            Row(Modifier.fillMaxWidth().padding(start = gutter, end = gutter, top = 8.dp, bottom = if (dimensions.compact) 12.dp else 20.dp)
                 .testTag("search-engines-breadcrumb"), verticalAlignment = Alignment.CenterVertically) {
                 Text(strings(R.string.ui_search_engines), Modifier.clip(NagiShapes.Rounded)
                     .clickable(role = Role.Button, onClick = onBack)
@@ -485,7 +516,7 @@ private fun SearchEnginesPane(state: BrowserUiState, vm: BrowserViewModel, wide:
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
         } else {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = dimensions.headerVerticalPadding), verticalAlignment = Alignment.CenterVertically) {
                 ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back_to_settings), onClick = onBack)
                 Text(strings(R.string.ui_customize_search_engines), Modifier.padding(start = 12.dp),
                     style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
@@ -493,8 +524,8 @@ private fun SearchEnginesPane(state: BrowserUiState, vm: BrowserViewModel, wide:
             }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("search-engines-list"),
-            contentPadding = PaddingValues(start = gutter, end = gutter, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            contentPadding = PaddingValues(start = gutter, end = gutter, bottom = dimensions.gutter(true)),
+            verticalArrangement = Arrangement.spacedBy(dimensions.sectionGap)) {
         item { SettingsSection(strings(R.string.ui_common_search_engines), NagiIcons.Search) {
             Text(strings(R.string.ui_common_search_engines_description), Modifier.padding(16.dp),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -543,7 +574,7 @@ private fun SearchEnginesPane(state: BrowserUiState, vm: BrowserViewModel, wide:
                             }
                         }
                         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp)) {
-                            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = dimensions.settingsRowHeight), verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = id in commonIds, enabled = !isDefault,
                                     onCheckedChange = { enabled -> vm.updateSettings { CommonSearchEngines.select(it, id, enabled) } },
                                     modifier = Modifier.testTag("common-engine:$id").semantics {
@@ -581,9 +612,10 @@ private fun CommonSearchEngineToggle(
     onChange: (Boolean) -> Unit,
 ) {
     val strings = rememberNagiStrings()
+    val dimensions = LocalNagiUiDimensions.current
     Row(Modifier.fillMaxWidth().testTag("selected-common-engine:$id")
         .toggleable(value = selected, enabled = !isDefault, role = Role.Switch, onValueChange = onChange)
-        .padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        .padding(horizontal = dimensions.sectionInset, vertical = dimensions.actionVerticalPadding), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 20.dp)) {
             SearchEngineTitle(title, isAi, isDefault)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1,
@@ -615,9 +647,10 @@ private fun SearchEngineTitle(title: String, isAi: Boolean, isDefault: Boolean) 
 
 @Composable
 internal fun SettingsSection(title: String, @Suppress("UNUSED_PARAMETER") icon: ImageVector, showHeading: Boolean = true, content: @Composable () -> Unit) {
+    val dimensions = LocalNagiUiDimensions.current
     Column(Modifier.widthIn(max = 1000.dp)) {
         // Chrome-style section label: small, accent-colored, no icon.
-        if (showHeading) Text(title, Modifier.padding(start = 20.dp, bottom = 10.dp).semantics { heading() },
+        if (showHeading) Text(title, Modifier.padding(start = dimensions.rowHorizontalPadding, bottom = 10.dp).semantics { heading() },
             style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) { SettingsSegments(content) }
     }
@@ -675,7 +708,8 @@ private fun SettingsSegments(content: @Composable () -> Unit) {
 /** A read-only settings row: a label with its value underneath. */
 @Composable
 private fun SettingsInfo(title: String, value: String) {
-    Column(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 16.dp),
+    val dimensions = LocalNagiUiDimensions.current
+    Column(Modifier.fillMaxWidth().heightIn(min = dimensions.settingsRowHeight).padding(horizontal = dimensions.rowHorizontalPadding, vertical = dimensions.actionVerticalPadding),
         verticalArrangement = Arrangement.Center) {
         Text(title)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -683,10 +717,48 @@ private fun SettingsInfo(title: String, value: String) {
 }
 
 @Composable
+private fun <T : Enum<T>> SettingChoice(title: String, value: T, options: List<T>, tag: String,
+    icon: ImageVector, label: (T) -> String, subtitle: String? = null, onChange: (T) -> Unit) {
+    val dimensions = LocalNagiUiDimensions.current
+    var expanded by remember { mutableStateOf(false) }
+    val currentLabel = label(value)
+    Column(Modifier.fillMaxWidth().testTag(tag).heightIn(min = dimensions.settingsRowHeight)
+        .padding(horizontal = dimensions.rowHorizontalPadding, vertical = dimensions.rowVerticalPadding)) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val valueMaxWidth = maxWidth * 0.62f
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(title, Modifier.weight(1f))
+                Box(Modifier.widthIn(max = valueMaxWidth)) {
+                    TextButton(onClick = { expanded = true }, shape = NagiShapes.Rounded,
+                        modifier = Modifier.testTag("$tag-select").semantics { contentDescription = title; stateDescription = currentLabel }) {
+                        Text(currentLabel, Modifier.weight(1f, fill = false), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(NagiIcons.ChevronDown, null, Modifier.size(20.dp))
+                    }
+                    NagiOverflowMenu(expanded, { expanded = false }) {
+                        options.forEach { option ->
+                            NagiOverflowMenuItem(text = { Text(label(option)) },
+                                leadingIcon = { Icon(if (option == value) NagiIcons.Check else icon, null) },
+                                modifier = Modifier.testTag("$tag-${option.name.lowercase()}").semantics { selected = option == value },
+                                onClick = { expanded = false; onChange(option) })
+                        }
+                    }
+                }
+            }
+        }
+        if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
 private fun SettingToggle(title: String, subtitle: String?, value: Boolean, modifier: Modifier = Modifier,
     enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    val dimensions = LocalNagiUiDimensions.current
     Row(modifier.fillMaxWidth().toggleable(value = value, enabled = enabled, role = Role.Switch, onValueChange = onChange)
-        .heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        .heightIn(min = dimensions.settingsRowHeight).padding(horizontal = dimensions.rowHorizontalPadding,
+            vertical = dimensions.rowVerticalPadding), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 20.dp).alpha(if (enabled) 1f else 0.38f)) {
             Text(title)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

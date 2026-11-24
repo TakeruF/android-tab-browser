@@ -33,13 +33,24 @@ data class SearchEngine(
 )
 
 data class HistoryEntry(val id: Long = 0, val url: String, val title: String,
-    val faviconUrl: String? = null, val visitedAt: Long = System.currentTimeMillis())
+    val faviconUrl: String? = null, val visitedAt: Long = System.currentTimeMillis(),
+    val spaceId: String? = null)
 
 data class Bookmark(val id: String, val url: String, val title: String,
     val faviconUrl: String? = null, val spaceId: String? = null,
     val isFavorite: Boolean = false, val createdAt: Long = System.currentTimeMillis())
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class CommandBarLayout { ANCHORED, CENTERED }
+enum class CompactUiMode {
+    OFF, AUTO, ON;
+
+    fun enabled(hardwareKeyboardAvailable: Boolean): Boolean = when (this) {
+        OFF -> false
+        AUTO -> hardwareKeyboardAvailable
+        ON -> true
+    }
+}
 enum class NewTabBackground { DEFAULT, SOLID, GRADIENT, PHOTO }
 enum class ArchivePeriod(val days: Int?) { NEVER(null), DAY(1), WEEK(7), MONTH(30) }
 
@@ -93,6 +104,9 @@ data class BrowserSettings(
     val commandBar: CommandBarSettings = CommandBarSettings(),
     val adaptiveDarkMode: Boolean = false,
     val darkModeExcludedHosts: Set<String> = emptySet(),
+    val compactUiMode: CompactUiMode = CompactUiMode.AUTO,
+    val commandBarLayout: CommandBarLayout = CommandBarLayout.ANCHORED,
+    val commandBarLayoutNoticeDismissed: Boolean = false,
 )
 
 data class WorkspaceSnapshot(
