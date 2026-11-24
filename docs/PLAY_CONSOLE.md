@@ -1,5 +1,19 @@
 # Google Play release preparation
 
+## Latest production submission — 2026-11-24
+
+**1.5.0 / code 23 is IN_REVIEW**, independently confirmed by the official
+production lifecycle. Console shows Changes in review, quick checks running
+and the Start full rollout request. Managed publishing is off, so approval
+will publish automatically. **Public 1.5.0 availability is not yet confirmed**;
+1.4.1/code 22 remains PUBLISHED.
+
+The accepted signed AAB matches clean source a30729b and immutable tag v1.5.0.
+All six [release-note blocks](play-store/release-notes-1.5.0.txt), country support,
+store listings and other tracks were reread and preserved. The GitHub release
+remains a source-only draft with no APK/AAB assets. See
+[1.5.0 verification](RELEASE_1.5.0_VERIFICATION.md).
+
 ## Latest production publication — 2026-11-19
 
 **1.4.1 / code 22 is PUBLISHED**, confirmed by the official production release
