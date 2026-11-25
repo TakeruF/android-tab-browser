@@ -1,0 +1,35 @@
+<en-US>
+Refreshed the phone toolbar and page menu. A Home button opens the home screen in the current tab.
+Back, Forward, Copy link, Share and Reload stay at the bottom of the menu.
+Simplified tab lists and the sidebar, with larger Close targets in the phone tab list.
+</en-US>
+
+<es-ES>
+Renovamos la barra del teléfono y el menú de página. El botón Inicio abre la pantalla de inicio en la pestaña actual.
+Atrás, Adelante, Copiar enlace, Compartir y Recargar permanecen al pie del menú.
+Simplificamos las listas de pestañas y la barra lateral, con botones Cerrar más fáciles de pulsar en la lista del teléfono.
+</es-ES>
+
+<fr-FR>
+La barre du téléphone et le menu de page ont été repensés. Le bouton Accueil ouvre l’accueil dans l’onglet actuel.
+Retour, Suivant, Copier le lien, Partager et Actualiser restent en bas du menu.
+Les listes d’onglets et la barre latérale sont simplifiées, avec des boutons Fermer plus grands dans la liste du téléphone.
+</fr-FR>
+
+<ja-JP>
+スマートフォンのツールバーとページメニューを刷新しました。ホームボタンで、今のタブをホーム画面に戻せます。
+戻る・進む・リンクコピー・共有・再読み込みをメニュー下部にまとめました。
+タブ一覧とサイドバーの表示を整理し、スマートフォンのタブ一覧で閉じるボタンを押しやすくしました。
+</ja-JP>
+
+<zh-CN>
+重新设计了手机工具栏和网页菜单。主页按钮可在当前标签页打开主页。
+后退、前进、复制链接、分享和重新加载按钮固定在菜单底部。
+简化了标签页列表和侧边栏，并增大了手机标签页列表中的关闭按钮触控区域。
+</zh-CN>
+
+<ko-KR>
+휴대전화 툴바와 페이지 메뉴를 새롭게 디자인했습니다. 홈 버튼으로 현재 탭에서 홈 화면을 열 수 있습니다.
+뒤로, 앞으로, 링크 복사, 공유, 새로고침 버튼을 메뉴 하단에 고정했습니다.
+탭 목록과 사이드바를 정리하고 휴대전화 탭 목록의 닫기 버튼 터치 영역을 넓혔습니다.
+</ko-KR>

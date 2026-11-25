@@ -16,7 +16,9 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.5.0 adds a new search design, keyboard-aware compact spacing, Space-specific history and improved dragging and video behavior. It was submitted for a full Google Play production rollout on 2026-11-24 and is in review; store availability is not yet confirmed. See [1.5.0 notes](docs/releases/1.5.0.md).
+Version 1.6.0 refreshes the phone toolbar and page menu, adds a Home button, and simplifies tab rows. Release preparation is in progress; Google Play submission and availability are not yet established. See [1.6.0 notes](docs/releases/1.6.0.md).
+
+Version 1.5.0 adds a new search design, keyboard-aware compact spacing, Space-specific history and improved dragging and video behavior. Google Play publication was confirmed on 2026-11-25. See [1.5.0 notes](docs/releases/1.5.0.md).
 
 Version 1.4.1 retains the 1.4.0 phone/keyboard improvements and fixes custom-settings retention. Google Play code 22 is published, confirmed by the release lifecycle API on 2026-11-19. See [1.4.1 notes](docs/releases/1.4.1.md) for scope, verification and release status.
 
