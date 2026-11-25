@@ -22,6 +22,7 @@ import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -43,7 +44,6 @@ import com.takeruf.nagi.browser.engine.PageErrorKind
 import com.takeruf.nagi.domain.model.BrowserTab
 import com.takeruf.nagi.ui.components.ToolButton
 import com.takeruf.nagi.ui.components.AddressActionButton
-import com.takeruf.nagi.ui.components.NagiOverflowMenu
 import com.takeruf.nagi.ui.components.NagiOverflowMenuItem
 import com.takeruf.nagi.ui.components.LocalNagiMenuDimensions
 import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
@@ -58,6 +58,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onSiteDarkModeChange: (String, Boolean) -> Unit = { _, _ -> },
     onVisitBlockingChange: (Boolean) -> Unit = {}, onCustomizeNewTab: () -> Unit = {}, compactWindow: Boolean = false,
     onNewTab: () -> Unit = {}, onTabs: () -> Unit = {},
+    onHistory: () -> Unit = {}, onSettings: () -> Unit = {},
+    pageMenuState: BrowserPageMenuState = remember { BrowserPageMenuState() },
     onTranslationOptions: () -> Unit = {}, onResumeTab: (String) -> Unit = {},
     historyBackPreview: HistoryBackPreviewState? = null,
     onAddressBarBounds: (Rect) -> Unit = {},
@@ -85,7 +87,8 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             putExtra(Intent.EXTRA_SUBJECT, page.title)
         }, strings(R.string.ui_share_link)))
     }
-    var pageMenu by remember { mutableStateOf(false) }
+    val pageMenu = pageMenuState.tabId == tab.id
+    var pageMenuHostBounds by remember(tab.id) { mutableStateOf<Rect?>(null) }
     val siteHost = com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url)
     val darkTheme = state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.DARK ||
         state.settings.theme == com.takeruf.nagi.domain.model.ThemeMode.SYSTEM && isSystemInDarkTheme()
@@ -103,13 +106,18 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
             BoxWithConstraints(Modifier.then(if (bottomSearchBar) Modifier.testTag("compact-browser-bar") else Modifier)) {
                 val compact = compactWindow || maxWidth < 320.dp
                 // Each address action takes 32dp; retain share, then copy, then the shield.
-                val inlineShare = !bottomSearchBar && maxWidth >= 296.dp
-                val inlineCopy = !bottomSearchBar && maxWidth >= 328.dp
-                val inlineBlocking = !bottomSearchBar && maxWidth >= 360.dp
+                val inlineShare = !compactWindow && maxWidth >= 296.dp
+                val inlineCopy = !compactWindow && maxWidth >= 328.dp
+                val inlineBlocking = !compactWindow && maxWidth >= 360.dp
                 Row(Modifier.fillMaxWidth().height(uiDimensions.toolbarHeight).testTag("browser-address-bar-${tab.id}")
+                    .onGloballyPositioned { if (bottomSearchBar) pageMenuState.bottomBarBounds = it.boundsInWindow() }
                     .then(if (bottomSearchBar) Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow) else Modifier)
                     .padding(start = if (bottomSearchBar) 8.dp else 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!compactWindow) ToolButton(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack) { onFocus(); engine.goBack() }
+                    if (bottomSearchBar) IconButton(onClick = { onFocus(); onCloseFind(); engine.loadUrl("about:blank") },
+                        modifier = Modifier.size(uiDimensions.controlSize).testTag("compact-home-button")) {
+                        Icon(NagiIcons.House, strings(R.string.ui_go_home), Modifier.size(22.dp))
+                    }
                     if (!split && !compact) ToolButton(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward) { onFocus(); engine.goForward() }
                     if (!compact) ToolButton(NagiIcons.RotateCw, strings(R.string.ui_reload)) { onFocus(); engine.reload() }
                     Surface(onClick = { onFocus(); onOmnibox() }, shape = NagiShapes.Pill,
@@ -154,12 +162,50 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                         }
                         CompactTabsButton(state.visibleTabs.size, onTabs)
                     }
-                    Box {
-                        IconButton(onClick = { onFocus(); pageMenu = true }, modifier = Modifier.size(uiDimensions.controlSize).testTag("page-menu-${tab.id}")) {
+                    Box(Modifier.onGloballyPositioned {
+                        // The top-address layout has a zero-size popup host; keep its origin even then.
+                        val origin = it.localToWindow(androidx.compose.ui.geometry.Offset.Zero)
+                        pageMenuHostBounds = Rect(origin.x, origin.y,
+                            origin.x + it.size.width, origin.y + it.size.height)
+                    }) {
+                        if (!compactWindow || bottomSearchBar) IconButton(onClick = { onFocus(); pageMenuState.toggle(tab.id) }, modifier = Modifier.size(uiDimensions.controlSize).testTag("page-menu-${tab.id}")) {
                             Icon(NagiIcons.Ellipsis, strings(R.string.ui_page_menu), Modifier.size(21.dp)
-                                .then(if (bottomSearchBar) Modifier.rotate(90f) else Modifier))
+                                .then(if (compactWindow) Modifier.rotate(90f) else Modifier))
                         }
-                        NagiOverflowMenu(pageMenu, { pageMenu = false }) {
+                        BrowserPageMenu(pageMenu, compactWindow, { pageMenuState.tabId = null },
+                            bottomBarBounds = pageMenuState.bottomBarBounds, hostBounds = pageMenuHostBounds, actions = {
+                            val dimensions = LocalNagiMenuDimensions.current
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                // Divide whole pixels so rounding cannot squeeze the last button.
+                                val buttonSize = minOf(dimensions.rowHeight,
+                                    with(LocalDensity.current) { (constraints.maxWidth / 5).toDp() })
+                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides buttonSize) {
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("compact-page-actions"),
+                                        horizontalArrangement = Arrangement.SpaceBetween) {
+                                        @Composable
+                                        fun Action(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String,
+                                            enabled: Boolean = true, tag: String, action: () -> Unit) {
+                                            FilledTonalIconButton(onClick = { onFocus(); pageMenuState.tabId = null; action() }, enabled = enabled,
+                                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+                                                modifier = Modifier.size(buttonSize).testTag(tag)) {
+                                                Icon(icon, label, Modifier.size(dimensions.iconSize))
+                                            }
+                                        }
+                                        Action(NagiIcons.ArrowBack, strings(R.string.ui_back), page.canGoBack || page.readerArticle != null,
+                                            "menu-back") { engine.goBack() }
+                                        Action(NagiIcons.ArrowForward, strings(R.string.ui_forward), page.canGoForward,
+                                            "menu-forward") { engine.goForward() }
+                                        Action(NagiIcons.Link, strings(R.string.ui_copy_link), canShareLink,
+                                            "menu-copy-url:${tab.id}", copyLink)
+                                        Action(NagiIcons.Share, strings(R.string.ui_share_link), canShareLink,
+                                            "menu-share-url:${tab.id}", shareLink)
+                                        Action(NagiIcons.RotateCw, strings(R.string.ui_reload), canShareLink,
+                                            "menu-reload") { engine.reload() }
+                                    }
+                                }
+                            }
+                        }) {
                             val dimensions = LocalNagiMenuDimensions.current
                             if (engine.supportsPageZoom && canShareLink && page.readerArticle == null) {
                                 val zoomEnabled = !page.isLoading && !page.readerLoading && page.error == null
@@ -183,13 +229,13 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
-                            if (!inlineShare) {
+                            if (!compactWindow && !inlineShare) {
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Share, null) }, text = { Text(strings(R.string.ui_share_link)) }, enabled = canShareLink,
-                                    modifier = Modifier.testTag("menu-share-url:${tab.id}"), onClick = { pageMenu = false; shareLink() })
+                                    modifier = Modifier.testTag("menu-share-url:${tab.id}"), onClick = { pageMenuState.tabId = null; shareLink() })
                             }
-                            if (!inlineCopy) {
+                            if (!compactWindow && !inlineCopy) {
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Link, null) }, text = { Text(strings(R.string.ui_copy_link)) }, enabled = canShareLink,
-                                    modifier = Modifier.testTag("menu-copy-url:${tab.id}"), onClick = { pageMenu = false; copyLink() })
+                                    modifier = Modifier.testTag("menu-copy-url:${tab.id}"), onClick = { pageMenuState.tabId = null; copyLink() })
                             }
                             if (!inlineBlocking) {
                                 val siteHost = com.takeruf.nagi.browser.engine.SiteDisplayModeStore.siteHost(page.url)
@@ -198,54 +244,65 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                                     text = { Text(strings(if (siteBlocking) R.string.ui_disable_site_blocking else R.string.ui_enable_site_blocking, page.blockedRequests)) },
                                     enabled = siteHost != null && state.settings.adBlockingEnabled,
                                     modifier = Modifier.testTag("site-ad-blocking"),
-                                    onClick = { siteHost?.let { onAdBlockingChange(it, !siteBlocking) }; pageMenu = false })
+                                    onClick = { siteHost?.let { onAdBlockingChange(it, !siteBlocking) }; pageMenuState.tabId = null })
                             }
-                            if (compact) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) }, text = { Text(strings(R.string.ui_reload)) }, onClick = { engine.reload(); pageMenu = false })
+                            if (compact && !compactWindow) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) },
+                                text = { Text(strings(R.string.ui_reload)) }, modifier = Modifier.testTag("menu-reload"),
+                                onClick = { engine.reload(); pageMenuState.tabId = null })
                             if (engine.supportsPasswordAutofill)
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.KeyRound, null) },
                                     text = { Text(strings(R.string.ui_fill_saved_password)) },
                                     modifier = Modifier.testTag("request-password-autofill"),
                                     enabled = !page.isLoading && !page.readerLoading && page.readerArticle == null && page.error == null &&
                                         (page.url.startsWith("https://") || page.url.startsWith("http://")),
-                                    onClick = { pageMenu = false; engine.requestPasswordAutofill() })
+                                    onClick = { pageMenuState.tabId = null; engine.requestPasswordAutofill() })
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Languages, null) }, text = { Text(strings(R.string.ui_translate_page)) },
                                 modifier = Modifier.testTag("translate-page"), enabled = !page.isLoading && !page.readerLoading && page.error == null &&
                                     (page.url.startsWith("https://") || page.url.startsWith("http://")),
-                                onClick = { onFocus(); pageMenu = false; onTranslationOptions() })
+                                onClick = { onFocus(); pageMenuState.tabId = null; onTranslationOptions() })
                             if (page.translation.active) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.RotateCw, null) },
                                 text = { Text(strings(R.string.ui_translation_original)) }, modifier = Modifier.testTag("menu-translation-restore"),
-                                onClick = { pageMenu = false; engine.restoreOriginalPage() })
+                                onClick = { pageMenuState.tabId = null; engine.restoreOriginalPage() })
                             NagiOverflowMenuItem(leadingIcon = { Icon(if (!page.desktopMode) NagiIcons.Check else NagiIcons.Smartphone, null) },
                                 text = { Text(strings(R.string.ui_use_mobile_site)) }, enabled = page.desktopMode,
                                 modifier = Modifier.testTag("display-mode:mobile").semantics { selected = !page.desktopMode },
-                                onClick = { engine.setDesktopMode(false); pageMenu = false })
+                                onClick = { engine.setDesktopMode(false); pageMenuState.tabId = null })
                             NagiOverflowMenuItem(leadingIcon = { Icon(if (page.desktopMode) NagiIcons.Check else NagiIcons.Monitor, null) },
                                 text = { Text(strings(R.string.ui_use_desktop_site)) }, enabled = !page.desktopMode,
                                 modifier = Modifier.testTag("display-mode:desktop").semantics { selected = page.desktopMode },
-                                onClick = { engine.setDesktopMode(true); pageMenu = false })
+                                onClick = { engine.setDesktopMode(true); pageMenuState.tabId = null })
                             if (darkTheme && state.settings.adaptiveDarkMode && engine.supportsPageDarkening &&
                                 siteHost != null && page.readerArticle == null) {
                                 val siteDarkMode = siteHost !in state.settings.darkModeExcludedHosts
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Moon, null) },
                                     text = { Text(strings(if (siteDarkMode) R.string.ui_disable_site_dark_mode else R.string.ui_enable_site_dark_mode)) },
                                     modifier = Modifier.testTag("site-dark-mode"),
-                                    onClick = { onSiteDarkModeChange(siteHost, !siteDarkMode); pageMenu = false })
+                                    onClick = { onSiteDarkModeChange(siteHost, !siteDarkMode); pageMenuState.tabId = null })
                             }
                             NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.BookOpen, null) },
                                 text = { Text(strings(if (page.readerArticle != null) R.string.ui_exit_reader else R.string.ui_reader_mode)) },
                                 modifier = Modifier.testTag("reader-mode"), enabled = canShareLink && !page.isLoading && !page.readerLoading,
-                                onClick = { engine.toggleReader(); pageMenu = false })
+                                onClick = { engine.toggleReader(); pageMenuState.tabId = null })
                             if ((context as? com.takeruf.nagi.MainActivity)?.isPrivateBrowsing != true)
                                 NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Lock, null) }, text = { Text(strings(R.string.ui_private_mode)) },
                                     modifier = Modifier.testTag("open-private-mode"),
-                                    onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenu = false })
-                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenu = false })
-                            // The one-row bottom toolbar, Split and narrow wide panes have no Forward button.
-                            if (bottomSearchBar || (!compactWindow && (split || compact))) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, enabled = page.canGoForward, onClick = { engine.goForward(); pageMenu = false })
-                            if (!compactWindow && !split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenu = false })
+                                    onClick = { (context as? com.takeruf.nagi.MainActivity)?.openPrivateBrowsing(); pageMenuState.tabId = null })
+                            NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Search, null) }, text = { Text(strings(R.string.ui_find_in_page)) }, onClick = { onFind(); pageMenuState.tabId = null })
+                            // Compact keeps history controls in the fixed bottom action row.
+                            if (!compactWindow && (split || compact)) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowForward, null) }, text = { Text(strings(R.string.ui_forward)) }, modifier = Modifier.testTag("menu-forward"), enabled = page.canGoForward, onClick = { engine.goForward(); pageMenuState.tabId = null })
+                            if (compactWindow) {
+                                com.takeruf.nagi.ui.components.NagiOverflowMenuDivider()
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Plus, null) }, text = { Text(strings(R.string.ui_new_tab)) },
+                                    onClick = { pageMenuState.tabId = null; onNewTab() })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.History, null) }, text = { Text(strings(R.string.ui_history)) },
+                                    onClick = { pageMenuState.tabId = null; onHistory() })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Settings, null) }, text = { Text(strings(R.string.ui_settings)) },
+                                    onClick = { pageMenuState.tabId = null; onSettings() })
+                            }
+                            if (!compactWindow && !split) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_new_split_view)) }, onClick = { onSplit(); pageMenuState.tabId = null })
                             else if (!compactWindow) {
-                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenu = false })
-                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_split_view)) }, onClick = { onCloseSplit(); pageMenu = false })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.ArrowLeftRight, null) }, text = { Text(strings(R.string.ui_swap_panes)) }, onClick = { onSwap(); pageMenuState.tabId = null })
+                                NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_split_view)) }, onClick = { onCloseSplit(); pageMenuState.tabId = null })
                             }
                         }
                     }

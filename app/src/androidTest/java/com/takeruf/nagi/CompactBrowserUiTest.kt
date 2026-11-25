@@ -1,5 +1,9 @@
 package com.takeruf.nagi
 
+import android.app.Activity
+import android.app.Instrumentation
+import android.content.ClipboardManager
+import android.content.Intent
 import android.os.ParcelFileDescriptor
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.Assert.*
+import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalTestApi::class)
 class CompactBrowserUiTest {
@@ -274,6 +279,8 @@ class CompactBrowserUiTest {
             runBlocking { container.settings.update { it.copy(bottomSearchBar = bottom,
                 theme = if (bottom) com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
             compose.waitForIdle()
+            // Address navigation may have closed the editor before the native IME finished hiding.
+            awaitFooter()
             val fullHeight = view.height
             compose.runOnIdle {
                 view.requestFocus()
@@ -288,7 +295,9 @@ class CompactBrowserUiTest {
             compose.onNodeWithTag("compact-browser-bar").assertDoesNotExist()
             if (bottom) compose.onNodeWithTag("browser-address-bar-$active").assertDoesNotExist()
             else compose.onNodeWithTag("browser-address-bar-$active").assertIsDisplayed()
-            assertTrue("Page still resizes above the keyboard", view.height < fullHeight)
+            // Native View layout can finish after Compose has removed the footer.
+            compose.waitUntil(5_000) { view.height < fullHeight }
+            assertTrue("Page still resizes above the keyboard: before=$fullHeight after=${view.height}", view.height < fullHeight)
             assertSame(view, webViews().single())
             assertDraft(view)
             capturePanel("page-keyboard-${if (bottom) "bottom-dark" else "top-light"}")
@@ -331,13 +340,16 @@ class CompactBrowserUiTest {
             assertEquals(1, compose.onAllNodesWithTag("compact-browser-bar").fetchSemanticsNodes().size)
             compose.onNodeWithTag("compact-browser-bar").assertHeightIsEqualTo(56.dp)
             val address = compose.onNodeWithTag("url-drop-$active").fetchSemanticsNode().boundsInRoot
+            val home = compose.onNodeWithTag("compact-home-button").assertIsDisplayed()
+                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
             val plus = compose.onNodeWithTag("compact-new-tab-button").assertIsDisplayed()
                 .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
             val tabs = compose.onNodeWithTag("compact-tabs-button").assertIsDisplayed()
                 .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
             val menu = compose.onNodeWithTag("page-menu-$active").assertIsDisplayed()
                 .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
-            assertTrue(address.right <= plus.left + 1f && plus.right <= tabs.left + 1f && tabs.right <= menu.left + 1f)
+            assertTrue(home.right <= address.left + 1f && address.right <= plus.left + 1f && plus.right <= tabs.left + 1f && tabs.right <= menu.left + 1f)
+            assertTrue("URL remains usable at the narrowest width", address.width >= 100 * compose.activity.resources.displayMetrics.density)
             assertEquals(address.center.y, plus.center.y, 1f)
             assertEquals(plus.center.y, tabs.center.y, 1f)
             assertEquals(tabs.center.y, menu.center.y, 1f)
@@ -345,7 +357,7 @@ class CompactBrowserUiTest {
             val row = compose.onNodeWithTag("browser-address-bar-$active").fetchSemanticsNode().boundsInRoot
             assertTrue("Single toolbar follows the page", row.top >= page.bottom - 1f)
             compose.onNodeWithText(server.origin.removePrefix("http://")).assertIsDisplayed()
-            for (label in listOf(R.string.ui_back, R.string.ui_forward, R.string.ui_new_tab_home)) {
+            for (label in listOf(R.string.ui_back, R.string.ui_forward)) {
                 compose.onAllNodes(hasContentDescription(compose.activity.getString(label)) and
                     hasAnyAncestor(hasTestTag("compact-browser-bar"))).assertCountEquals(0)
             }
@@ -364,14 +376,14 @@ class CompactBrowserUiTest {
         compose.onNodeWithTag("menu-share-url:$active").assertIsDisplayed()
         compose.onNodeWithTag("menu-copy-url:$active").assertIsDisplayed()
         compose.onNodeWithTag("site-ad-blocking").assertIsDisplayed()
-        compose.onNodeWithText("Forward").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("menu-forward").assertIsNotEnabled()
         shell("input keyevent 4")
         open("${server.origin}/two"); awaitTitle("Fixture Two")
         awaitKeyboardHidden()
         shell("input keyevent 4")
         awaitDisplayMode(false)
         compose.onNodeWithTag("page-menu-$active").performClick()
-        compose.onNodeWithText("Forward").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithTag("menu-forward").assertIsEnabled().performClick()
         awaitTitle("Fixture Two")
         assertSame(view, webViews().single())
         compose.onNodeWithTag("compact-new-tab-button").performClick()
@@ -385,6 +397,188 @@ class CompactBrowserUiTest {
         compose.onNodeWithTag("compact-tab-sheet").assertDoesNotExist()
         awaitUrl("${server.origin}/two")
         assertSame(view, webViews().single())
+    }
+
+    @Test fun phoneHomeAndMenuKeepTabIdentityAndSimplifyTabRows() {
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val other = runBlocking { container.tabs.create(spaceId, "${server.origin}/two", select = false) }
+        val ids = runBlocking { container.workspace.dao.tabs(spaceId).filter { it.closedAt == null }.map { it.id }.toSet() }
+        fun awaitNoKeyboard() {
+            compose.waitUntil(10_000) {
+                val insets = androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                compose.activity.hasWindowFocus() && insets != null &&
+                    !insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) &&
+                    insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom == 0
+            }
+            compose.waitForIdle()
+        }
+        for (bottom in listOf(false, true)) {
+            runBlocking { container.settings.update { it.copy(bottomSearchBar = bottom,
+                theme = if (bottom) com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
+            open("${server.origin}/one"); awaitTitle("Fixture One"); awaitNoKeyboard()
+            val view = webViews().single()
+            compose.onNodeWithTag("page-menu-$active").performClick()
+            compose.onNodeWithTag("compact-page-menu").assertIsDisplayed()
+            compose.onNodeWithTag("menu-reload").assertIsEnabled()
+            compose.onNodeWithTag("menu-pin").assertDoesNotExist()
+            compose.onNodeWithTag("menu-copy-url:$active").assertIsEnabled().performClick()
+            awaitNoKeyboard()
+            compose.runOnIdle {
+                assertEquals("${server.origin}/one", compose.activity.getSystemService(ClipboardManager::class.java)
+                    .primaryClip?.getItemAt(0)?.text?.toString())
+            }
+            assertSame(view, webViews().single())
+            val sharedIntent = AtomicReference<Intent?>()
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val monitor = object : Instrumentation.ActivityMonitor() {
+                override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                    if (intent.action != Intent.ACTION_CHOOSER) return null
+                    sharedIntent.set(intent)
+                    return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+                }
+            }
+            instrumentation.addMonitor(monitor)
+            try {
+                compose.onNodeWithTag("page-menu-$active").performClick()
+                compose.onNodeWithTag("menu-share-url:$active").assertIsEnabled().performClick()
+                compose.waitUntil(5_000) { sharedIntent.get() != null }
+                @Suppress("DEPRECATION")
+                val send = sharedIntent.get()!!.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
+                assertEquals(Intent.ACTION_SEND, send.action)
+                assertEquals("text/plain", send.type)
+                assertEquals("${server.origin}/one", send.getStringExtra(Intent.EXTRA_TEXT))
+                assertEquals("Fixture One", send.getStringExtra(Intent.EXTRA_SUBJECT))
+            } finally { instrumentation.removeMonitor(monitor) }
+            awaitNoKeyboard()
+            assertSame(view, webViews().single())
+            compose.onNodeWithTag("page-menu-$active").performClick()
+            capturePanel("phone-menu-${if (bottom) "bottom-dark" else "top-light"}")
+            compose.onNodeWithText(compose.activity.getString(R.string.ui_settings)).performScrollTo().performClick()
+            compose.returnToBrowserFromSettings()
+            assertSame(view, webViews().single())
+            compose.onNodeWithTag("page-menu-$active").performClick()
+            compose.onNodeWithText(compose.activity.getString(R.string.ui_history)).performScrollTo().performClick()
+            compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_back_to_browser)).performClick()
+            awaitUrl("${server.origin}/one")
+            assertSame(view, webViews().single())
+            compose.onNodeWithTag("compact-tabs-button").performClick()
+            val otherTitle = runBlocking { container.workspace.dao.tab(other)!!.title }
+            for ((id, title) in listOf(active to "Fixture One", other to otherTitle)) {
+                compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_actions_for_1_s, title)).assertDoesNotExist()
+                compose.onNodeWithTag("sidebar-tab-$id").performScrollTo()
+                compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_close_1_s, title))
+                    .assertIsDisplayed().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+            }
+            capturePanel("phone-tabs-${if (bottom) "bottom-dark" else "top-light"}")
+            compose.onNodeWithTag("sidebar-tab-$active").performClick()
+            compose.onNodeWithTag("compact-home-button").assertIsDisplayed()
+                .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).performClick()
+            compose.waitUntil(10_000) { runBlocking { container.workspace.dao.tab(active)?.url == "about:blank" } }
+            compose.onNodeWithTag("new-tab-page").assertIsDisplayed()
+            assertEquals(ids, runBlocking { container.workspace.dao.tabs(spaceId).filter { it.closedAt == null }.map { it.id }.toSet() })
+            assertEquals(active, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+            capturePanel("phone-home-${if (bottom) "bottom-dark" else "top-light"}")
+            compose.onNodeWithTag("page-menu-$active").performClick()
+            compose.onNodeWithTag("menu-copy-url:$active").assertIsNotEnabled()
+            compose.onNodeWithTag("menu-share-url:$active").assertIsNotEnabled()
+            shell("input keyevent 4")
+            awaitNoKeyboard()
+            shell("input keyevent 4")
+            awaitUrl("${server.origin}/one")
+            assertSame(view, webViews().single())
+        }
+    }
+
+    @Test fun phoneMenuKeepsChromeWidthAndFiveFixedBottomActions() {
+        open("${server.origin}/ua-chrome-popup"); awaitDisplayMode(false)
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val view = webViews().single()
+        enterDraft(view)
+        for ((width, height, bottom) in listOf(Triple(320, 820, false), Triple(411, 820, true), Triple(360, 540, true))) {
+            resize(width, height)
+            runBlocking { container.settings.update { it.copy(bottomSearchBar = bottom,
+                theme = if (bottom) com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
+            compose.waitForIdle()
+            val bar = compose.onNodeWithTag("compact-browser-bar").fetchSemanticsNode().boundsInRoot
+            val trigger = compose.onNodeWithTag("page-menu-$active").assertIsDisplayed()
+            assertTrue(trigger.fetchSemanticsNode().boundsInRoot.top >= bar.top - 1f)
+            trigger.performClick()
+            compose.waitUntil(5_000) { !compose.activity.hasWindowFocus() }
+            val menu = compose.onNodeWithTag("compact-page-menu").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val density = compose.activity.resources.displayMetrics.density
+            val menuCoordinates = compose.onNodeWithTag("compact-page-menu").fetchSemanticsNode().layoutInfo.coordinates
+            val barCoordinates = compose.onNodeWithTag("compact-browser-bar").fetchSemanticsNode().layoutInfo.coordinates
+            val menuBottom = menuCoordinates.localToScreen(androidx.compose.ui.geometry.Offset.Zero).y + menuCoordinates.size.height
+            val barTop = barCoordinates.localToScreen(androidx.compose.ui.geometry.Offset.Zero).y
+            assertEquals("Popup overlaps the actual bar by 12dp", 12 * density, menuBottom - barTop, 2f)
+            assertTrue("Chrome-style menu leaves a visible strip of the page on the left", menu.width <= width * density * 0.74f)
+            assertTrue("Menu retains room for readable rows", menu.width >= width * density * 0.65f)
+            for (tag in listOf("compact-page-navigation", "compact-page-menu-close", "compact-page-menu-handle"))
+                compose.onNodeWithTag(tag).assertDoesNotExist()
+            val footer = compose.onNodeWithTag("compact-page-actions").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("Common actions stay next to the popup bottom", menu.bottom - footer.bottom <= 16 * density + 1f)
+            compose.onNodeWithTag("menu-pin").assertDoesNotExist()
+            compose.onNodeWithText(compose.activity.getString(R.string.ui_copy_link)).assertDoesNotExist()
+            compose.onNodeWithText(compose.activity.getString(R.string.ui_share_link)).assertDoesNotExist()
+            val actionTags = listOf("menu-back", "menu-forward", "menu-copy-url:$active", "menu-share-url:$active", "menu-reload")
+            val buttonSize = minOf(48.dp, (footer.width / density / 5).dp)
+            val buttons = actionTags.map { tag ->
+                compose.onNodeWithTag(tag).assertIsDisplayed().assertWidthIsEqualTo(buttonSize).assertHeightIsEqualTo(buttonSize)
+                    .fetchSemanticsNode().boundsInRoot
+            }
+            assertTrue("Five buttons fit in one horizontal row", buttons.zipWithNext().all { (left, right) ->
+                left.right <= right.left + 1f && kotlin.math.abs(left.top - right.top) <= 1f
+            })
+            capturePanel("chrome-popup-$width-${if (bottom) "bottom-dark" else "top-light"}")
+            compose.onNodeWithText(compose.activity.getString(R.string.ui_settings)).performScrollTo().assertIsDisplayed()
+            assertEquals(footer, compose.onNodeWithTag("compact-page-actions").fetchSemanticsNode().boundsInRoot)
+            for (tag in actionTags)
+                compose.onNodeWithTag(tag).assertIsDisplayed()
+            capturePanel("chrome-popup-scrolled-$width")
+            shell("input keyevent 4")
+            compose.waitUntil(5_000) { compose.activity.hasWindowFocus() &&
+                compose.onAllNodesWithTag("compact-page-menu").fetchSemanticsNodes().isEmpty() }
+            assertSame(view, webViews().single()); assertDraft(view)
+        }
+    }
+
+    @Test fun phonePopupClosesFromTriggerOutsideTapAndBack() {
+        open("${server.origin}/ua-close-popup"); awaitDisplayMode(false)
+        val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId!! }
+        val view = webViews().single()
+        enterDraft(view)
+        val ids = runBlocking { container.workspace.dao.tabs(spaceId).filter { it.closedAt == null }.map { it.id } }
+        fun awaitClosed() {
+            compose.waitUntil(5_000) { compose.activity.hasWindowFocus() &&
+                compose.onAllNodesWithTag("compact-page-menu").fetchSemanticsNodes().isEmpty() }
+            assertSame(view, webViews().single()); assertDraft(view)
+            assertEquals(active, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+            assertEquals(ids, runBlocking { container.workspace.dao.tabs(spaceId).filter { it.closedAt == null }.map { it.id } })
+        }
+        fun openPopup() {
+            compose.onNodeWithTag("page-menu-$active").performClick()
+            compose.waitUntil(5_000) { !compose.activity.hasWindowFocus() &&
+                compose.onAllNodesWithTag("compact-page-menu").fetchSemanticsNodes().isNotEmpty() }
+        }
+        for ((width, bottom) in listOf(320 to false, 411 to true)) {
+            resize(width)
+            runBlocking { container.settings.update { it.copy(bottomSearchBar = bottom,
+                theme = if (bottom) com.takeruf.nagi.domain.model.ThemeMode.DARK else com.takeruf.nagi.domain.model.ThemeMode.LIGHT) } }
+            compose.waitForIdle()
+            openPopup()
+            val trigger = compose.onNodeWithTag("page-menu-$active").fetchSemanticsNode().boundsInRoot.center
+            shell("input tap ${trigger.x.toInt()} ${trigger.y.toInt()}")
+            awaitClosed()
+            openPopup()
+            // Route outside taps through WindowManager, rather than directly to the page's Compose root.
+            val pageBounds = compose.onNodeWithTag("browser-content-$active").fetchSemanticsNode().boundsInRoot
+            shell("input tap ${(pageBounds.left + 8).toInt()} ${(pageBounds.top + 50).toInt()}")
+            awaitClosed()
+            openPopup()
+            shell("input keyevent 4")
+            awaitClosed()
+        }
+        assertEquals(1, server.requests.count { it.path == "/ua-close-popup" })
     }
 
     @Test fun bottomSearchSettingMovesAddressAndInputAndPreservesPageAcrossWidths() {
@@ -426,9 +620,11 @@ class CompactBrowserUiTest {
         assertAddressPosition(true)
         compose.onNodeWithTag("url-drop-$active").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("command-input").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("command-phone-screen").assertIsDisplayed()
         val input = compose.onNodeWithTag("command-input").fetchSemanticsNode().boundsInRoot
         val suggestions = compose.onNodeWithTag("command-suggestions").fetchSemanticsNode().boundsInRoot
-        assertTrue("Suggestions above bottom input", suggestions.bottom <= input.top)
+        assertTrue("Suggestions follow the top input in the phone search screen", suggestions.top >= input.bottom)
         compose.onNodeWithTag("command-input").performTextReplacement("${server.origin}/two")
         resize(1000)
         compose.onNodeWithTag("command-input").assertTextEquals("${server.origin}/two")
@@ -484,8 +680,10 @@ class CompactBrowserUiTest {
             resize(width)
             assertSame(view, webViews().single())
             compose.onNodeWithContentDescription("Page menu").performClick()
-            compose.onNodeWithText("Forward").assertDoesNotExist()
-            if (width < 600) compose.onNodeWithText("Reload").assertIsDisplayed()
+            if (width < 600) {
+                compose.onNodeWithTag("menu-forward").assertExists()
+                compose.onNodeWithTag("menu-reload").assertIsDisplayed()
+            } else compose.onNodeWithText("Forward").assertDoesNotExist()
             shell("input keyevent 4"); compose.waitForIdle()
             compose.waitUntil(10_000) {
                 var restored = false
@@ -496,7 +694,8 @@ class CompactBrowserUiTest {
         open("${server.origin}/two"); awaitTitle("Fixture Two")
         compose.onNodeWithContentDescription("Back").performClick()
         compose.waitUntil(10_000) { var matches = false; compose.runOnIdle { matches = view.url == "${server.origin}/scroll" }; matches }
-        compose.onNodeWithContentDescription("Forward").performClick()
+        compose.onNodeWithContentDescription("Page menu").performClick()
+        compose.onNodeWithTag("menu-forward").performClick()
         compose.waitUntil(10_000) { var matches = false; compose.runOnIdle { matches = view.url == "${server.origin}/two" }; matches }
         compose.onNodeWithContentDescription("Search or enter URL").performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement("unfinished foldable query")
@@ -537,7 +736,7 @@ class CompactBrowserUiTest {
         compose.onNodeWithText("New split view").assertDoesNotExist()
         compose.onNodeWithText("Swap panes").assertDoesNotExist()
         compose.onNodeWithText("Close split view").assertDoesNotExist()
-        compose.onNodeWithText("Forward").assertDoesNotExist()
+        compose.onNodeWithTag("menu-forward").assertExists()
         shell("input keyevent 4"); compose.waitForIdle()
         compose.onNodeWithTag("compact-tabs-button").performClick()
         compose.onNodeWithTag("sidebar-split-group").assertDoesNotExist()

@@ -733,7 +733,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
     val strings = rememberNagiStrings()
     var menu by remember { mutableStateOf(false) }
     val dimensions = LocalNagiUiDimensions.current
-    val actionSize = if (dimensions.compact) dimensions.controlSize else if (largeTouchTargets) 48.dp else 40.dp
+    val actionSize = if (largeTouchTargets) 48.dp else if (dimensions.compact) dimensions.controlSize else 40.dp
     val selected = selectedOverride ?: (state.activeTab?.id == tab.id)
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -759,7 +759,7 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
         Row(Modifier.fillMaxWidth().alpha(if (drag.item?.id == tab.id && drag.item?.pairRight == null) 0.3f else 1f)
             .clip(NagiShapes.Rounded).background(if (splitTarget || replacementTarget) Color.Transparent else if (selected && !compact) palette.secondaryContainer else if (compact) palette.surfaceContainerHigh else Color.Transparent)
             .sidebarDraggable(drag, item).hoverable(interaction).sidebarContextMenu { menu = true }.clickable(onClick = onSelect)
-            .heightIn(min = dimensions.rowHeight).semantics { contentDescription = strings(R.string.ui_tab_1_s, strings.tabTitle(tab))
+            .heightIn(min = if (largeTouchTargets) 56.dp else dimensions.rowHeight).semantics { contentDescription = strings(R.string.ui_tab_1_s, strings.tabTitle(tab))
                 this.selected = selected
                 customActions = buildList {
                     add(CustomAccessibilityAction(strings(R.string.ui_show_actions)) { menu = true; true })
@@ -778,11 +778,6 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
             if (suspended) Text("zZ", style = MaterialTheme.typography.labelSmall, color = palette.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp).semantics { contentDescription = strings(R.string.ui_tab_suspended) })
             Box {
-                if (showActions) IconButton(onClick = { if (compact) vm.closeTab(tab.id) else menu = true }, modifier = Modifier.size(if (largeTouchTargets) actionSize else if (compact) 24.dp else actionSize)) {
-                    Icon(if (compact) NagiIcons.X else NagiIcons.Ellipsis,
-                        strings(if (compact) R.string.ui_close_1_s else R.string.ui_actions_for_1_s, strings.tabTitle(tab)),
-                        Modifier.size(if (compact) 16.dp else 18.dp), tint = if (selected) contentColor else palette.onSurfaceVariant)
-                }
                 NagiOverflowMenu(menu, { menu = false }) {
                     if (splitEnabled) NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.Columns2, null) }, text = { Text(strings(R.string.ui_open_in_right_pane)) }, onClick = { onSplit(); menu = false })
                     state.workspace.spaces.filter { state.settings.spacesEnabled && it.id != tab.spaceId }.forEach { space ->
@@ -792,7 +787,11 @@ private fun TabRow(tab: BrowserTab, state: BrowserUiState, vm: BrowserViewModel,
                     NagiOverflowMenuItem(leadingIcon = { Icon(NagiIcons.X, null) }, text = { Text(strings(R.string.ui_close_tab)) }, onClick = { vm.closeTab(tab.id); menu = false })
                 }
             }
-            if (showActions && !compact) IconButton(onClick = { vm.closeTab(tab.id) }, modifier = Modifier.size(actionSize)) { Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)), Modifier.size(16.dp), tint = contentColor) }
+            if (showActions) IconButton(onClick = { vm.closeTab(tab.id) },
+                modifier = Modifier.size(if (compact && !largeTouchTargets) 24.dp else actionSize)) {
+                Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings.tabTitle(tab)),
+                    Modifier.size(if (largeTouchTargets) 20.dp else 16.dp), tint = contentColor)
+            }
         }
         if (target != null) Box(Modifier.align(if (target.after) Alignment.BottomCenter else Alignment.TopCenter)
             .fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))

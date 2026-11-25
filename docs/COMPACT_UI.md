@@ -2,15 +2,20 @@
 
 Nagi continues to prioritize tablet and unfolded-phone windows. Narrow windows
 use full-width pages. With the default top-address layout, a 56dp bottom bar
-provides Back, Forward, New tab, Search, and a tab-count button. The optional
+provides Home, Back, New tab, Search, a tab-count button, and the page menu. Forward
+is available inside the page menu. The optional
 bottom-address layout combines its controls into one row, described below.
 The tab button opens the existing tabs, Favorites, and Spaces interface in a
 modal bottom sheet. Horizontal Space swipes keep the sheet open so the new
 Space's tabs can be browsed before selecting one; canceled swipes leave the
 current Space unchanged. Selecting a tab or Favorite, clicking a Space icon,
 Back and the close button dismiss it. History and
-Settings remain available in that sheet. Tab action/close buttons have 48dp
-targets in the sheet.
+Settings remain available in that sheet. Each tab row shows its favicon, title
+and a 48dp Close target, without a separate three-dot action button. The selected
+row is highlighted; touch dragging still reorders, pins and moves tabs to Spaces.
+Secondary-click and accessibility actions retain the existing tab menu.
+Wide sidebar tab rows also omit the three-dot action button, retaining their
+direct Close button with its existing selection/hover visibility and size.
 
 The tab sheet wraps its visible content, so small tab collections keep the header
 and actions near the bottom of the screen. It grows as tabs or expanded sections
@@ -46,10 +51,12 @@ again. Compact spacing uses the narrower rail without removing these targets;
 resizing below 600dp cancels the drag and retains the saved pair.
 
 **Settings → Appearance → Search bar at bottom** uses one 56dp row below the page:
-the address field, New tab, tab count/list and a vertical three-dot page menu.
-It has no Home button or separate Back/Forward row. The address field shows the
+Home, the address field, New tab, tab count/list and a vertical three-dot page menu.
+Home opens Nagi's new-tab home in the current tab without adding or closing tabs;
+Android Back can return through its native page history. There is no separate
+Back/Forward row. The address field shows the
 host (and explicit port); tapping it opens the full URL in the Command Bar.
-Share, Copy link and blocking controls move into the page menu, as does Forward.
+Share, Copy link and blocking controls move into the page menu.
 Android Back and keyboard history shortcuts remain available. The choice
 persists across launches and applies only below 600dp; wide windows retain the
 top address bar. This preference positions the resting browser toolbar. With
@@ -67,12 +74,35 @@ the keyboard. Switching back to a top address bar or widening the window moves
 the same notice to the top-right position; pending requests and translation
 language selection are retained. Wide and Split windows keep the top placement.
 
-The top-address compact layout moves Back/Forward to the bottom bar and Reload
-into the page menu, leaving more width for the URL. Search uses most of the available width, a close icon, and omits the desktop keyboard hint. Wide headers and the sidebar keep their existing layout. Split is available only in wide windows. Below 600dp, the selected tab fills the page, including either member of a saved pair. The tab sheet lists both members individually; page/tab menus, Command Bar commands, and drag targets do not offer Split creation, replacement, swapping or closing. New-tab resume links also open individual pages in compact mode.
+The top-address compact layout keeps Back in the bottom bar and puts Forward
+and Reload in the page menu. Its page-menu trigger also sits in the bottom bar;
+the top address field has no duplicate menu, Share, Copy or blocking buttons.
+Those page actions remain available in the menu. Search uses most of the
+available width, a close icon, and omits the desktop keyboard hint. Wide headers
+and the sidebar keep their existing layout. Split is available only in wide
+windows. Below 600dp, the selected tab fills the page, including either member
+of a saved pair. The tab sheet lists both members individually; page/tab menus,
+Command Bar commands, and drag targets do not offer Split creation, replacement,
+swapping or closing. New-tab resume links also open individual pages in compact mode.
 
-The page menu omits Forward when the top toolbar or compact bottom bar already
-provides it. The single-row bottom toolbar, Split and narrow wide-window panes
-keep the menu action because their address bar has no Forward button.
+The compact page menu uses a right-aligned popup whose bottom overlaps the
+bottom toolbar by 12dp, following the supplied Chrome reference. Its width is
+72% of the current window, capped at 280dp, with an 8dp right gap and 24dp corners. Its scrolling
+height respects system bars and the toolbar, with a 640dp cap. Its position is
+anchored to the actual toolbar bounds with either address placement. The page
+remains visible around the popup without a dimmed full-screen sheet.
+
+Zoom, blocking and the other page tools use a vertical scrolling list. New tab,
+History and Settings are ordinary rows in that list. Back, Forward, Copy link,
+Share and Reload stay fixed in a five-icon row at the popup bottom. Copy and Share
+have no duplicate text rows, and this row has no Pin button. These buttons stay
+square, up to the shared menu row height (48dp normally, 36dp compact), shrinking
+equally when five buttons need to fit a narrow popup. Scrolling the tools
+does not move or hide that row. Text rows retain shared menu sizing and may grow
+when needed. There is no separate navigation footer, handle or extra Close button.
+The bottom menu trigger remains visible; tapping it again, tapping outside or
+Android Back dismisses the popup. Both address placements keep that trigger at
+the bottom. Wide windows retain their existing anchored menu and Split controls.
 
 Narrowing a window never detaches a saved pair or closes its partner. Both live engines remain protected from suspension and archiving while the pair is selected, including across Settings. Widening the window restores both panes with their original left/right order and selected side. Explicit tab close, move and reorder actions retain their existing repository semantics. This does not add vertical splitting or hinge/posture handling.
 

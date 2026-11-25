@@ -79,6 +79,7 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     val strings = rememberNagiStrings()
     val vm: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
+    val pageMenuState = remember { BrowserPageMenuState() }
     val systemPip by host.video.systemPip.collectAsState()
     var savedSidebarAdaptation by rememberSaveable(stateSaver = AdaptiveSidebarState.Saver) {
         mutableStateOf(AdaptiveSidebarState())
@@ -520,6 +521,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                                         onAddressBarBounds = { id, bounds -> addressBarBounds[id] = bounds },
                                         onNewTabSearch = { tab, bounds -> openOmnibox(tab = tab, entryBounds = bounds) },
                                         onNewTab = ::newTab, onTabs = { setSidebarCollapsed(false) },
+                                        pageMenuState = pageMenuState,
+                                        onHistory = { navigate("history") }, onSettings = { navigate("settings") },
                                         onTranslationOptions = { tab, engine ->
                                             translationRequest = PageTranslationRequest(tab.id, engine, engine.state.value.url)
                                         }) }
@@ -577,10 +580,12 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                         val focusedPage = pages[focusedTab?.id]
                         CompactBrowserBar(state.visibleTabs.size,
                             canGoBack = focusedPage?.readerArticle != null || focusedPage?.canGoBack == true || canCloseTabOnBack,
-                            canGoForward = focusedPage?.canGoForward == true,
-                            onBack = ::back, onForward = { focusedEngine?.goForward() }, onNewTab = ::newTab,
+                            onBack = ::back, onNewTab = ::newTab,
+                            onHome = { showFind = false; focusedEngine?.loadUrl("about:blank") },
                             onSearch = if (state.settings.bottomSearchBar) null else { { openOmnibox() } },
-                            onTabs = { setSidebarCollapsed(false) })
+                            onTabs = { setSidebarCollapsed(false) },
+                            onPageMenu = { pageMenuState.toggle(focusedTab?.id) }, pageMenuTag = "page-menu-${focusedTab?.id}",
+                            onBarBounds = { pageMenuState.bottomBarBounds = it })
                     }
                 }
                 if (!sidebarAdaptation.compact && route != "settings") {

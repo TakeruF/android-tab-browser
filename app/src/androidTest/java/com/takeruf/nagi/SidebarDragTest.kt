@@ -272,9 +272,10 @@ class SidebarDragTest {
         compose.onAllNodesWithTag("sidebar-tab-$beta").assertCountEquals(1)
         saveScreen("split-sidebar-light")
         runBlocking { container.settings.update { it.copy(theme = ThemeMode.DARK, sidebarWidth = 220f) } }
+        val expectedSidebarWidth = 220f * compose.activity.resources.displayMetrics.density
         compose.waitUntil(5_000) {
             compose.onNodeWithTag("sidebar").captureToImage().toPixelMap()[5, 100].luminance() < 0.2f &&
-                compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.width < 450f
+                kotlin.math.abs(compose.onNodeWithTag("sidebar").fetchSemanticsNode().boundsInRoot.width - expectedSidebarWidth) <= 1f
         }
         compose.onNodeWithTag("sidebar-split-group").assertIsDisplayed()
         compose.onNodeWithTag("sidebar-tab-$left").assertIsDisplayed()
@@ -576,12 +577,16 @@ class SidebarDragTest {
     @Test fun hoverActionsAndSecondaryClickDoNotSelectOrDrag() {
         val active = runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId }
         val reading = tab("Reading list")
-        reading.performMouseInput { moveTo(center) }
-        compose.onNodeWithContentDescription("Actions for Reading list").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Close Reading list").assertIsDisplayed()
-        saveScreen("sidebar-hover-actions")
-        reading.performMouseInput { exit() }
-        compose.onNodeWithContentDescription("Actions for Reading list").assertDoesNotExist()
+        for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            runBlocking { container.settings.update { it.copy(theme = theme) } }
+            reading.performMouseInput { moveTo(center) }
+            compose.onNodeWithContentDescription("Actions for Reading list").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Close Reading list").assertIsDisplayed()
+            assertEquals(active, runBlocking { container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId })
+            saveScreen("sidebar-hover-actions-${theme.name.lowercase()}")
+            reading.performMouseInput { exit() }
+            compose.onNodeWithContentDescription("Actions for Reading list").assertDoesNotExist()
+        }
         reading.performMouseInput { moveTo(center); press(MouseButton.Secondary); release(MouseButton.Secondary) }
         compose.onNodeWithText("Pin tab").assertDoesNotExist()
         compose.onNodeWithText("Add to favorites").assertDoesNotExist()

@@ -480,4 +480,5 @@
     <string name="ui_command_bar_use_centered">이전 UI로 돌아가기</string>
     <string name="ui_command_bar_dismiss_notice">안내 닫기</string>
     <string name="ui_command_bar_use_new_design">새 디자인 사용</string>
+    <string name="ui_go_home">홈으로 돌아가기</string>
 </resources>

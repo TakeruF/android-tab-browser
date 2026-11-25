@@ -21,6 +21,8 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
     onAddressBarBounds: (String, Rect) -> Unit = { _, _ -> },
     onNewTabSearch: (BrowserTab, Rect?) -> Unit = { tab, _ -> onOmnibox(tab) },
     onNewTab: () -> Unit = {}, onTabs: () -> Unit = {},
+    onHistory: () -> Unit = {}, onSettings: () -> Unit = {},
+    pageMenuState: BrowserPageMenuState = remember { BrowserPageMenuState() },
     onTranslationOptions: (com.takeruf.nagi.domain.model.BrowserTab, com.takeruf.nagi.browser.engine.BrowserEngine) -> Unit = { _, _ -> }) {
     var customizingNewTab by remember { mutableStateOf(false) }
     if (customizingNewTab) NewTabAppearanceDialog(state.settings, vm) { customizingNewTab = false }
@@ -46,6 +48,8 @@ fun BrowserScreen(state: BrowserUiState, vm: BrowserViewModel, sessions: Browser
                 onTranslationOptions = { onTranslationOptions(tab, engine) },
                 onSplit = onSplit, onCloseSplit = onCloseSplit, onSwap = onSwap, compactWindow = compactWindow,
                 onNewTab = onNewTab, onTabs = onTabs,
+                pageMenuState = pageMenuState,
+                onHistory = onHistory, onSettings = onSettings,
                 onSiteDarkModeChange = vm::setSiteDarkMode,
                 onAdBlockingChange = { host, enabled -> vm.setSiteContentBlocking(host, enabled) { prefs ->
                     engine.configureContentBlocking(prefs.adBlockingEnabled, prefs.adBlockExcludedHosts)

@@ -71,7 +71,7 @@ class ReloadButtonUiTest {
         fun reload() {
             if (width < 600) {
                 compose.onNodeWithTag("page-menu-$id").performClick()
-                compose.onNodeWithText(compose.activity.getString(R.string.ui_reload)).performScrollTo().performClick()
+                compose.onNodeWithTag("menu-reload").performClick()
             } else {
                 compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_reload)).performClick()
             }

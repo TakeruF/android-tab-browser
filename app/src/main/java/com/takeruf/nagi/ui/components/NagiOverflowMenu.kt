@@ -47,6 +47,10 @@ private val CompactMenuDimensions = NagiMenuDimensions(
 /** Also used by custom menu content, such as page zoom and blocking status. */
 val LocalNagiMenuDimensions = staticCompositionLocalOf { TouchMenuDimensions }
 
+@Composable
+internal fun nagiMenuDimensions() =
+    if (LocalNagiUiDimensions.current.compact) CompactMenuDimensions else TouchMenuDimensions
+
 /** Place inside the trigger's Box. Material retains anchoring, scrolling, focus and animation. */
 @Composable
 fun NagiOverflowMenu(
@@ -55,7 +59,7 @@ fun NagiOverflowMenu(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val dimensions = if (LocalNagiUiDimensions.current.compact) CompactMenuDimensions else TouchMenuDimensions
+    val dimensions = nagiMenuDimensions()
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,

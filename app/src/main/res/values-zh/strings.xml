@@ -480,4 +480,5 @@
     <string name="ui_command_bar_use_centered">恢复旧版界面</string>
     <string name="ui_command_bar_dismiss_notice">关闭提示</string>
     <string name="ui_command_bar_use_new_design">使用新版设计</string>
+    <string name="ui_go_home">返回主页</string>
 </resources>

@@ -751,3 +751,107 @@ inspected screenshots remain in ignored `artifacts/favorite-two-pane-20261124/`.
 SHA-256: `4294b895f8e3cca20dddce7ef3c3c7d63302618b9e36d35e03701dc84328ccc9`.
 In-place QA installation preserved all package UIDs, and a cold launch reached
 the preview foreground Activity. Source remains the dirty working tree at b1685db; no release action occurred.
+
+## Compact Chrome-style page menu (2026-11-24, local)
+
+The compact page menu uses a right-aligned popup overlapping the actual bottom
+toolbar by 12dp, 72% of the app-window width up to 280dp, with an 8dp right gap and 24dp
+corners. Its scrolling area respects system bars and the toolbar, with a 640dp
+cap. Back, Forward, Pin/Unpin and Reload stay fixed in a four-icon row at the
+bottom. Each button stays square at the shared menu row height (48dp normally,
+36dp compact), without horizontal stretching. The list above can scroll without
+moving or hiding these four controls. New tab, History and Settings remain
+ordinary text rows. There is no separate navigation footer, dimmed sheet,
+handle or extra Close button. The visible bottom trigger, outside taps and
+Android Back dismiss the popup. Home and direct tab Close controls remain.
+
+JDK-17 side-by-side Debug/test APK assembly and Play Debug/Release lint passed
+(zero errors; 98/97 warnings). The fixed-footer revision passed six selected UI cases on
+dedicated API-36 emulator-5588 / WebView 133.0.6943.137, with no failures or skips:
+
+- `phoneMenuKeepsChromeWidthAndFourFixedBottomActions`: 320dp/top/light,
+  411dp/bottom/dark and 360x540dp short-window proportions; all four buttons are
+  48dp square, at the bottom and stationary/visible after scrolling to Settings.
+- `phonePopupClosesFromTriggerOutsideTapAndBack`: WindowManager taps on the
+  bottom trigger and outside the popup, plus Android Back, with one fixture
+  request and unchanged tab selection/count and live drafts.
+- `phoneHomeAndMenuKeepTabIdentityAndSimplifyTabRows`: Pin/Unpin, Settings,
+  History, Home and the direct tab controls through the popup.
+- `bottomChromeToolbarUsesOneRowAndKeepsNavigationAndPageActions`: narrow
+  toolbar bounds, actual Back/Forward through the restored footer and tab changes.
+- `ReloadButtonUiTest#compactBottomMenuReloadKeepsPendingPageAndSelectedTab`:
+  pending and committed native reload through the fixed Reload button.
+- `savedSplitUsesOneSelectedPageInCompactAndRestoresBothLivePagesWhenWide`:
+  compact/wide boundaries, themes, saved pairs and the same live drafts.
+
+The earlier popup work corrected trigger callbacks to toggle instead of always
+opening. Its dismissal tests were also corrected to use WindowManager taps and
+wait for popup focus before sending Back. Those corrections remain in the final
+passing tests. Evidence for that revision remains under ignored
+`artifacts/chrome-popup-footer-20261124/`.
+
+After adding the 12dp toolbar overlap, the first four-case run exposed an
+incorrect whole-toolbar overlap in the top-address layout: clipped bounds of
+the zero-sized popup host lost its origin. This also let a native trigger tap
+hit Reload. Preserving the host origin and translating the actual toolbar
+bounds into popup coordinates corrected both failures. The final build and
+Debug/Release lint passed again with the same warning counts. Four selected
+cases were rerun and all passed without failures or skips: menu geometry/fixed
+actions, native dismissal, Home/tab identity, and saved Split restoration.
+The geometry test measures screen coordinates across both popup and Activity
+windows, asserting 12dp overlap for 320dp/top/light, 411dp/bottom/dark and
+360x540dp/bottom/dark. Light/dark and scrolled-footer screenshots were visually
+inspected. `git diff --check` passed. Final source/APK hashes, logs and screenshots
+are in ignored `artifacts/chrome-popup-overlap-20261124/`; the initial failing
+logs remain there as well. The separate Back/Forward and pending-reload cases
+listed above were not rerun after the placement-only correction.
+
+Unit tests, the full instrumentation suite, physical devices and live providers
+were not rerun for this UI update. No version or release action changed.
+
+## Compact five-action footer follow-up (2026-11-24, local)
+
+The fixed row now contains Back, Forward, Copy link, Share and Reload. It has
+no Pin button or duplicate Copy/Share text rows. The five buttons stay square
+and shrink equally in narrow popups, retaining the existing width and 12dp
+toolbar overlap. The first geometry run found rounding squeezed the last
+button by two pixels at 320dp. Dividing the available whole pixels before
+converting to dp corrected the actual layout; the assertion was unchanged.
+
+JDK-17 side-by-side Debug/test APK assembly and Play Debug/Release lint passed
+(zero errors; 98/97 warnings). All eight selected UI cases passed on the final
+APK on dedicated API-36 emulator-5588: five CompactBrowserUiTest cases covering
+five-action geometry/scrolling, Home/tab identity, native dismissal, toolbar
+navigation and saved Split restoration; the pending-reload case; and both
+AddressActionsUiTest cases covering wide/narrow pane actions and Split copying.
+The geometry case covers 320dp/top/light, 411dp/bottom/dark and 360x540dp/bottom/dark.
+Screenshots of these layouts and the scrolled fixed row were visually inspected.
+
+The Home/menu case checks actual clipboard contents and captures the Android
+share chooser intent, including the URL, title and MIME type, while intercepting
+its launch. It verifies disabled Copy/Share controls on the new-tab home. It
+does not establish interaction with the external system chooser or a recipient.
+Unit/full instrumentation suites, physical devices and live sites were not run.
+No version or release action changed. `git diff --check` passed. Final results,
+source/APK hashes, screenshots and the initial failing run remain in ignored
+`artifacts/chrome-popup-five-actions-20261124/`.
+
+## Wide sidebar tab actions (2026-11-25, local)
+
+Wide sidebar tab rows omit the separate three-dot button, matching the compact
+tab sheet. Direct Close controls keep their previous sizing and visibility;
+secondary-click menus, accessibility actions and drag destinations remain.
+JDK-17 side-by-side Debug/test APK assembly and Play Debug/Release lint passed
+(zero errors; 98/97 warnings). Four selected UI cases passed on dedicated
+API-36 emulator-5588: SidebarDragTest hover/secondary-click, Split grouping,
+row reorder/pin/cancel, and CompactBrowserUiTest Home/menu/tab identity.
+Light/dark hovered-row and narrow-sidebar Split screenshots were inspected.
+
+The first Split case timed out at an obsolete width check below 450 pixels.
+The configured 220dp sidebar is 577.5 pixels at the QA device's density of
+2.625. The test now asserts 220dp converted at the actual density, within one
+pixel, and passed on rerun. The other three cases passed initially. The test
+APK and Debug lint were rerun after this test-only correction. Unit/full
+instrumentation suites and physical devices were not run. No version or release
+action changed. `git diff --check` passed. Logs, results, hashes and screenshots
+remain in ignored `artifacts/sidebar-without-ellipsis-20261125/`.

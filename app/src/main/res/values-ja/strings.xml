@@ -480,4 +480,5 @@
     <string name="ui_command_bar_use_centered">以前のUIに戻す</string>
     <string name="ui_command_bar_dismiss_notice">案内を閉じる</string>
     <string name="ui_command_bar_use_new_design">新しいデザインを使う</string>
+    <string name="ui_go_home">ホームに戻る</string>
 </resources>

@@ -483,4 +483,5 @@
     <string name="ui_command_bar_use_centered">Return to previous UI</string>
     <string name="ui_command_bar_dismiss_notice">Dismiss tip</string>
     <string name="ui_command_bar_use_new_design">Use the new design</string>
+    <string name="ui_go_home">Go to home</string>
 </resources>

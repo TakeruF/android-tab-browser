@@ -482,4 +482,5 @@
     <string name="ui_command_bar_use_centered">Volver a la interfaz anterior</string>
     <string name="ui_command_bar_dismiss_notice">Ocultar aviso</string>
     <string name="ui_command_bar_use_new_design">Usar el nuevo diseño</string>
+    <string name="ui_go_home">Ir al inicio</string>
 </resources>
