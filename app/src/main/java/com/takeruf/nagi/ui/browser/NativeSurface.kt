@@ -17,19 +17,23 @@ import com.takeruf.nagi.browser.engine.AndroidEngineSurface
 import com.takeruf.nagi.browser.engine.BrowserEngine
 
 @Composable
-fun BrowserSurface(engine: BrowserEngine, modifier: Modifier = Modifier, onFocus: () -> Unit = {}) {
+internal fun BrowserSurface(engine: BrowserEngine, modifier: Modifier = Modifier, onFocus: () -> Unit = {},
+    historyPreview: TrackpadHistoryPreview? = null) {
     val renderer = engine as AndroidEngineSurface
     val colors = MaterialTheme.colorScheme
     SideEffect {
         renderer.setDragPreviewColors(colors.surfaceContainerHigh.toArgb(), colors.onSurface.toArgb(),
             colors.outlineVariant.toArgb(), colors.primary.toArgb())
     }
-    NativeSurface(renderer.surface, modifier, onFocus, engine)
+    val previewState = historyPreview?.state
+    val translation = if (previewState?.engine === engine) previewState.progress * (if (previewState.fromRight) -1 else 1) else 0f
+    NativeSurface(renderer.surface, modifier, onFocus, engine, historyPreview, translation)
 }
 
 /** Attaches a native surface; history input stays at the native boundary. */
 @Composable
-fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> Unit = {}, historyEngine: BrowserEngine? = null) {
+internal fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> Unit = {}, historyEngine: BrowserEngine? = null,
+    historyPreview: TrackpadHistoryPreview? = null, translation: Float = 0f) {
     val currentOnFocus = rememberUpdatedState(onFocus)
     AndroidView(factory = { context -> SurfaceContainer(context) { currentOnFocus.value() } }, modifier = modifier,
         onRelease = { container ->
@@ -37,6 +41,7 @@ fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> U
             if (owner?.getTag(com.takeruf.nagi.R.id.video_source_container) === container)
                 owner.setTag(com.takeruf.nagi.R.id.video_source_container, null)
             container.setTag(com.takeruf.nagi.R.id.native_surface_owner, null)
+            owner?.translationX = 0f
             container.setHistoryEngine(null); container.removeAllViews()
         }, update = { container ->
             val previous = container.getTag(com.takeruf.nagi.R.id.native_surface_owner) as? View
@@ -46,6 +51,8 @@ fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> U
             // WebView is in a video overlay. Restoration must check this owner.
             container.setTag(com.takeruf.nagi.R.id.native_surface_owner, surface)
             container.setHistoryEngine(historyEngine)
+            container.historyPreview = historyPreview
+            container.setHistoryTranslation(translation)
             if (historyEngine != null) surface.setTag(com.takeruf.nagi.R.id.video_source_container, container)
             // An automatic video overlay temporarily owns this same WebView.
             if (historyEngine != null && surface.getTag(com.takeruf.nagi.R.id.video_presented_surface) == true) {
@@ -57,18 +64,34 @@ fun NativeSurface(surface: View, modifier: Modifier = Modifier, onFocus: () -> U
                 container.removeAllViews()
                 container.addView(surface, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             }
+            surface.translationX = container.width * translation
         })
 }
 
 /** Observe focus at the native boundary so Compose's pointer interop stays the sole input owner. */
 private class SurfaceContainer(context: Context, private val onFocus: () -> Unit) : FrameLayout(context) {
     private var historyEngine: BrowserEngine? = null
+    var historyPreview: TrackpadHistoryPreview? = null
+    private var historyTranslation = 0f
+    fun setHistoryTranslation(value: Float) {
+        historyTranslation = value
+        getChildAt(0)?.translationX = width * value
+    }
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        getChildAt(0)?.translationX = w * historyTranslation
+    }
     private class MouseGesture(val downTime: Long, val deviceId: Int,
         var pointerDown: Boolean = true, var buttonsReleased: Boolean = false)
     private var nativeMouseGesture: MouseGesture? = null
     private val historySwipe = HistorySwipeGesture(context,
         canNavigate = { back -> historyEngine?.let { if (back) it.canGoBack() else it.canGoForward() } == true },
-        navigate = { back -> onFocus(); historyEngine?.let { if (back) it.goBack() else it.goForward() } },
+        navigate = { back ->
+            onFocus()
+            historyPreview?.finish(back) ?: historyEngine?.let { if (back) it.goBack() else it.goForward() }
+        },
+        preview = { back, progress -> historyPreview?.progress(back, progress) },
+        cancelPreview = { historyPreview?.finish(null) },
         canScroll = { x, y, direction, result ->
             historyEngine?.canScrollHorizontallyAt(x, y, direction, result) ?: result(true)
         })
@@ -129,6 +152,7 @@ private class SurfaceContainer(context: Context, private val onFocus: () -> Unit
     }
 
     override fun onDetachedFromWindow() {
+        historySwipe.reset()
         nativeMouseGesture = null
         super.onDetachedFromWindow()
     }

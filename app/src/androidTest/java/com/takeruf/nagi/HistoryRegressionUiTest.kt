@@ -88,7 +88,10 @@ class HistoryRegressionUiTest {
         compose.waitUntil(15_000) { compose.activity.resources.configuration.orientation == configuration }
     }
     @Before fun setup() {
-        server = FixtureServer()
+        server = FixtureServer(pages = mapOf("/spa" to """<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+            <a id="next" href="/spa?watch=video" onclick="event.preventDefault();history.pushState({},'',this.href);render()">Open video</a>
+            <script>function render(){setTimeout(()=>document.title=location.search?'Fixture Video':'Fixture Feed',80)}
+            addEventListener('popstate',render);render()</script>"""))
         container = (compose.activity.application as NagiApplication).container
         val preferences = compose.activity.getSharedPreferences("site_display_modes", Context.MODE_PRIVATE)
         originalSiteMode = if (preferences.contains("127.0.0.1")) preferences.getBoolean("127.0.0.1", false) else null
@@ -185,5 +188,21 @@ class HistoryRegressionUiTest {
         awaitPage("Fixture One", 3)
         assertEquals(2, visits().count { it.url == "${server.origin}/one" })
         assertEquals(1, visits().count { it.url == "${server.origin}/two" })
+    }
+
+    @Test fun spaVideoNavigationAndLateTitleAreSavedWithoutDuplicateVisits() {
+        navigate("${server.origin}/spa")
+        awaitPage("Fixture Feed", 1)
+        tapLink("next")
+        awaitPage("Fixture Video", 2)
+        compose.waitUntil(5_000) { visits().any { it.url == "${server.origin}/spa?watch=video" && it.title == "Fixture Video" } }
+        val video = visits().single { it.url.endsWith("?watch=video") }
+        web { it.evaluateJavascript("document.title='Fixture Video updated'", null) }
+        compose.waitUntil(5_000) { visits().any { it.id == video.id && it.title == "Fixture Video updated" } }
+        assertEquals(2, visits().size)
+        assertEquals(video.visitedAt, visits().single { it.id == video.id }.visitedAt)
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.ui_back)).performClick()
+        awaitPage("Fixture Feed", 3)
+        assertEquals(2, visits().count { it.url == "${server.origin}/spa" })
     }
 }

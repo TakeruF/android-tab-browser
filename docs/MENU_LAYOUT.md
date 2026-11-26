@@ -52,6 +52,23 @@ three-dot action button. Their direct Close button, secondary-click menu,
 accessibility actions and drag operations remain available. Wide sidebar
 Close buttons retain their existing selection/hover visibility and sizing.
 
+## Page text selection
+
+Secondary mouse/trackpad clicks in a WebView use the same native finger-long-press
+selection path as touch. This keeps the horizontal floating selection toolbar,
+native Copy/Share/Select all and installed text-processing actions instead of
+WebView's tablet mouse dropdown. The browser does not extract page text into a
+custom selection menu. Link/image actions still use Nagi's existing context
+actions; secondary clicks do not begin a link/image drag. Native selection and
+toolbar contents remain dependent on the Android/WebView provider. The menu
+appears after Android's configured long-press interval; this is native input
+delegation rather than an app-rendered replacement toolbar.
+
+`NativeSelectionMenuTest` compares touch and secondary-click floating ActionMode
+and Copy, including an existing multiword selection, editable draft and a click
+outside the selected text. These checks require actual WebView instrumentation;
+physical mouse/trackpad and OEM toolbar validation are separate.
+
 `OverflowMenuUiTest` checks live density changes, restoration of touch targets,
 disabled actions, dismissal, hover corners, and reachable large-font actions.
 Controlled `LocalConfiguration` values establish configuration-driven behavior;

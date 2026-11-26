@@ -34,6 +34,67 @@ The camera writes a full-size JPEG to `cache/camera-uploads/` through the separa
 
 Video/audio recording and folder selection are outside this first implementation.
 
+## Website camera, microphone and location permissions
+
+HTTPS pages request site access through Nagi's shared notice-card dialog, using
+the active app theme and the same width, spacing and actions as download
+confirmation. Camera, microphone and location requests identify the requesting
+origin and resources. Blocking, Back or outside dismissal denies the request.
+After site consent, Android asks for any missing runtime permissions through its
+own system UI. Nagi does not persist a site-wide allow decision.
+
+WebRTC microphone capture declares both `RECORD_AUDIO` and the normal
+`MODIFY_AUDIO_SETTINGS` permission. Chromium's Android audio manager requires
+both to enumerate/select communication input devices; without the latter,
+granting recording alone can still leave capture without an available device.
+Nagi leaves device selection, routing and audio-mode restoration to WebView.
+See [Chromium's audio permission checks](https://chromium.googlesource.com/chromium/src/media/+/master/base/android/java/src/org/chromium/media/AudioManagerAndroid.java)
+and [Android's WebView permission handling](https://developer.android.com/develop/ui/compose/migrate/interoperability-apis/wrap-webview-in-compose#handle-web-permissions).
+
+Cancelled/destroyed WebView media requests withdraw only their matching consent
+prompt. A late Android permission result cannot grant a different pending site
+request. Engine suspension continues to protect pending and granted media
+capture. `SitePermissionHostTest` covers consent, request identity, cancellation
+and disposal. `MediaPermissionUiTest` exercises real `getUserMedia` audio tracks,
+denial/retry and navigation cancellation using a local HTTPS-base document.
+Acquiring a live track establishes WebView capture, not physical microphone
+quality, manufacturer behavior or a completed third-party voice-service session.
+
+### Permission and popup review, 2026-11-26
+
+The source review covered the shared manifest, distribution overlays, runtime
+launchers, WebView resource grants and the native host's app-owned dialogs.
+
+| Capability | Required access and current handling |
+| --- | --- |
+| Camera capture | `CAMERA` is declared and requested at runtime. HTTPS WebRTC grants only requested camera resources after site consent. Photo uploads use the system camera and an app-owned output URI. Camera hardware remains optional. |
+| Microphone | `RECORD_AUDIO` is declared/requested; `MODIFY_AUDIO_SETTINGS` now supplies the missing normal permission used by Chromium's communication audio input path. No foreground recording service is introduced. |
+| Location | Coarse and fine permissions are declared and requested together. An approximate/coarse grant is accepted. HTTPS site consent is separate, and hiding the native request withdraws the corresponding prompt. Background location is not requested. |
+| Notifications | `POST_NOTIFICATIONS` is declared. Nagi requests it after acceptance of a generated download or an HTTP download into a writable chosen folder, whose final result is posted by Nagi. Denial does not prevent saving. Ordinary HTTP downloads retain DownloadManager's notification path. |
+| Photos, uploads and downloads | `ACTION_OPEN_DOCUMENT`, per-URI read grants and the selected folder's persisted SAF write grant provide scoped access. API 29+ generated downloads use app-owned MediaStore entries; older versions use app-specific external storage. Broad photo-library or external-storage permissions are not needed by these paths. |
+| External apps | Existing browsable-intent queries and sanitized `ACTION_VIEW` handling remain. Launch confirmation is controlled by Nagi's existing external-app setting; no additional runtime permission is introduced. |
+| Website credentials | The browser-origin credential permission is already declared. Provider/browser approval and the production password-autofill gate remain separate from Android permission presence. |
+| Bluetooth and other web resources | Nagi does not scan, pair or directly connect Bluetooth devices, and adds no Nearby Devices request. Audio routing remains delegated to Android/WebView; physical wired, USB and Bluetooth headset routing remains unverified. WebView resources other than supported camera/audio requests continue to be denied. |
+
+The native host's remaining Android `AlertDialog` uses—link/image actions and
+the Take photo / Choose files choice—now use the same themed notice-card dialog
+as site permissions and download confirmation. Their existing actions, picker
+filters, cancellation and camera-denial callbacks remain. All displayed copy
+uses the existing six-language strings.
+
+Android's runtime permission, camera, document picker, share and installer UI
+remain system-owned. WebView's default JavaScript alert/confirm/prompt UI is
+provider-owned and was not replaced by this permission-focused change.
+`BrowserActionsHostTest` covers single-use choices, stale prompts, file chooser
+cancellation/disposal, camera denial, and the conditional notification request.
+`BrowserActionsUiTest` exercises real page upload and link input through the
+shared dialog. Runtime results and device limits are recorded separately.
+
+Sources: [Android scoped storage and own-media access](https://developer.android.com/training/data-storage/shared/media),
+[Storage Access Framework](https://developer.android.com/training/data-storage/shared/documents-files),
+[Bluetooth permission scope](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions),
+[communication audio routing](https://developer.android.com/reference/android/media/AudioManager#setCommunicationDevice(android.media.AudioDeviceInfo)).
+
 ## Downloads
 
 HTTP(S) and generated-file confirmations use the same rounded, bordered notice

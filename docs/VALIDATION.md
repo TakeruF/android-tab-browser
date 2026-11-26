@@ -2,6 +2,89 @@
 
 The [1.1.1 Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md) separates final Play validation from the [initial preflight](RELEASE_1.1.1_VERIFICATION.md) and saved Console state. The dated [1.1.0 release verification](RELEASE_1.1.0_VERIFICATION.md) records comprehensive tests, clean artifact checks and publication evidence. The [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) and [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md) remain historical distribution records. These are recorded results, not a live Console or deployment status check.
 
+## History, native menus and permissions, 2026-11-26
+
+The working tree based on `8f134a3` passed all 298 Play Debug JVM tests, with
+zero failures, errors or skips. JDK 17 / SDK 36 Gradle Wrapper checks passed:
+`testPlayDebugUnitTest`, `lintPlayDebug`, `lintPlayRelease`, `assemblePlayDebug`
+and `assemblePlayDebugAndroidTest`. Both lint variants reported zero errors and
+97 warnings. The last selection-only test adjustment also passed Debug lint
+and instrumentation APK assembly; the final native selection protection passed
+the full JVM suite and both lint variants again.
+
+On dedicated `Nagi_Tablet_Preview_20261119` / `emulator-5586` (API 36,
+WebView 133.0.6943.137, 320 dpi), the 31-case integration selection passed:
+
+- Five `HistoryPagePreviewEngineTest` cases, including real SPA clicks followed
+  by three Back and three Forward steps with destination URL and bitmap-color
+  assertions, retained drafts, scrolled images and new-tab traversal.
+- Eight `HistorySwipeUiTest` cases covering both preview directions, cancel,
+  actual native touchpad event routing, momentum, mouse/touchscreen exclusion,
+  horizontal-scroller priority, Split focus and history boundaries.
+- Three `HistoryRegressionUiTest` cases covering Room visits, delayed SPA/video
+  titles without duplicate visits, reload/display-mode changes and recreation.
+- Four `NativeSelectionMenuTest` cases checking visible floating-toolbar Copy
+  buttons and actual accessibility clicks, existing multiword selection,
+  editable text and a click outside the old selection.
+- Three predictive-back cases at phone/light and tablet/dark Split sizes,
+  including a system-edge gesture, cancellation and commit.
+- Four media-permission cases: real WebView `getUserMedia` audio-track creation
+  and stop, denial/retry, document-navigation cancellation, and a synthetic
+  geolocation prompt-hide callback. Two upload/link-action dialog cases and two
+  existing HTTP/generated download regressions also passed.
+
+At 822 × 1828 px (411 × 914 dp), the bidirectional preview case, all four
+media-permission cases and both action-dialog cases passed; permissions and
+action dialogs used the dark app theme. All four native selection cases passed
+on their focused rerun after correcting wrapped-word test coordinates and
+protecting active selection from input-triggered software snapshot capture.
+The final selection timing guard also passed four tablet cases independently.
+After the active-selection snapshot protection, the latest production sources
+passed a further 17-case tablet run of all preview-engine, touchpad and native
+selection cases; the four narrow-screen selection cases also passed.
+Screenshots of both preview directions, native horizontal selection toolbars,
+light/dark permission cards and upload/link actions were inspected.
+
+The opt-in `YouTubeLiveHistoryTest` separately passed a real desktop YouTube
+search-result click into a `/watch?v=` URL, a corresponding visit event, and
+saved Back/Forward images. This is a time-sensitive public-site check, separate
+from the repeatable SPA fixture and Room tests; it does not establish completed
+video playback or logged-in provider behavior.
+
+Initial diagnostic failures included fixture JavaScript/coordinate and test
+cleanup errors, late native selection-mode timing, and snapshot interference
+with active text selection. Corrected cases were rerun; raw initial/final logs,
+source hashes, APK hashes and screenshots remain in ignored
+`artifacts/history-spa-20261126/`. The QA screen-size override was restored.
+
+These are selected emulator checks, not a full instrumentation suite. Physical
+trackpads, OEM menus, real camera/GPS hardware, microphone quality/headset routing
+and a completed ChatGPT voice session remain unverified. The scoped permission
+review and app-owned/system popup boundary are documented in
+[browser integrations](BROWSER_INTEGRATIONS.md). No version change, signed
+release artifact, upload or publication is included.
+
+The requested coexistence APK was then built with `:app:assemblePlayDebug
+-PnagiSideBySide=true -PnagiAutofillDiagnostics=false`. Its manifest identifies
+`com.takeruf.nagi.preview`, launcher label `Nagi Test`, and unchanged
+1.6.0 / code 24. APK metadata and its Android Debug signature were verified.
+An in-place install and cold launch on the same QA emulator succeeded while
+both main and preview package UIDs remained unchanged. The independently named
+artifact is `artifacts/history-spa-20261126/side-by-side/nagi-test-preview-20261126.apk`.
+The feature tests above used the main debug package; the coexistence build has
+separate build/metadata/installation/startup coverage, not a repeated full suite.
+
+The same QA emulator's later network failure was isolated to unresponsive
+virtual DNS aliases (`10.0.2.3` / `10.0.2.4`): direct public-DNS queries and
+hostname-verified TLS/HTTP to a resolved address succeeded. Restarting the same
+AVD/port with `-dns-server 1.1.1.1,8.8.8.8` restored ordinary resolution,
+Google/gstatic HTTPS 204 responses, YouTube HTTPS 200 and Android `VALIDATED`.
+Nagi Test then rendered an actual HTTPS page's title and body in a new tab.
+Package UIDs and existing tabs were retained. The DNS override belongs to this
+launch; use the same argument on later launches if needed. Evidence is under
+ignored `artifacts/emulator-network-20261126/`; see the
+[official emulator DNS option](https://developer.android.com/studio/run/emulator-networking-dns).
+
 ## Repeatable checks
 
 Use JDK 17 and Android SDK Platform 36, following the [build setup](../README.md#build-and-run). Run instrumentation on a dedicated QA emulator; select its serial explicitly.

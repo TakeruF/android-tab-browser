@@ -87,6 +87,8 @@ interface BrowserHost {
     fun shareLink(url: String) {}
     fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit)
     fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit)
+    /** Withdraw only the matching native request when its document cancels or is destroyed. */
+    fun cancelPermission(result: (Set<SitePermission>) -> Unit) {}
     fun download(request: DownloadRequest)
     /** True only after the native service accepts the request; false on cancel/failure. */
     fun download(request: DownloadRequest, result: (Boolean) -> Unit) { download(request); result(false) }

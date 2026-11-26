@@ -4,7 +4,6 @@ import com.takeruf.nagi.R
 import com.takeruf.nagi.ui.localization.NagiStrings
 
 import android.Manifest
-import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -24,6 +23,10 @@ class BlockedExternalAppRequest(val url: String, internal val launch: () -> Unit
 
 class DownloadConfirmation(val name: String, val source: String, val size: Long?, internal val accept: () -> Unit)
 
+class SitePermissionPrompt(val origin: String, val permissions: Set<SitePermission>)
+
+class BrowserActionPrompt(val title: String, val actions: List<PageContextAction>, internal val dismissed: () -> Unit)
+
 class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, FullscreenHost {
     var blockExternalApps: () -> Boolean = { false }
     private val blockedExternalApp = MutableStateFlow<BlockedExternalAppRequest?>(null)
@@ -41,14 +44,18 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     private var fileResult: ((List<String>?) -> Unit)? = null
     private var permissionResult: ((Set<SitePermission>) -> Unit)? = null
     private var requestedPermissions = emptySet<SitePermission>()
-    private var consentDialog: AlertDialog? = null
+    private val sitePermissionPrompt = MutableStateFlow<SitePermissionPrompt?>(null)
+    val sitePermissionPrompts = sitePermissionPrompt.asStateFlow()
+    private var permissionLauncherPending = false
     val video = VideoPresentationController(activity)
     /** Chosen download folder (SAF tree URI) from Settings; null keeps the system Downloads folder. */
     @Volatile var downloadFolder: String? = null
     private val downloads = DownloadService(activity.applicationContext) { downloadFolder?.let(Uri::parse) }
     private val downloadNotifications = com.takeruf.nagi.browser.downloads.DownloadNotifications(activity.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var fileDialog: AlertDialog? = null
+    private var filePrompt: BrowserActionPrompt? = null
+    private val browserActionPrompt = MutableStateFlow<BrowserActionPrompt?>(null)
+    val browserActionPrompts = browserActionPrompt.asStateFlow()
     private var captureFile: File? = null
     private var captureUri: Uri? = null
     private val capturedFiles = mutableListOf<File>()
@@ -84,7 +91,8 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     }
     private fun finishFiles(uris: List<String>?) {
         val callback = fileResult; fileResult = null
-        fileDialog = null; callback?.invoke(uris)
+        if (browserActionPrompt.value === filePrompt) browserActionPrompt.value = null
+        filePrompt = null; callback?.invoke(uris)
     }
     private fun launchCamera() {
         try {
@@ -102,8 +110,24 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
     }
     override fun showContextMenu(title: String, actions: List<PageContextAction>) {
-        AlertDialog.Builder(activity).setTitle(title).setItems(actions.map { it.label }.toTypedArray()) { _, index -> actions[index].execute() }
-            .setNegativeButton(strings(R.string.ui_cancel), null).show()
+        if (!disposed) showBrowserActions(title, actions)
+    }
+    private fun showBrowserActions(title: String, actions: List<PageContextAction>, dismissed: () -> Unit = {}): BrowserActionPrompt {
+        browserActionPrompt.value?.let(::dismissBrowserActions)
+        return BrowserActionPrompt(title, actions, dismissed).also { browserActionPrompt.value = it }
+    }
+    fun chooseBrowserAction(prompt: BrowserActionPrompt, index: Int) {
+        if (disposed || browserActionPrompt.value !== prompt) return
+        val action = prompt.actions.getOrNull(index) ?: return
+        browserActionPrompt.value = null
+        if (filePrompt === prompt) filePrompt = null
+        action.execute()
+    }
+    fun dismissBrowserActions(prompt: BrowserActionPrompt) {
+        if (browserActionPrompt.value !== prompt) return
+        browserActionPrompt.value = null
+        if (filePrompt === prompt) filePrompt = null
+        prompt.dismissed()
     }
     override fun copyLink(url: String) {
         activity.getSystemService(android.content.ClipboardManager::class.java)
@@ -127,23 +151,21 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         }?.takeIf { it.isNotEmpty() })
     }
     private val permissionLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        permissionLauncherPending = false
         val granted = requestedPermissions.filter { kind -> permissionNames(kind).any { name ->
             ContextCompat.checkSelfPermission(activity, name) == PackageManager.PERMISSION_GRANTED
         } }.toSet()
-        val callback = permissionResult; permissionResult = null
-        requestedPermissions = emptySet(); callback?.invoke(granted)
+        finishPermission(granted)
     }
     override fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit) {
         if (fileResult != null || disposed) { result(null); return }
         fileResult = result
         if (FileSelectionPolicy.offersPhoto(request)) {
             if (request.capture) takePhoto()
-            else fileDialog = AlertDialog.Builder(activity).setTitle(strings(R.string.ui_upload_file))
-                .setItems(arrayOf(strings(R.string.ui_take_photo), strings(R.string.ui_choose_files))) { _, index ->
-                    fileDialog = null
-                    if (index == 0) takePhoto() else openDocuments(request)
-                }.setNegativeButton(strings(R.string.ui_cancel)) { _, _ -> finishFiles(null) }
-                .setOnCancelListener { finishFiles(null) }.show()
+            else filePrompt = showBrowserActions(strings(R.string.ui_upload_file), listOf(
+                PageContextAction(strings(R.string.ui_take_photo)) { takePhoto() },
+                PageContextAction(strings(R.string.ui_choose_files)) { openDocuments(request) },
+            )) { finishFiles(null) }
         } else openDocuments(request)
     }
     private fun openDocuments(request: FileSelectionRequest) {
@@ -160,22 +182,32 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         }
     }
     override fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit) {
-        // A second site request cannot replace a permission dialog already on screen.
-        if (permissionResult != null) { result(emptySet()); return }
+        // A cancelled Android runtime dialog may still return later. Do not attach
+        // that result to a different site's request in the meantime.
+        if (disposed || permissionResult != null || permissionLauncherPending || permissions.isEmpty()) { result(emptySet()); return }
         permissionResult = result; requestedPermissions = permissions
-        val labels = permissions.joinToString(", ") { strings(when (it) { SitePermission.CAMERA -> R.string.ui_camera; SitePermission.MICROPHONE -> R.string.ui_microphone; SitePermission.LOCATION -> R.string.ui_location }) }
-        consentDialog = AlertDialog.Builder(activity)
-            .setTitle(strings(R.string.ui_allow_site_access))
-            .setMessage(strings(R.string.ui_1_s_wants_to_use_your_2_s_access_lasts_for_this_request, origin, labels))
-            .setPositiveButton(strings(R.string.ui_allow)) { _, _ ->
-                consentDialog = null
-                val needed = permissions.flatMap(::permissionNames).filter {
-                    ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED
-                }.distinct().toTypedArray()
-                if (needed.isEmpty()) finishPermission(permissions) else permissionLauncher.launch(needed)
+        sitePermissionPrompt.value = SitePermissionPrompt(origin, permissions)
+    }
+    fun allowSitePermission(prompt: SitePermissionPrompt) {
+        if (disposed || sitePermissionPrompt.value !== prompt) return
+        sitePermissionPrompt.value = null
+        val needed = prompt.permissions.flatMap(::permissionNames).filter {
+            ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED
+        }.distinct().toTypedArray()
+        if (needed.isEmpty()) finishPermission(prompt.permissions)
+        else {
+            permissionLauncherPending = true
+            runCatching { permissionLauncher.launch(needed) }.onFailure {
+                permissionLauncherPending = false
+                finishPermission(emptySet())
             }
-            .setNegativeButton(strings(R.string.ui_block)) { _, _ -> finishPermission(emptySet()) }
-            .setOnCancelListener { finishPermission(emptySet()) }.show()
+        }
+    }
+    fun dismissSitePermission(prompt: SitePermissionPrompt) {
+        if (sitePermissionPrompt.value === prompt) finishPermission(emptySet())
+    }
+    override fun cancelPermission(result: (Set<SitePermission>) -> Unit) {
+        if (permissionResult === result) finishPermission(emptySet())
     }
     private fun permissionNames(kind: SitePermission): List<String> = when (kind) {
         SitePermission.CAMERA -> listOf(Manifest.permission.CAMERA)
@@ -184,18 +216,23 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     }
     private fun finishPermission(granted: Set<SitePermission>) {
         val callback = permissionResult; permissionResult = null; requestedPermissions = emptySet()
-        consentDialog = null; callback?.invoke(granted)
+        sitePermissionPrompt.value = null; callback?.invoke(granted)
     }
     override fun download(request: DownloadRequest) = download(request) {}
     override fun download(request: DownloadRequest, result: (Boolean) -> Unit) {
         showDownloadConfirmation(request.suggestedName, Uri.parse(request.url).host.orEmpty(), null, result) { finish ->
-            runCatching { downloads.enqueue(request) }.onSuccess {
-                showMessage(strings(R.string.ui_download_started))
-                finish(true)
-            }.onFailure {
-                showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty()))
-                finish(false)
+            fun enqueue() {
+                runCatching { downloads.enqueue(request) }.onSuccess {
+                    showMessage(strings(R.string.ui_download_started))
+                    finish(true)
+                }.onFailure {
+                    showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty()))
+                    finish(false)
+                }
             }
+            // Ordinary HTTP notifications belong to DownloadManager. A chosen
+            // SAF folder instead uses Nagi's own completion/failure notification.
+            if (downloads.usesChosenFolder()) withDownloadNotifications(::enqueue) else enqueue()
         }
     }
     override fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) {
@@ -300,8 +337,9 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         disposed = true
         notificationPermissionResults.clear()
         blockedExternalApp.value = null
-        consentDialog?.dismiss(); finishPermission(emptySet())
-        fileDialog?.dismiss(); fileDialog = null; finishFiles(null)
+        finishPermission(emptySet())
+        browserActionPrompt.value?.let(::dismissBrowserActions)
+        finishFiles(null)
         captureFile?.delete(); captureFile = null; captureUri = null
         capturedFiles.forEach { it.delete() }; capturedFiles.clear()
         val downloadCallbacks = pendingDownloadResults.values.toList()

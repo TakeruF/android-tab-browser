@@ -50,14 +50,62 @@ class WebViewBrowserEngine(
     private var zoomInteractionVersion = 0L
     private var nativeDragHost: String? = null
     private var nativeDragActive = false
-    private val webView = object : WebView(webTheme) {
+    private val secondaryClick = NativeSecondaryClick(context)
+    private val webView: WebView = object : WebView(webTheme) {
+        private var floatingSelectionMode: android.view.ActionMode? = null
         override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+            if (secondaryClick.onMotion(event) { super.dispatchTouchEvent(it) }) return true
+            // A scaled software draw can change native selection-handle geometry.
+            // Keep the existing snapshot while WebView owns a selection toolbar.
+            if (event.actionMasked == android.view.MotionEvent.ACTION_UP && floatingSelectionMode == null) historyPreviews.interaction()
             if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
                 nativeDragHost = if (nativePageDrag()) Uri.parse(state.value.url).host else null
                 zoomInteractionVersion++; cancelZoomWork(); cancelSnapshotPresentationRestore()
             }
             if (event.actionMasked == android.view.MotionEvent.ACTION_UP && !nativeDragActive) nativeDragHost = null
             return super.dispatchTouchEvent(event)
+        }
+        override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+            if (secondaryClick.onMotion(event) { super.dispatchTouchEvent(it) }) return true
+            return super.dispatchGenericMotionEvent(event)
+        }
+        override fun onDetachedFromWindow() {
+            secondaryClick.reset()
+            super.onDetachedFromWindow()
+        }
+        override fun startActionMode(callback: android.view.ActionMode.Callback, type: Int): android.view.ActionMode? {
+            if (type != android.view.ActionMode.TYPE_FLOATING) return super.startActionMode(callback, type)
+            val observed = object : android.view.ActionMode.Callback2() {
+                override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu) = callback.onCreateActionMode(mode, menu)
+                override fun onPrepareActionMode(mode: android.view.ActionMode, menu: android.view.Menu) = callback.onPrepareActionMode(mode, menu)
+                override fun onActionItemClicked(mode: android.view.ActionMode, item: android.view.MenuItem) = callback.onActionItemClicked(mode, item)
+                override fun onDestroyActionMode(mode: android.view.ActionMode) {
+                    if (floatingSelectionMode === mode) {
+                        floatingSelectionMode = null
+                        secondaryClick.selectionFinished()
+                    }
+                    callback.onDestroyActionMode(mode)
+                }
+                override fun onGetContentRect(mode: android.view.ActionMode, view: android.view.View, outRect: android.graphics.Rect) {
+                    if (callback is android.view.ActionMode.Callback2) callback.onGetContentRect(mode, view, outRect)
+                    else super.onGetContentRect(mode, view, outRect)
+                }
+            }
+            val mode = super.startActionMode(observed, type)
+            if (mode != null) {
+                floatingSelectionMode = mode
+                secondaryClick.selectionStarted()
+            }
+            return mode
+        }
+        override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+            if (floatingSelectionMode == null && event.action == android.view.KeyEvent.ACTION_DOWN && when (event.keyCode) {
+                    android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER,
+                    android.view.KeyEvent.KEYCODE_DPAD_CENTER -> true
+                    android.view.KeyEvent.KEYCODE_SPACE -> !onCheckIsTextEditor()
+                    else -> false
+                }) historyPreviews.interaction()
+            return super.dispatchKeyEvent(event)
         }
         override fun onDragEvent(event: android.view.DragEvent): Boolean {
             val nativeStart = event.action == android.view.DragEvent.ACTION_DRAG_STARTED && nativeDragHost != null
@@ -155,6 +203,8 @@ class WebViewBrowserEngine(
     private var observedIconTheme = false
     private var observedIcon: Bitmap? = null
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
+    private val pendingPermissionResults = mutableMapOf<PermissionRequest, (Set<SitePermission>) -> Unit>()
+    private var geolocationPermissionResult: ((Set<SitePermission>) -> Unit)? = null
     private val popupViews = mutableSetOf<WebView>()
     private var destroyed = false
     private var autofillRequestJob: Job? = null
@@ -241,7 +291,7 @@ class WebViewBrowserEngine(
         applyUserAgent(if (desktopDefault) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
         webView.setOnLongClickListener {
-            if (!nativePageDrag()) showPageContextMenu()
+            if (secondaryClick.longPressActive || !nativePageDrag()) showPageContextMenu()
             else if (startLinkDrag()) true
             else {
                 nativeDragHost = Uri.parse(webView.hitTestResult?.extra.orEmpty()).host
@@ -326,6 +376,7 @@ class WebViewBrowserEngine(
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
+                secondaryClick.reset()
                 historyPreviews.started()
                 if (pendingExplicitLoad != null && pendingExplicitLoad?.currentUrl != url) pendingExplicitLoad = null
                 applyPageDarkening(view, url)
@@ -367,9 +418,23 @@ class WebViewBrowserEngine(
                 // in PageState or Room. Start/finish callbacks enforce the same boundary.
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 applyPageDarkening(view, url)
-                if (historyPreviews.historyUpdated()) visualGeneration.value++
+                val sameDocument = historyPreviews.historyUpdated()
                 if (url != state.value.url) humanVerification.locationChanged()
                 update { it.copy(url = url, visitBlockingExceptionSite = visitExceptionFor(url), canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
+                if (sameDocument) {
+                    loadingTimeout?.cancel()
+                    update { it.copy(isLoading = false, progress = 100, title = view.title?.takeIf(String::isNotBlank) ?: url) }
+                    documentPage = state.value
+                    recordVisit()
+                    // pushState/popstate may render after the history callback.
+                    val generation = navigationGeneration
+                    view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) {
+                            if (!destroyed && generation == navigationGeneration && url == state.value.url && url == view.url)
+                                visualGeneration.value++
+                        }
+                    })
+                }
                 metadata()
             }
             override fun onPageCommitVisible(view: WebView, url: String) {
@@ -405,7 +470,7 @@ class WebViewBrowserEngine(
                 if (privateProfileName == null) cookies.flush()
                 metadata()
                 if (!failedNavigation) discoverFavicon(view, url)
-                if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
+                recordVisit()
                 continuePageTranslation(url)
             }
             override fun onScaleChanged(view: WebView, oldScale: Float, newScale: Float) {
@@ -447,6 +512,11 @@ class WebViewBrowserEngine(
             override fun onProgressChanged(view: WebView, newProgress: Int) { update { it.copy(progress = newProgress) } }
             override fun onReceivedTitle(view: WebView, title: String?) {
                 update { it.copy(title = if (it.url == "about:blank") "New tab" else title?.takeIf(String::isNotBlank) ?: it.url) }; metadata()
+                // SPA routers often set the video/article title after pushState.
+                if (!state.value.isLoading && documentPage.url == state.value.url && view.url == state.value.url) {
+                    documentPage = state.value
+                    recordVisit()
+                }
             }
             override fun onReceivedIcon(view: WebView, icon: Bitmap?) {
                 val url = view.url ?: return
@@ -535,7 +605,8 @@ class WebViewBrowserEngine(
                 } }.toSet()
                 if (supported.isEmpty()) { request.deny(); return }
                 pendingPermissions.add(request)
-                host.requestPermission(request.origin.toString(), supported) { granted ->
+                val result: (Set<SitePermission>) -> Unit = { granted ->
+                    pendingPermissionResults.remove(request)
                     if (!destroyed && pendingPermissions.remove(request)) {
                         val resources = request.resources.filter { resource -> when (resource) {
                             PermissionRequest.RESOURCE_VIDEO_CAPTURE -> SitePermission.CAMERA in granted
@@ -545,13 +616,30 @@ class WebViewBrowserEngine(
                         if (resources.isEmpty()) request.deny() else { mediaPermissionGranted = true; request.grant(resources) }
                     }
                 }
+                pendingPermissionResults[request] = result
+                host.requestPermission(request.origin.toString(), supported, result)
             }
-            override fun onPermissionRequestCanceled(request: PermissionRequest) { pendingPermissions.remove(request) }
+            override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                pendingPermissions.remove(request)
+                pendingPermissionResults.remove(request)?.let(host::cancelPermission)
+            }
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
                 if (Uri.parse(origin).scheme != "https") { callback.invoke(origin, false, false); return }
-                host.requestPermission(origin, setOf(SitePermission.LOCATION)) { granted ->
-                    callback.invoke(origin, !destroyed && SitePermission.LOCATION in granted, false)
+                geolocationPermissionResult?.let(host::cancelPermission)
+                lateinit var result: (Set<SitePermission>) -> Unit
+                result = { granted ->
+                    if (geolocationPermissionResult === result) {
+                        geolocationPermissionResult = null
+                        callback.invoke(origin, !destroyed && SitePermission.LOCATION in granted, false)
+                    }
                 }
+                geolocationPermissionResult = result
+                host.requestPermission(origin, setOf(SitePermission.LOCATION), result)
+            }
+            override fun onGeolocationPermissionsHidePrompt() {
+                val result = geolocationPermissionResult
+                geolocationPermissionResult = null
+                result?.let(host::cancelPermission)
             }
         }
         webView.setDownloadListener { url, userAgent, disposition, mimeType, _ ->
@@ -795,6 +883,9 @@ class WebViewBrowserEngine(
         }
     }
     private fun metadata() { eventChannel.trySend(EngineEvent.Metadata(state.value)) }
+    private fun recordVisit() {
+        if (!failedNavigation) eventChannel.trySend(EngineEvent.Visited(state.value))
+    }
     private fun saveFavicon(pageUrl: String, icon: Bitmap) {
         val favicons = favicons ?: return
         val navigation = navigationGeneration
@@ -1292,6 +1383,7 @@ class WebViewBrowserEngine(
         observedIcon?.recycle()
         observedIcon = null
         if (destroyed) return
+        secondaryClick.reset()
         pageTranslation.reset(restore = false)
         destroyed = true
         historyPreviews.clear()
@@ -1302,6 +1394,12 @@ class WebViewBrowserEngine(
         pageDownloads.destroy()
         fileCallback?.onReceiveValue(null); fileCallback = null
         pendingPermissions.forEach { it.deny() }; pendingPermissions.clear()
+        val cancelledPermissionResults = pendingPermissionResults.values.toList()
+        pendingPermissionResults.clear()
+        cancelledPermissionResults.forEach(host::cancelPermission)
+        val cancelledGeolocationResult = geolocationPermissionResult
+        geolocationPermissionResult = null
+        cancelledGeolocationResult?.let(host::cancelPermission)
         popupViews.forEach { it.destroy() }; popupViews.clear()
         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
         webView.stopLoading(); webView.onPause(); webView.destroy()

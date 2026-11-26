@@ -3,6 +3,8 @@ package com.takeruf.nagi.ui.browser
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -25,6 +27,8 @@ internal class HistorySwipeGesture(
     private val canNavigate: (back: Boolean) -> Boolean,
     private val navigate: (back: Boolean) -> Unit,
     private val canScroll: (Float, Float, Int, (Boolean) -> Unit) -> Unit,
+    private val preview: (back: Boolean, progress: Float) -> Unit = { _, _ -> },
+    private val cancelPreview: () -> Unit = {},
 ) {
     private val density = context.resources.displayMetrics.density
     private val slop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
@@ -46,6 +50,17 @@ internal class HistorySwipeGesture(
     private var wheelCanScroll: Boolean? = null
     private var wheelBack: Boolean? = null
     private var wheelGeneration = 0L
+    private val handler = Handler(Looper.getMainLooper())
+    private var showingPreview = false
+    private val wheelEnded = Runnable { resetWheel() }
+
+    private fun showPreview(distance: Float) {
+        showingPreview = true
+        preview(distance > 0, (abs(distance) / (threshold * 2)).coerceIn(0f, 0.85f))
+    }
+
+    private fun commit(back: Boolean) { showingPreview = false; navigate(back) }
+    private fun cancel() { if (showingPreview) { showingPreview = false; cancelPreview() } }
 
     fun reset() {
         resetTouch()
@@ -53,12 +68,15 @@ internal class HistorySwipeGesture(
     }
 
     private fun resetTouch(cancelPending: Boolean = true) {
+        if (cancelPending) cancel()
         if (cancelPending) touchGeneration++
         tracking = false; rejected = false; claimed = false
         dx = 0f; dy = 0f; padCheck = null
     }
 
     private fun resetWheel() {
+        handler.removeCallbacks(wheelEnded)
+        cancel()
         wheelGeneration++
         wheelLastTime = Long.MIN_VALUE; wheelX = 0f; wheelY = 0f
         wheelBlocked = false; wheelClaimed = false; wheelCanScroll = null; wheelBack = null
@@ -79,7 +97,7 @@ internal class HistorySwipeGesture(
         if (!rejected && Build.VERSION.SDK_INT >= 34 && (action == MotionEvent.ACTION_MOVE ||
                 action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_UP)) {
             val wasClaimed = claimed
-            if (!classifiedSwipe && action == MotionEvent.ACTION_MOVE) rejected = true
+            if (!classifiedSwipe && action == MotionEvent.ACTION_MOVE) { rejected = true; cancel() }
             else if (classifiedSwipe) {
                 // Include relative pixel scroll distances from every batched sample.
                 for (sample in 0..event.historySize) {
@@ -97,7 +115,8 @@ internal class HistorySwipeGesture(
                 canScroll(event.x, event.y, if (dx > 0) -1 else 1) { scrollable ->
                     if (generation == touchGeneration) {
                         check.scrollable = scrollable
-                        check.completedBack?.let { back -> if (!scrollable && canNavigate(back)) navigate(back) }
+                        check.completedBack?.let { back -> if (!scrollable && canNavigate(back)) commit(back) }
+                        if (tracking) decide()
                     }
                 }
             }
@@ -109,9 +128,9 @@ internal class HistorySwipeGesture(
             if (!rejected && abs(dx) >= threshold && abs(dx) > abs(dy) * 2) {
                 val back = dx > 0
                 val check = padCheck
-                if (check?.scrollable == false && canNavigate(back)) navigate(back)
+                if (check?.scrollable == false && canNavigate(back)) commit(back)
                 else if (check != null && check.scrollable == null) check.completedBack = back
-            }
+            } else cancel()
             tracking = false
             rejected = true
             if (action == MotionEvent.ACTION_UP) resetTouch(cancelPending = false)
@@ -122,15 +141,20 @@ internal class HistorySwipeGesture(
 
     private fun decide() {
         if (rejected) return
-        if (abs(dy) > slop && abs(dx) < abs(dy) * 2) { rejected = true; return }
+        if (abs(dy) > slop && abs(dx) < abs(dy) * 2) { rejected = true; cancel(); return }
         if (padCheck?.scrollable == false && abs(dx) > maxOf(24f * density, slop) &&
-            abs(dx) > abs(dy) * 2 && canNavigate(dx > 0)) claimed = true
+            abs(dx) > abs(dy) * 2 && canNavigate(dx > 0)) {
+            claimed = true
+            showPreview(dx)
+        } else if (claimed) cancel()
     }
 
     fun onScroll(event: MotionEvent): Boolean {
         if (event.isFromSource(InputDevice.SOURCE_TOUCHSCREEN) || !isTouchpad(event)) { resetWheel(); return false }
         if (wheelLastTime == Long.MIN_VALUE || event.eventTime - wheelLastTime > 250) resetWheel()
         wheelLastTime = event.eventTime
+        handler.removeCallbacks(wheelEnded)
+        handler.postDelayed(wheelEnded, 250)
         if (wheelClaimed) return true // Includes momentum; one history step per burst.
         if (wheelBlocked) return false
         for (sample in 0..event.historySize) {
@@ -139,9 +163,9 @@ internal class HistorySwipeGesture(
             wheelY += (if (sample == event.historySize) event.getAxisValue(MotionEvent.AXIS_VSCROLL)
                 else event.getHistoricalAxisValue(MotionEvent.AXIS_VSCROLL, sample)) * scrollFactor
         }
-        if (abs(wheelY) > slop && abs(wheelX) < abs(wheelY) * 2) { wheelBlocked = true; return false }
+        if (abs(wheelY) > slop && abs(wheelX) < abs(wheelY) * 2) { wheelBlocked = true; cancel(); return false }
         if (abs(wheelX) <= slop || abs(wheelX) <= abs(wheelY) * 2) return false
-        if (wheelBack != null && wheelBack != (wheelX > 0)) { wheelBlocked = true; return false }
+        if (wheelBack != null && wheelBack != (wheelX > 0)) { wheelBlocked = true; cancel(); return false }
         if (!canNavigate(wheelX > 0)) { wheelBlocked = true; return false }
         if (wheelCanScroll == null) {
             // Mark pending before invoking the adapter (which may answer synchronously).
@@ -160,10 +184,11 @@ internal class HistorySwipeGesture(
     }
 
     private fun finishWheel() {
+        if (wheelCanScroll == false && !wheelClaimed && !wheelBlocked && canNavigate(wheelX > 0)) showPreview(wheelX)
         if (wheelCanScroll == false && !wheelClaimed && !wheelBlocked &&
             abs(wheelX) >= threshold && abs(wheelX) > abs(wheelY) * 2 && canNavigate(wheelX > 0)) {
             wheelClaimed = true
-            navigate(wheelX > 0)
+            commit(wheelX > 0)
         }
     }
 
