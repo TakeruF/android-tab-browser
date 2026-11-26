@@ -1,11 +1,15 @@
 # Google Play release preparation
 
-## Current release preparation — 2026-11-26
+## Current production submission — 2026-11-26
 
-The user authorized **1.6.1 / code 25** for the existing production channel.
-Live Publisher API preflight found highest uploaded code 24 across bundles,
-APKs and all tracks. The new artifact is in preparation; upload, review and
-public availability are not yet established. See [1.6.1 verification](RELEASE_1.6.1_VERIFICATION.md).
+**1.6.1 / code 25 is IN_REVIEW**, confirmed by the official production release
+lifecycle at **17:27:04 JST**. The exact verified AAB from clean source
+`19f3cc1` and immutable tag `v1.6.1` was accepted, saved as a production draft,
+validated and submitted for 100% rollout. All six release-note blocks, countries,
+store listings and other tracks were independently reread and preserved.
+**Public 1.6.1 availability is not yet confirmed.** Console UI and current
+managed-publishing controls were not inspected. See
+[1.6.1 verification](RELEASE_1.6.1_VERIFICATION.md).
 
 ## Latest production publication confirmed — 2026-11-26
 

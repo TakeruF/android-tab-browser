@@ -16,7 +16,7 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.6.1 improves history previews and trackpad navigation, records in-page visits, unifies selection and permission dialogs, and fixes microphone/download permission handling. Google Play release preparation is in progress; public availability is not yet confirmed. See [1.6.1 notes](docs/releases/1.6.1.md).
+Version 1.6.1 improves history previews and trackpad navigation, records in-page visits, unifies selection and permission dialogs, fixes microphone/download permission handling, and closes empty download tabs when cancelled. The Google Play production release is submitted and IN_REVIEW; public availability is not yet confirmed. See [1.6.1 notes](docs/releases/1.6.1.md).
 
 Version 1.6.0 refreshes the phone toolbar and page menu, adds a Home button, and simplifies tab rows. Google Play publication was confirmed by the official production lifecycle on 2026-11-26; this is the observation date, not the precise publication time. See [1.6.0 notes](docs/releases/1.6.0.md).
 
