@@ -16,7 +16,9 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.6.0 refreshes the phone toolbar and page menu, adds a Home button, and simplifies tab rows. It was submitted for a full Google Play production rollout on 2026-11-25 and is in review; public availability is not yet confirmed. See [1.6.0 notes](docs/releases/1.6.0.md).
+Version 1.6.1 improves history previews and trackpad navigation, records in-page visits, unifies selection and permission dialogs, and fixes microphone/download permission handling. Google Play release preparation is in progress; public availability is not yet confirmed. See [1.6.1 notes](docs/releases/1.6.1.md).
+
+Version 1.6.0 refreshes the phone toolbar and page menu, adds a Home button, and simplifies tab rows. Google Play publication was confirmed by the official production lifecycle on 2026-11-26; this is the observation date, not the precise publication time. See [1.6.0 notes](docs/releases/1.6.0.md).
 
 Version 1.5.0 adds a new search design, keyboard-aware compact spacing, Space-specific history and improved dragging and video behavior. Google Play publication was confirmed on 2026-11-25. See [1.5.0 notes](docs/releases/1.5.0.md).
 

@@ -103,3 +103,10 @@ receipts, check logs, screenshots and artifact hashes are retained in ignored
 artifacts/1.6.0/. The original changed source is backed up there; the intended
 changes are committed in main, with the test expectation correction recorded
 above. No release keystores or credentials were added to Git.
+
+## Publication confirmed — 2026-11-26
+
+A fresh official production lifecycle readback during 1.6.1 preflight reports
+code 24 (1.6.0) PUBLISHED. This confirms the current state, not the precise
+publication timestamp. The accepted artifact and submitted notes are unchanged.
+The readback is retained in ignored artifacts/1.6.1/lifecycle-before.json.
