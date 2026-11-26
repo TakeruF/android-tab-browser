@@ -15,10 +15,19 @@ closure. The action chosen when a gesture starts stays fixed through settling.
 
 `PredictiveBackHandler` owns the gesture in the composition; no Views or images
 are stored in the ViewModel. The engine captures recent departing viewports in
-memory, with three images of at most 0.5 megapixels each per live engine. History
+memory, with the current viewport and three recent destinations, each at most
+0.5 megapixels (four images / at most 8 MiB of pixel data per live engine). History
 index and URL identify each image, including repeated URLs. New navigations
 discard forward-branch images. Images are not persisted or added to saved engine
 state, and engine destruction clears its cache, including private engines.
+The current viewport is also saved after native visual readiness and before
+click/activation input reaches the page. While a native text-selection toolbar
+is active, input-triggered capture is skipped to preserve selection-handle
+geometry. This retains the departing image when
+SPA sites such as YouTube use `pushState` without a document load. Native history
+callbacks keep these images associated with their actual entry, and saved images
+remain available for a three-step Back/Forward round trip. Reloaded, evicted or
+resized entries can still require the fallback described below.
 The original WebView remains live throughout a cancelled gesture. After commit,
 the image covers it until native visual commit, with a 1.5-second fallback for
 failed/provider-incomplete loads. A real history entry pointing to `about:blank`
@@ -36,6 +45,15 @@ and [WebView visual commit](https://developer.android.com/reference/android/webk
 ## Trackpad navigation
 
 Swipe two fingers right on the trackpad to go back, or left to go forward. In Split, the gesture operates on the pane under the pointer. Reaching the beginning/end of history keeps the tab open.
+
+Both directions reveal the saved destination while swiping. Classified gestures
+commit on release or settle back when cancelled/below the navigation threshold.
+Wheel-axis trackpads show the same preview before the burst reaches its commit
+threshold; an incomplete burst cancels after 250 ms without input. Committed
+gestures use the existing 180 ms ease-out settle and native visual-ready handoff.
+The native input container stays stationary while its WebView is translated, so
+later samples still reach the original pane. Changing tabs disposes its pending
+animation. Mouse wheels and touchscreen page gestures do not show this preview.
 
 Touchscreen input within the page is passed to the native page for scrolling,
 pinch zoom, and website interactions. It never triggers a trackpad history swipe,

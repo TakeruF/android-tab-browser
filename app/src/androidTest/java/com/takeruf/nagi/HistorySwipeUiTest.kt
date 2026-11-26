@@ -147,12 +147,12 @@ class HistorySwipeUiTest {
     }
 
     @androidx.annotation.RequiresApi(36)
-    private fun classifiedSwipe(v: WebView, xDp: Float, cancel: Boolean = false) {
+    private fun classifiedSwipe(v: WebView, xDp: Float, cancel: Boolean = false, release: Boolean = true) {
         compose.runOnIdle {
             val (x, y) = point(v)
             val time = SystemClock.uptimeMillis()
             val props = MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER }
-            for (step in 0..11) {
+            for (step in 0..if (release) 11 else 10) {
                 val action = when (step) { 0 -> MotionEvent.ACTION_DOWN; 11 -> if (cancel) MotionEvent.ACTION_CANCEL else MotionEvent.ACTION_UP; else -> MotionEvent.ACTION_MOVE }
                 val coords = MotionEvent.PointerCoords().apply {
                     this.x = x + xDp * v.resources.displayMetrics.density * minOf(step, 10) / 10
@@ -165,6 +165,68 @@ class HistorySwipeUiTest {
                 try { compose.activity.window.callback.dispatchTouchEvent(event) } finally { event.recycle() }
             }
         }
+    }
+
+    private fun finishClassifiedSwipe(v: WebView, cancel: Boolean) {
+        compose.runOnIdle {
+            val (x, y) = point(v)
+            val time = SystemClock.uptimeMillis()
+            val props = MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER }
+            val coords = MotionEvent.PointerCoords().apply { this.x = x; this.y = y }
+            val event = MotionEvent.obtain(time, time, if (cancel) MotionEvent.ACTION_CANCEL else MotionEvent.ACTION_UP,
+                1, arrayOf(props), arrayOf(coords), 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_MOUSE, 0)
+            try { compose.activity.window.callback.dispatchTouchEvent(event) } finally { event.recycle() }
+        }
+    }
+
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 36)
+    @Test fun trackpadPreviewsBothDirectionsAndCancellationKeepsDraft() {
+        val v = views().single()
+        javascript(v, "document.body.style.background='#e65a45'; true"); visualReady(v)
+        val link = org.json.JSONArray(javascript(v, "(()=>{const r=document.getElementById('next').getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2,innerWidth]})()"))
+        compose.runOnIdle {
+            val x = (link.getDouble(0) * v.width / link.getDouble(2)).toFloat()
+            val y = (link.getDouble(1) * v.width / link.getDouble(2)).toFloat()
+            val time = SystemClock.uptimeMillis()
+            for ((action, offset) in listOf(MotionEvent.ACTION_DOWN to 0L, MotionEvent.ACTION_UP to 60L)) {
+                val event = MotionEvent.obtain(time, time + offset, action, x, y, 0)
+                try { v.dispatchTouchEvent(event) } finally { event.recycle() }
+            }
+        }
+        compose.waitUntil(10_000) { ready(v, "/two") }
+        javascript(v, "document.body.style.background='#2879b2'; document.querySelector('textarea')?.remove(); document.body.insertAdjacentHTML('beforeend','<textarea id=draft>Unsent</textarea>'); true")
+        visualReady(v)
+        fun preview(back: Boolean, expectedPath: String, screenshotName: String) {
+            classifiedSwipe(v, if (back) 160f else -160f, release = false)
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("history-back-preview").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitForIdle()
+            SystemClock.sleep(100) // The native surface and Compose image present on the next frame.
+            assertTrue("Preview must not navigate before release", ready(v, expectedPath))
+            val screenshot = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            try {
+                java.io.File(compose.activity.cacheDir, screenshotName).outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                val location = IntArray(2)
+                compose.runOnIdle { v.getLocationOnScreen(location) }
+                // getLocationOnScreen includes native translation; sample the stationary pane.
+                var paneX = 0
+                compose.runOnIdle { paneX = IntArray(2).also { (v.parent as View).getLocationOnScreen(it) }[0] }
+                // Sample the page's outer margin, away from controls that wrap on phones.
+                val pixel = screenshot.getPixel(paneX + (v.width * if (back) 0.005f else 0.995f).toInt(), location[1] + v.height * 3 / 4)
+                if (back) assertTrue("Back must show saved red page: ${Integer.toHexString(pixel)}, x=$paneX, width=${v.width}", android.graphics.Color.red(pixel) > android.graphics.Color.blue(pixel) * 1.5f)
+                else assertTrue("Forward must show saved blue page", android.graphics.Color.blue(pixel) > android.graphics.Color.red(pixel) * 1.5f)
+                java.io.File(compose.activity.cacheDir, screenshotName).outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            } finally { screenshot.recycle() }
+        }
+        preview(true, "/two", "trackpad-back.png")
+        finishClassifiedSwipe(v, cancel = true)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("history-back-preview").fetchSemanticsNodes().isEmpty() }
+        assertEquals("\"Unsent\"", javascript(v, "document.getElementById('draft').value"))
+        preview(true, "/two", "trackpad-back.png")
+        finishClassifiedSwipe(v, cancel = false)
+        compose.waitUntil(10_000) { ready(v, "/one") }
+        preview(false, "/one", "trackpad-forward.png")
+        finishClassifiedSwipe(v, cancel = false)
+        compose.waitUntil(10_000) { ready(v, "/two") }
     }
 
     @androidx.test.filters.SdkSuppress(minSdkVersion = 36)

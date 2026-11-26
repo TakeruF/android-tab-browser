@@ -24,6 +24,10 @@ import com.takeruf.nagi.browser.engine.BrowserEngine
 import com.takeruf.nagi.browser.engine.HistoryPagePreview
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /** Composition-owned visuals only. History is untouched until the gesture commits. */
 class HistoryBackPreviewState {
@@ -36,17 +40,25 @@ class HistoryBackPreviewState {
     val progress get() = position.value
     var fromRight by mutableStateOf(false)
         private set
+    var nativeTranslation by mutableStateOf(false)
+        private set
 
     suspend fun begin(): Long { reset(); return generation }
 
     suspend fun update(owner: Long, target: BrowserEngine, event: BackEventCompat) {
+        update(owner, target, true, event.progress, event.swipeEdge == BackEventCompat.EDGE_RIGHT)
+    }
+
+    suspend fun update(owner: Long, target: BrowserEngine, back: Boolean, progress: Float, fromRight: Boolean = !back,
+        nativeTranslation: Boolean = false) {
         if (owner != generation) return
         if (engine !== target) {
-            page = (target as? AndroidEngineSurface)?.historyPagePreview(back = true) ?: return
+            page = (target as? AndroidEngineSurface)?.historyPagePreview(back) ?: return
             engine = target
         }
-        fromRight = event.swipeEdge == BackEventCompat.EDGE_RIGHT
-        position.snapTo(event.progress.coerceIn(0f, 1f))
+        this.fromRight = fromRight
+        this.nativeTranslation = nativeTranslation
+        position.snapTo(progress.coerceIn(0f, 1f))
     }
 
     suspend fun complete(owner: Long, navigate: () -> Unit) {
@@ -73,6 +85,40 @@ class HistoryBackPreviewState {
     private fun settle() = tween<Float>(180, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f))
 }
 
+/** Each pane owns its trackpad animation; changing Split focus cannot cancel its first frame. */
+internal class TrackpadHistoryPreview(private val scope: CoroutineScope, private val engine: BrowserEngine) {
+    val state = HistoryBackPreviewState()
+    private var owner: Long? = null
+    private var back: Boolean? = null
+    private var job: Job? = null
+    fun dispose() { job?.cancel(); owner = null; back = null }
+
+    fun progress(back: Boolean, progress: Float) {
+        job?.cancel()
+        job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            if (owner == null || this@TrackpadHistoryPreview.back != back) {
+                owner = state.begin()
+                this@TrackpadHistoryPreview.back = back
+            }
+            state.update(owner!!, engine, back, progress, nativeTranslation = true)
+        }
+    }
+
+    fun finish(back: Boolean?) {
+        job?.cancel()
+        val token = owner
+        owner = null
+        this.back = null
+        job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            if (back == null) token?.let { state.cancel(it) }
+            else {
+                val active = token ?: state.begin().also { state.update(it, engine, back, 0f, nativeTranslation = true) }
+                state.complete(active) { if (back) engine.goBack() else engine.goForward() }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun HistoryBackPreview(state: HistoryBackPreviewState?, engine: BrowserEngine,
     modifier: Modifier = Modifier, newTab: @Composable () -> Unit, content: @Composable () -> Unit) {
@@ -88,7 +134,7 @@ internal fun HistoryBackPreview(state: HistoryBackPreviewState?, engine: Browser
             Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.24f * (1f - state!!.progress))))
         }
         Box(Modifier.fillMaxSize().graphicsLayer {
-            translationX = if (active) size.width * state!!.progress * (if (state.fromRight) -1 else 1) else 0f
+            translationX = if (active && !state!!.nativeTranslation) size.width * state.progress * (if (state.fromRight) -1 else 1) else 0f
         }) { content() }
     }
 }

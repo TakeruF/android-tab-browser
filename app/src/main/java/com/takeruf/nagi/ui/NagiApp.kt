@@ -118,6 +118,8 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
     } }
     val blockedExternalApp by host.blockedExternalApps.collectAsStateWithLifecycle()
     val downloadConfirmations by host.downloadConfirmations.collectAsStateWithLifecycle()
+    val sitePermissionPrompt by host.sitePermissionPrompts.collectAsStateWithLifecycle()
+    val browserActionPrompt by host.browserActionPrompts.collectAsStateWithLifecycle()
     val pages by sessions.pages.collectAsStateWithLifecycle()
     val video by host.video.presentation.collectAsState()
     val fullscreen = video?.takeUnless { it.popup }?.view
@@ -672,6 +674,14 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
                     title = { Text(strings(R.string.ui_app_updates)) },
                     text = { com.takeruf.nagi.updates.AppUpdateSection(container.updates, activity.updateInstaller::install) },
                     confirmButton = { TextButton(onClick = { updateDialog = false }) { Text(strings(R.string.ui_cancel)) } })
+                sitePermissionPrompt?.let { prompt ->
+                    SitePermissionDialog(prompt, onAllow = { host.allowSitePermission(prompt) },
+                        onBlock = { host.dismissSitePermission(prompt) })
+                }
+                browserActionPrompt?.let { prompt ->
+                    BrowserActionsDialog(prompt, onChoose = { host.chooseBrowserAction(prompt, it) },
+                        onDismiss = { host.dismissBrowserActions(prompt) })
+                }
                 downloadConfirmations.firstOrNull()?.let { request ->
                     key(request) {
                         DownloadConfirmationDialog(request, onConfirm = { host.confirmDownload(request) },

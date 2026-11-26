@@ -66,6 +66,9 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
     onNewTabSearch: (Rect?) -> Unit = { onOmnibox() }) {
     val strings = rememberNagiStrings()
     val page by engine.state.collectAsStateWithLifecycle()
+    val previewScope = rememberCoroutineScope()
+    val trackpadPreview = remember(engine) { TrackpadHistoryPreview(previewScope, engine) }
+    DisposableEffect(trackpadPreview) { onDispose { trackpadPreview.dispose() } }
     var newTabSearchBounds by remember(tab.id) { mutableStateOf<Rect?>(null) }
     val context = LocalContext.current
     val canShareLink = page.url.isNotBlank() && page.url != "about:blank"
@@ -335,7 +338,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 HumanVerificationRecoveryBar(page,
                     onRetry = { onFocus(); engine.setDesktopMode(false) })
             }
-            HistoryBackPreview(historyBackPreview, engine,
+            HistoryBackPreview(if (historyBackPreview?.engine === engine) historyBackPreview else trackpadPreview.state, engine,
                 Modifier.fillMaxWidth().weight(1f).testTag("browser-content-${tab.id}"),
                 newTab = { NewTabPage({}, compactWindow, state.settings, {}, requestInitialFocus = false) }) {
               Box(Modifier.fillMaxSize()) {
@@ -351,7 +354,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                     }
                 }
                 else if (page.readerArticle != null) ReaderPane(page.readerArticle!!, engine)
-                else BrowserSurface(engine, Modifier.fillMaxSize().clip(if (compactWindow) RectangleShape else NagiShapes.Bottom), onFocus)
+                else BrowserSurface(engine, Modifier.fillMaxSize().clip(if (compactWindow) RectangleShape else NagiShapes.Bottom), onFocus, trackpadPreview)
                 if (bottomSearchBar && page.isLoading) LinearProgressIndicator(progress = { page.progress / 100f },
                     modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(2.dp))
                 if (page.readerLoading) CircularProgressIndicator(Modifier.align(Alignment.Center))

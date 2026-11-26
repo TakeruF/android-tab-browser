@@ -13,6 +13,9 @@ class DownloadService(private val context: Context, private val folder: () -> Ur
     /** The chosen folder while Nagi can still write to it; otherwise null (system Downloads). */
     private fun usableFolder(): Uri? = folder()?.takeIf { DownloadFolder.writable(context, it) }
 
+    /** These downloads need Nagi's notification after the staged file is moved. */
+    fun usesChosenFolder(): Boolean = usableFolder() != null
+
     fun enqueue(download: DownloadRequest): Long {
         val filename = download.suggestedName.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(160).ifBlank { "download" }
         val request = DownloadManager.Request(Uri.parse(download.url))

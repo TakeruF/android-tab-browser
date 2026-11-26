@@ -1,0 +1,47 @@
+<en-US>
+Improved Back/Forward page previews, including two-finger trackpad gestures.
+Fixed missing browsing history for in-page navigation on YouTube and similar sites.
+Unified text-selection menus for right-click and long-press, and refreshed permission and file-selection dialogs.
+Improved microphone access and download notification permission handling.
+Cancelling a download also closes its new, empty tab.
+</en-US>
+
+<es-ES>
+Mejoramos las vistas previas al retroceder y avanzar, incluidos los gestos de dos dedos en el panel táctil.
+Corregimos el historial que faltaba al navegar dentro de YouTube y sitios similares.
+Unificamos los menús de selección de texto del clic derecho y la pulsación larga, y renovamos los diálogos de permisos y archivos.
+Mejoramos el acceso al micrófono y los permisos de notificaciones de descargas.
+Cancelar una descarga también cierra su nueva pestaña vacía.
+</es-ES>
+
+<fr-FR>
+Amélioration des aperçus Retour/Suivant, y compris avec les gestes à deux doigts du pavé tactile.
+Correction des visites absentes de l’historique lors de la navigation dans YouTube et des sites similaires.
+Harmonisation des menus de sélection par clic droit et appui long, ainsi que des dialogues de permissions et de fichiers.
+Amélioration de l’accès au microphone et des autorisations de notification des téléchargements.
+Annuler un téléchargement ferme aussi son nouvel onglet vide.
+</fr-FR>
+
+<ja-JP>
+戻る・進むのページプレビューを改善し、タッチパッドの二本指操作にも対応しました。
+YouTubeなどのページ内移動が閲覧履歴に残らない問題を修正しました。
+右クリックと長押しの文字選択メニューを統一し、権限やファイル選択の表示を整えました。
+マイクの利用とダウンロード通知の許可処理を改善しました。
+ダウンロードをキャンセルした際も、専用に開いた空のタブを閉じるようにしました。
+</ja-JP>
+
+<zh-CN>
+改进了后退、前进时的网页预览，并支持触控板双指手势。
+修复了在YouTube等网站内切换页面时未记录浏览历史的问题。
+统一了右键与长按的文字选择菜单，并优化了权限和文件选择弹窗。
+改进了麦克风访问和下载通知的权限处理。
+取消下载时，也会关闭为此次下载新开的空白标签页。
+</zh-CN>
+
+<ko-KR>
+뒤로·앞으로 이동할 때의 페이지 미리보기를 개선하고 터치패드 두 손가락 동작을 지원합니다.
+YouTube 등에서 페이지 내부를 이동할 때 방문 기록이 남지 않던 문제를 수정했습니다.
+오른쪽 클릭과 길게 누르기의 텍스트 선택 메뉴를 통일하고 권한·파일 선택 창을 정리했습니다.
+마이크 사용과 다운로드 알림의 권한 처리를 개선했습니다.
+다운로드를 취소하면 해당 다운로드용으로 열린 빈 탭도 닫힙니다.
+</ko-KR>

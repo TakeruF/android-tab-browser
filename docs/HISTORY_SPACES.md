@@ -15,6 +15,13 @@ records a new visit there. Deleting a Space cascades its visits, and a late
 callback from a deleted/closed tab cannot recreate them. Private browsing
 continues to suppress visit recording and uses its separate in-memory workspace.
 
+Same-document navigation (`pushState`, `replaceState`, fragments and native
+Back/Forward traversal) also records the current URL without waiting for a new
+document's `onPageFinished`. Delayed page/video title notifications update that
+visit's metadata through the same tab/Space deduplication path. A title update or
+repeated notification does not create another visit or change its timestamp;
+an actual navigation away and back remains a separate visit.
+
 The store retains up to 5,000 visits per Space and observes the latest 2,000
 for the current history screen and suggestions. Another Space's activity cannot
 consume this limit. Individual history-screen removals check the current Space.

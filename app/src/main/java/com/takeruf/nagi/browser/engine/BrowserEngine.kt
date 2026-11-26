@@ -29,7 +29,7 @@ sealed interface EngineEvent {
     data class Visited(val page: PageState) : EngineEvent
     data class OpenTab(val url: String) : EngineEvent
     /** A native download was accepted while this engine still had no document. */
-    data object DownloadStartedWithoutDocument : EngineEvent
+    data object DownloadHandledWithoutDocument : EngineEvent
 }
 
 /** Opaque engine-owned state. A Chromium adapter can supply its own snapshot type. */
@@ -79,6 +79,7 @@ data class FileSelectionRequest(val mimeTypes: List<String>, val multiple: Boole
 data class GeneratedDownload(val name: String, val mimeType: String, val size: Long, val origin: String)
 data class DownloadRequest(val url: String, val userAgent: String, val contentDisposition: String?,
     val mimeType: String?, val cookies: String?, val suggestedName: String)
+enum class DownloadResult { ACCEPTED, CANCELLED, FAILED }
 data class PageContextAction(val label: String, val execute: () -> Unit)
 
 interface BrowserHost {
@@ -87,9 +88,11 @@ interface BrowserHost {
     fun shareLink(url: String) {}
     fun chooseFiles(request: FileSelectionRequest, result: (List<String>?) -> Unit)
     fun requestPermission(origin: String, permissions: Set<SitePermission>, result: (Set<SitePermission>) -> Unit)
+    /** Withdraw only the matching native request when its document cancels or is destroyed. */
+    fun cancelPermission(result: (Set<SitePermission>) -> Unit) {}
     fun download(request: DownloadRequest)
-    /** True only after the native service accepts the request; false on cancel/failure. */
-    fun download(request: DownloadRequest, result: (Boolean) -> Unit) { download(request); result(false) }
+    /** Acceptance means the native service queued it; dismissal and failure remain distinct. */
+    fun download(request: DownloadRequest, result: (DownloadResult) -> Unit) { download(request); result(DownloadResult.FAILED) }
     fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) { result(false) }
     fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File) { file.delete() }
     fun saveGeneratedDownload(request: GeneratedDownload, file: java.io.File, result: (Boolean) -> Unit) {

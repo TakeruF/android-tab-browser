@@ -32,21 +32,47 @@ class HistoryPagePreviewEngineTest {
         return runBlocking { withTimeout(5_000) { result.await() } }
     }
     private fun ready(path: String) = runBlocking {
-        withTimeout(15_000) { engine.state.first { !it.isLoading && it.url == server.origin + path && it.progress == 100 } }
+        try {
+            withTimeout(15_000) { engine.state.first { !it.isLoading && it.url == server.origin + path && it.progress == 100 } }
+        } catch (failure: Throwable) {
+            var native = ""
+            main { native = "url=${view.url} history=${view.copyBackForwardList().currentIndex}/${view.copyBackForwardList().size}" }
+            throw AssertionError("Expected $path; ${engine.state.value}; $native; dom=${js("JSON.stringify({events:window.inputEvents,error:window.scriptError,button:document.querySelector('button')?.outerHTML,width:innerWidth,visual:visualViewport.width})")}", failure)
+        }
         val painted = CompletableDeferred<Unit>()
         main { view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
             override fun onComplete(requestId: Long) { painted.complete(Unit) }
         }) }
         withTimeout(5_000) { painted.await() }
+        delay(100) // Let the compositor present the hit-test data, not only acknowledge DOM state.
     }
     private fun load(path: String) { main { engine.loadUrl(server.origin + path) }; ready(path) }
+    private fun tapNext() {
+        val point = org.json.JSONArray(js("(()=>{const r=document.querySelector('button').getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2,innerWidth]})()"))
+        main {
+            val x = (point.getDouble(0) * view.width / point.getDouble(2)).toFloat()
+            val y = (point.getDouble(1) * view.width / point.getDouble(2)).toFloat()
+            val time = android.os.SystemClock.uptimeMillis()
+            for ((action, offset) in listOf(android.view.MotionEvent.ACTION_DOWN to 0L, android.view.MotionEvent.ACTION_UP to 60L)) {
+                val event = android.view.MotionEvent.obtain(time, time + offset, action, x, y, 0)
+                try { view.dispatchTouchEvent(event) } finally { event.recycle() }
+            }
+        }
+    }
 
     @Before fun setup() {
         val header = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><style>html,body{margin:0}</style>"
         server = FixtureServer(pages = mapOf(
             "/old" to "$header<div style='height:1200px;background:#e65a45'></div><div style='height:4000px;background:#dcbc45'></div>",
             "/current" to "$header<body style='background:#2879b2'><textarea id='draft'>Unsent</textarea></body>",
-            "/green" to "$header<body style='background:#4b9860'></body>"))
+            "/green" to "$header<body style='background:#4b9860'></body>",
+            "/spa" to """$header<body><button style="margin:64px;padding:16px" onclick="nextVideo()">Next video</button>
+                <textarea id='draft'>Unsent</textarea><script>
+                function nextVideo(){history.pushState({},'', '/spa?v='+(Number(new URL(location.href).searchParams.get('v')||0)+1));render()}
+                function render(){const n=Number(new URL(location.href).searchParams.get('v')||0);
+                  document.body.style.background=['#e65a45','#2879b2','#4b9860','#a93cc0'][n];document.title='Video '+n}
+                window.inputEvents=[];for(const type of ['touchstart','touchend','click'])addEventListener(type,e=>inputEvents.push(type+':'+e.target.tagName));
+                addEventListener('error',e=>window.scriptError=e.message);addEventListener('popstate',render);render();</script></body>"""))
         scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity { activity ->
             engine = WebViewBrowserEngine(activity, host, host, { false }, false)
@@ -131,5 +157,35 @@ class HistoryPagePreviewEngineTest {
             assertTrue("Raw history still includes the script's source", view.copyBackForwardList().currentIndex > 0)
             assertNull("Tab closure must not show a raw, non-traversable history entry", engine.historyPagePreview(true))
         }
+    }
+
+    @Test fun spaVisitsAndThreeBackForwardPreviewsRetainEveryDestination() = runBlocking {
+        val visits = java.util.concurrent.CopyOnWriteArrayList<PageState>()
+        val collector = launch(Dispatchers.Main.immediate) { engine.events.collect {
+            if (it is EngineEvent.Visited) visits.add(it.page)
+        } }
+        try {
+            load("/spa")
+            for (index in 1..3) { tapNext(); ready("/spa?v=$index") }
+            withTimeout(5_000) { while (visits.none { it.url == server.origin + "/spa?v=3" && it.title == "Video 3" }) delay(10) }
+            assertTrue((0..3).all { index -> visits.any { it.url == server.origin + if (index == 0) "/spa" else "/spa?v=$index" } })
+            fun checkPreview(back: Boolean, index: Int) {
+                val path = if (index == 0) "/spa" else "/spa?v=$index"
+                main {
+                    val preview = engine.historyPagePreview(back) ?: error("Missing destination $path back=$back")
+                    assertEquals(server.origin + path, preview.url)
+                    val image = preview.bitmap ?: error("Missing saved image $path back=$back")
+                    val pixel = image.getPixel(image.width / 2, image.height * 3 / 4)
+                    val expected = intArrayOf(Color.rgb(230,90,69), Color.rgb(40,121,178), Color.rgb(75,152,96), Color.rgb(169,60,192))[index]
+                    assertTrue("Wrong saved viewport for $path: ${Integer.toHexString(pixel)}", kotlin.math.abs(Color.red(pixel)-Color.red(expected)) < 12 &&
+                        kotlin.math.abs(Color.green(pixel)-Color.green(expected)) < 12 && kotlin.math.abs(Color.blue(pixel)-Color.blue(expected)) < 12)
+                    if (back) engine.goBack() else engine.goForward()
+                }
+                ready(path)
+            }
+            for (index in 2 downTo 0) checkPreview(true, index)
+            for (index in 1..3) checkPreview(false, index)
+            assertEquals("\"Unsent\"", js("document.getElementById('draft').value"))
+        } finally { collector.cancelAndJoin() }
     }
 }
