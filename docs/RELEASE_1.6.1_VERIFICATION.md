@@ -18,7 +18,8 @@ contains those changes. Release source, later verification/status documentation,
 the immutable tag, upload, review and public availability remain separate.
 
 Direct push to main was rejected by automatic approval review, so release work
-uses the reviewable `release/1.6.1` branch. Main is not changed by this workflow.
+used the reviewable `release/1.6.1` branch. Preparation and submission did not
+change main; subsequent integration is tracked by PR #18.
 Browser-host access was unavailable, and binding the whole Chrome app was
 rejected because it could expose unrelated signed-in tabs. Official Publisher
 API readbacks are used for the authorized release; Console UI was not inspected.
@@ -54,7 +55,7 @@ validation is recorded separately below.
 
 The immutable source tag `v1.6.1` points to `19f3cc1a4ae20c43500d787495ab5fa199e091ed`
 on the `release/1.6.1` branch. [PR #18](https://github.com/TakeruF/android-tab-browser/pull/18)
-remains separate from release submission; main has not been updated. The final
+tracks main integration separately from release submission. The final
 AAB and APK were built from this clean revision. The source-only GitHub release
 is a draft with no attached binaries.
 
