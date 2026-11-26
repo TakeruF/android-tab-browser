@@ -5,6 +5,7 @@ import android.app.DownloadManager
 import android.os.Looper
 import androidx.activity.ComponentActivity
 import com.takeruf.nagi.browser.downloads.DownloadService
+import com.takeruf.nagi.browser.engine.DownloadResult
 import com.takeruf.nagi.browser.engine.DownloadRequest
 import com.takeruf.nagi.browser.engine.NativeBrowserHost
 import org.junit.Assert.*
@@ -38,7 +39,7 @@ class DownloadContractTest {
         val activity = controller.get()
         val host = NativeBrowserHost(activity)
         controller.start().resume()
-        val results = mutableListOf<Boolean>()
+        val results = mutableListOf<DownloadResult>()
         var disposed = false
         try {
             host.download(request) { results.add(it) }
@@ -48,7 +49,7 @@ class DownloadContractTest {
             assertEquals("example.com", cancelled.source)
             host.dismissDownload(cancelled)
             shadowOf(Looper.getMainLooper()).idle()
-            assertEquals(listOf(false), results)
+            assertEquals(listOf(DownloadResult.CANCELLED), results)
             val manager = shadowOf(activity.getSystemService(DownloadManager::class.java))
             assertEquals(0, manager.requestCount)
             host.download(request) { results.add(it) }
@@ -57,14 +58,28 @@ class DownloadContractTest {
             host.confirmDownload(accepted)
             host.dismissDownload(accepted)
             shadowOf(Looper.getMainLooper()).idle()
-            assertEquals(listOf(false, true), results)
+            assertEquals(listOf(DownloadResult.CANCELLED, DownloadResult.ACCEPTED), results)
             assertEquals(1, manager.requestCount)
             assertTrue(host.downloadConfirmations.value.isEmpty())
             host.download(request) { results.add(it) }
             host.dispose()
             disposed = true
-            assertEquals(listOf(false, true, false), results)
+            assertEquals(listOf(DownloadResult.CANCELLED, DownloadResult.ACCEPTED, DownloadResult.FAILED), results)
             assertTrue(host.downloadConfirmations.value.isEmpty())
         } finally { if (!disposed) host.dispose(); controller.pause().stop().destroy() }
+    }
+
+    @Test @Config(sdk = [35]) fun enqueueFailureIsDistinctFromUserCancellation() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).create()
+        val activity = controller.get()
+        val host = NativeBrowserHost(activity)
+        controller.start().resume()
+        try {
+            val results = mutableListOf<DownloadResult>()
+            host.download(request.copy(url = "ftp://example.com/export")) { results.add(it) }
+            host.confirmDownload(host.downloadConfirmations.value.single())
+            assertEquals(listOf(DownloadResult.FAILED), results)
+            assertEquals(0, shadowOf(activity.getSystemService(DownloadManager::class.java)).requestCount)
+        } finally { host.dispose(); controller.pause().stop().destroy() }
     }
 }

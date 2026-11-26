@@ -144,10 +144,10 @@ the staged copy is kept only when neither location accepts it.
 
 A tab opened by a live page (including `target="_blank"`, supported popups,
 the new-tab link setting and link context actions) is closed automatically after
-the user confirms an HTTP(S) download and DownloadManager accepts it, provided
+the user cancels/dismisses an HTTP(S) download, or confirms it and DownloadManager accepts it, provided
 that tab has never committed a document. The existing transactional close policy
 returns selection to its opener and preserves its saved Split pair. Downloads
-in existing documents, manually created home tabs, restored tabs, cancellation
+in existing documents, manually created home tabs, restored tabs
 and enqueue failures do not trigger this cleanup. A tab/Space selected in the
 meantime is not replaced by the opener. Redirects before the attachment do not
 count as a committed document. This cleanup does not apply to page-generated

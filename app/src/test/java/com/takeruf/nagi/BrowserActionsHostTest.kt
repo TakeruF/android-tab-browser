@@ -96,14 +96,14 @@ class BrowserActionsHostTest {
         host.downloadFolder = tree.toString()
         controller.start().resume()
         try {
-            var accepted: Boolean? = null
+            var accepted: DownloadResult? = null
             host.download(download) { accepted = it }
             host.confirmDownload(host.downloadConfirmations.value.single())
             val permission = shadowOf(activity).lastRequestedPermission
             assertArrayEquals(arrayOf(Manifest.permission.POST_NOTIFICATIONS), permission.requestedPermissions)
             assertNull(accepted)
             activity.onRequestPermissionsResult(permission.requestCode, permission.requestedPermissions, intArrayOf(PackageManager.PERMISSION_DENIED))
-            assertEquals(true, accepted)
+            assertEquals(DownloadResult.ACCEPTED, accepted)
             assertEquals(1, shadowOf(activity.getSystemService(DownloadManager::class.java)).requestCount)
         } finally { host.dispose(); controller.pause().stop().destroy() }
     }
@@ -115,10 +115,10 @@ class BrowserActionsHostTest {
         val host = NativeBrowserHost(activity)
         controller.start().resume()
         try {
-            var accepted: Boolean? = null
+            var accepted: DownloadResult? = null
             host.download(download) { accepted = it }
             host.confirmDownload(host.downloadConfirmations.value.single())
-            assertEquals(true, accepted)
+            assertEquals(DownloadResult.ACCEPTED, accepted)
             assertNull(shadowOf(activity).lastRequestedPermission)
             assertEquals(1, shadowOf(activity.getSystemService(DownloadManager::class.java)).requestCount)
         } finally { host.dispose(); controller.pause().stop().destroy() }

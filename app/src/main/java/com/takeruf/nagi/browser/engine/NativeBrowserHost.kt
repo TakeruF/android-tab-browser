@@ -59,7 +59,7 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     private var captureFile: File? = null
     private var captureUri: Uri? = null
     private val capturedFiles = mutableListOf<File>()
-    private val pendingDownloadResults = mutableMapOf<DownloadConfirmation, (Boolean) -> Unit>()
+    private val pendingDownloadResults = mutableMapOf<DownloadConfirmation, (DownloadResult) -> Unit>()
     private val pendingDownloadConfirmations = MutableStateFlow<List<DownloadConfirmation>>(emptyList())
     val downloadConfirmations = pendingDownloadConfirmations.asStateFlow()
     private var disposed = false
@@ -219,15 +219,15 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         sitePermissionPrompt.value = null; callback?.invoke(granted)
     }
     override fun download(request: DownloadRequest) = download(request) {}
-    override fun download(request: DownloadRequest, result: (Boolean) -> Unit) {
+    override fun download(request: DownloadRequest, result: (DownloadResult) -> Unit) {
         showDownloadConfirmation(request.suggestedName, Uri.parse(request.url).host.orEmpty(), null, result) { finish ->
             fun enqueue() {
                 runCatching { downloads.enqueue(request) }.onSuccess {
                     showMessage(strings(R.string.ui_download_started))
-                    finish(true)
+                    finish(DownloadResult.ACCEPTED)
                 }.onFailure {
                     showMessage(strings(R.string.ui_download_failed_1_s, it.message.orEmpty()))
-                    finish(false)
+                    finish(DownloadResult.FAILED)
                 }
             }
             // Ordinary HTTP notifications belong to DownloadManager. A chosen
@@ -236,15 +236,16 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         }
     }
     override fun confirmGeneratedDownload(request: GeneratedDownload, result: (Boolean) -> Unit) {
-        showDownloadConfirmation(request.name, request.origin, request.size, result) { finish ->
-            withDownloadNotifications { finish(true) }
+        showDownloadConfirmation(request.name, request.origin, request.size,
+            { result(it == DownloadResult.ACCEPTED) }) { finish ->
+            withDownloadNotifications { finish(DownloadResult.ACCEPTED) }
         }
     }
-    private fun showDownloadConfirmation(name: String, source: String, size: Long?, result: (Boolean) -> Unit,
-        accept: ((Boolean) -> Unit) -> Unit) {
-        if (disposed) { result(false); return }
+    private fun showDownloadConfirmation(name: String, source: String, size: Long?, result: (DownloadResult) -> Unit,
+        accept: ((DownloadResult) -> Unit) -> Unit) {
+        if (disposed) { result(DownloadResult.FAILED); return }
         lateinit var confirmation: DownloadConfirmation
-        fun finish(accepted: Boolean) { pendingDownloadResults.remove(confirmation)?.invoke(accepted) }
+        fun finish(outcome: DownloadResult) { pendingDownloadResults.remove(confirmation)?.invoke(outcome) }
         confirmation = DownloadConfirmation(name, source, size) { accept(::finish) }
         pendingDownloadResults[confirmation] = result
         pendingDownloadConfirmations.value += confirmation
@@ -257,7 +258,7 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
     fun dismissDownload(confirmation: DownloadConfirmation) {
         if (confirmation !in pendingDownloadConfirmations.value) return
         pendingDownloadConfirmations.value -= confirmation
-        pendingDownloadResults.remove(confirmation)?.invoke(false)
+        pendingDownloadResults.remove(confirmation)?.invoke(DownloadResult.CANCELLED)
     }
     override fun trackGeneratedDownload(request: GeneratedDownload): DownloadProgress = downloadNotifications.start(request)
     override fun saveGeneratedDownload(request: GeneratedDownload, file: File) = saveGeneratedDownload(request, file) {}
@@ -345,7 +346,7 @@ class NativeBrowserHost(private val activity: ComponentActivity) : BrowserHost, 
         val downloadCallbacks = pendingDownloadResults.values.toList()
         pendingDownloadResults.clear()
         pendingDownloadConfirmations.value = emptyList()
-        downloadCallbacks.forEach { it(false) }
+        downloadCallbacks.forEach { it(DownloadResult.FAILED) }
         scope.cancel(); video.dispose()
     }
 }

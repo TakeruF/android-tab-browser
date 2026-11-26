@@ -36,6 +36,7 @@ class DownloadUiTest {
     private lateinit var spaceId: String
     private lateinit var parentId: String
     private lateinit var web: WebView
+    private var previousDownloadIds = emptySet<Long>()
     private val manager get() = instrumentation.targetContext.getSystemService(DownloadManager::class.java)
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
     private fun waitFor(predicate: () -> Boolean) = compose.waitUntil(25_000, predicate)
@@ -114,7 +115,8 @@ class DownloadUiTest {
     private fun downloadRows(): List<Pair<Long, Int>> = manager.query(DownloadManager.Query()).use { cursor ->
         buildList {
             while (cursor.moveToNext()) {
-                if (cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)).startsWith(server.origin)) {
+                if (cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)) !in previousDownloadIds &&
+                    cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)).startsWith(server.origin)) {
                     add(cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)) to
                         cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)))
                 }
@@ -123,6 +125,10 @@ class DownloadUiTest {
     }
 
     @Before fun setup() {
+        // DownloadManager outlives tests, and a fixture port can be reused by a later run.
+        previousDownloadIds = manager.query(DownloadManager.Query()).use { cursor ->
+            buildSet { while (cursor.moveToNext()) add(cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID))) }
+        }
         server = FixtureServer(pages = mapOf("/export-source" to """
             <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Download source</title>
             <body style="font:20px sans-serif;padding:20px"><h1>Download source</h1>
@@ -218,7 +224,9 @@ class DownloadUiTest {
         capture("download-returned-to-opener")
         captureNotification("download-system-progress")
         waitFor { downloadRows().any { it.second == DownloadManager.STATUS_SUCCESSFUL } }
-        val id = downloadRows().single().first
+        val rows = downloadRows()
+        assertEquals("Expected one new fixture download: $rows", 1, rows.size)
+        val id = rows.single().first
         manager.openDownloadedFile(id).use { descriptor ->
             ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
                 val bytes = input.readBytes()
@@ -228,7 +236,7 @@ class DownloadUiTest {
         }
     }
 
-    @Test fun cancelledDownloadKeepsNewTabAndDoesNotStartTransfer() {
+    @Test fun cancelledDownloadClosesNewTabAndDoesNotStartTransfer() {
         tapLink()
         waitFor { active() != parentId }
         val child = active()
@@ -237,8 +245,46 @@ class DownloadUiTest {
         compose.onNodeWithText(android.net.Uri.parse(server.origin).host!!).assertIsDisplayed()
         captureConfirmation("download-confirmation-http")
         confirm(false)
-        assertNull(tab(child).closedAt)
-        assertEquals(child, active())
+        waitFor { tab(child).closedAt != null && active() == parentId }
+        assertEquals("\"live-opener\"", js("window.sourceToken"))
+        assertEquals("\"Unsent 日本語 draft\"", js("document.getElementById('draft').value"))
+        assertTrue(downloadRows().isEmpty())
+    }
+
+    @Test fun dismissingDownloadWithBackClosesNewTab() {
+        tapLink()
+        waitFor { active() != parentId }
+        val child = active()
+        waitFor { confirmationVisible() }
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        waitFor { tab(child).closedAt != null && active() == parentId }
+        assertTrue(downloadRows().isEmpty())
+    }
+
+    @Test fun cancellingBackgroundDownloadDoesNotReplaceNewSelection() {
+        tapLink()
+        waitFor { active() != parentId }
+        val child = active()
+        waitFor { confirmationVisible() }
+        val selected = runBlocking { container.tabs.create(spaceId) }
+        confirm(false)
+        waitFor { tab(child).closedAt != null }
+        assertEquals(selected, active())
+        assertNull(tab(parentId).closedAt)
+        assertTrue(downloadRows().isEmpty())
+    }
+
+    @Test fun cancellingDownloadKeepsManuallyCreatedTabAndExistingDocument() {
+        val manual = runBlocking { container.tabs.create(spaceId, "${server.origin}/download") }
+        confirm(false)
+        assertNull(tab(manual).closedAt)
+        assertEquals(manual, active())
+        runBlocking { container.tabs.select(parentId) }
+        main { web.loadUrl("${server.origin}/download") }
+        confirm(false)
+        assertNull(tab(parentId).closedAt)
+        assertEquals(parentId, active())
+        assertEquals("\"Unsent 日本語 draft\"", js("document.getElementById('draft').value"))
         assertTrue(downloadRows().isEmpty())
     }
 
@@ -324,13 +370,22 @@ class DownloadUiTest {
     }
 
     @Test fun downloadFromSplitRestoresSavedPairAndOpenerDraft() {
+        checkDownloadFromSplit(cancel = false)
+    }
+
+    @Test fun cancelledDownloadFromSplitRestoresSavedPairAndOpenerDraft() {
+        checkDownloadFromSplit(cancel = true)
+        assertTrue(downloadRows().isEmpty())
+    }
+
+    private fun checkDownloadFromSplit(cancel: Boolean) {
         val right = runBlocking { container.tabs.create(spaceId, "${server.origin}/two", select = false) }
         runBlocking { container.tabs.pair(parentId, right) }
         waitFor { tab(right).title == "Fixture Two" }
         tapLink()
         waitFor { active() != parentId }
         val child = active()
-        confirm(true)
+        confirm(!cancel)
         waitFor { tab(child).closedAt != null && active() == parentId }
         assertEquals(right, tab(parentId).splitRightTabId)
         assertNull(tab(right).closedAt)
@@ -345,6 +400,6 @@ class DownloadUiTest {
         }
         compose.waitForIdle()
         SystemClock.sleep(300) // Let the native dialog's exit animation finish for the screenshot.
-        capture("download-split-restored")
+        capture(if (cancel) "download-cancel-split-restored" else "download-split-restored")
     }
 }

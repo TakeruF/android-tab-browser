@@ -654,10 +654,10 @@ class WebViewBrowserEngine(
             if (url.startsWith("https://") || url.startsWith("http://")) host.download(
                 DownloadRequest(url, userAgent, disposition, mimeType,
                     cookies.getCookie(url), DownloadFilename.fromDisposition(disposition)
-                        ?: URLUtil.guessFileName(url, disposition, mimeType))) { accepted ->
+                        ?: URLUtil.guessFileName(url, disposition, mimeType))) { result ->
                 pendingDownloads--
-                if (accepted && !destroyed && !hasCommittedDocument && navigationGeneration == offeredGeneration) {
-                    eventChannel.trySend(EngineEvent.DownloadStartedWithoutDocument)
+                if (result != DownloadResult.FAILED && !destroyed && !hasCommittedDocument && navigationGeneration == offeredGeneration) {
+                    eventChannel.trySend(EngineEvent.DownloadHandledWithoutDocument)
                 }
             }
             else if (url.startsWith("blob:") || url.startsWith("data:")) pageDownloads.request(url,

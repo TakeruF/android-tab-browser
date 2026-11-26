@@ -40,7 +40,7 @@ class BrowserSessionController(private val container: AppContainer,
                         openedTabs.emit(newId)
                     }
                 }
-                EngineEvent.DownloadStartedWithoutDocument -> {
+                EngineEvent.DownloadHandledWithoutDocument -> {
                     if (pageOpenedTabs.remove(id) && engine.state.value.url == "about:blank" && !engine.state.value.isLoading) {
                         container.tabs.close(id)
                     }

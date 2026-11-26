@@ -938,3 +938,23 @@ APK and Debug lint were rerun after this test-only correction. Unit/full
 instrumentation suites and physical devices were not run. No version or release
 action changed. `git diff --check` passed. Logs, results, hashes and screenshots
 remain in ignored `artifacts/sidebar-without-ellipsis-20261125/`.
+
+
+## Download cancellation cleanup (2026-11-26)
+
+The native HTTP result distinguishes acceptance, explicit cancellation and
+failure. Cancelling or dismissing the confirmation closes only a page-opened
+tab that has never committed a document. Transactional close returns to its live
+opener and saved Split pair; a newer selection, manually created tab, existing
+document and failed enqueue remain protected. Generated exports keep their
+source document.
+
+Code-25 validation passed 299 unit tests and Debug/Release lint (zero errors,
+97 warnings each). The 17-case WebView run passed 16; the generated-download
+completion notification timed out during the interrupted combined run and
+passed its isolated rerun. The preceding 31-case run passed 30, with the HTTP
+case failing on multiple DownloadManager rows; fixture isolation now ignores
+pre-existing IDs. Four focused cancellation cases also passed at phone width
+(1080x2400 / 420 dpi). See [release verification](RELEASE_1.6.1_VERIFICATION.md) for
+phone checks, signed artifacts and publication status. These are selected
+emulator checks, not the full instrumentation suite or physical-device proof.
