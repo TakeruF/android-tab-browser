@@ -53,11 +53,23 @@ class WebViewBrowserEngine(
     private val secondaryClick = NativeSecondaryClick(context)
     private val webView: WebView = object : WebView(webTheme) {
         private var floatingSelectionMode: android.view.ActionMode? = null
+        // Some touchpads send their mouse cursor/drag through generic motion.
+        // Keep pixel/gesture scrolling on the original touchpad source.
+        private fun mousePointer(event: android.view.MotionEvent): android.view.MotionEvent? =
+            if (event.isFromSource(android.view.InputDevice.SOURCE_TOUCHPAD) &&
+                event.actionMasked != android.view.MotionEvent.ACTION_SCROLL && event.pointerCount == 1 &&
+                event.getToolType(0) == android.view.MotionEvent.TOOL_TYPE_MOUSE)
+                android.view.MotionEvent.obtain(event).apply { source = android.view.InputDevice.SOURCE_MOUSE }
+            else null
         override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+            mousePointer(event)?.let { mouse ->
+                try { return dispatchTouchEvent(mouse) } finally { mouse.recycle() }
+            }
             if (secondaryClick.onMotion(event) { super.dispatchTouchEvent(it) }) return true
+            val selectionRelease = pointerSelection.onMotion(event)
             // A scaled software draw can change native selection-handle geometry.
             // Keep the existing snapshot while WebView owns a selection toolbar.
-            if (event.actionMasked == android.view.MotionEvent.ACTION_UP && floatingSelectionMode == null) historyPreviews.interaction()
+            if (event.actionMasked == android.view.MotionEvent.ACTION_UP && floatingSelectionMode == null && !selectionRelease) historyPreviews.interaction()
             if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
                 nativeDragHost = if (nativePageDrag()) Uri.parse(state.value.url).host else null
                 zoomInteractionVersion++; cancelZoomWork(); cancelSnapshotPresentationRestore()
@@ -66,10 +78,21 @@ class WebViewBrowserEngine(
             return super.dispatchTouchEvent(event)
         }
         override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+            mousePointer(event)?.let { mouse ->
+                try {
+                    return when (mouse.actionMasked) {
+                        android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_MOVE,
+                        android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> dispatchTouchEvent(mouse)
+                        else -> dispatchGenericMotionEvent(mouse)
+                    }
+                } finally { mouse.recycle() }
+            }
             if (secondaryClick.onMotion(event) { super.dispatchTouchEvent(it) }) return true
+            pointerSelection.onMotion(event)
             return super.dispatchGenericMotionEvent(event)
         }
         override fun onDetachedFromWindow() {
+            pointerSelection.invalidate()
             secondaryClick.reset()
             super.onDetachedFromWindow()
         }
@@ -155,6 +178,9 @@ class WebViewBrowserEngine(
     private var restoringScroll: Pair<Int, Int>? = null
     override val surface get() = webView
     private val historyPreviews = WebViewHistoryPreviews(webView)
+    private val pointerSelection = PagePointerSelection(webView,
+        show = { x, y -> secondaryClick.showSelectionMenu(x, y, webView::dispatchTouchEvent, selectionOnly = true) },
+        noSelection = { historyPreviews.interaction() })
     private val visualGeneration = MutableStateFlow(0L)
     override val historyVisualGeneration = visualGeneration.asStateFlow()
     override fun historyPagePreview(back: Boolean): HistoryPagePreview? {
@@ -291,7 +317,8 @@ class WebViewBrowserEngine(
         applyUserAgent(if (desktopDefault) SiteDisplayMode.DESKTOP else SiteDisplayMode.MOBILE)
         webView.setBackgroundColor(android.graphics.Color.WHITE)
         webView.setOnLongClickListener {
-            if (secondaryClick.longPressActive || !nativePageDrag()) showPageContextMenu()
+            if (secondaryClick.selectionOnly) false
+            else if (secondaryClick.longPressActive || !nativePageDrag()) showPageContextMenu()
             else if (startLinkDrag()) true
             else {
                 nativeDragHost = Uri.parse(webView.hitTestResult?.extra.orEmpty()).host
@@ -377,6 +404,7 @@ class WebViewBrowserEngine(
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 if (url == "about:blank" && state.value.url != "about:blank") return
                 secondaryClick.reset()
+                pointerSelection.invalidate()
                 historyPreviews.started()
                 if (pendingExplicitLoad != null && pendingExplicitLoad?.currentUrl != url) pendingExplicitLoad = null
                 applyPageDarkening(view, url)
@@ -464,6 +492,7 @@ class WebViewBrowserEngine(
                 if (url != "about:blank" && restoredZoomPercent == null) captureZoomBaseline()
                 pageDownloads.installFallback()
                 pageVideo.installFallback()
+                pointerSelection.installFallback()
                 humanVerification.documentFinished()
                 installCosmeticFiltering()
                 if (restoredZoomPercent == null) restoringScroll?.let { (x, y) -> view.post { view.scrollTo(x, y) }; restoringScroll = null }
@@ -930,9 +959,14 @@ class WebViewBrowserEngine(
         }
     }
     override fun loadUrl(url: String) = loadUrl(url, emptyMap())
+    private fun cancelPointerSelectionMenu() {
+        pointerSelection.invalidate()
+        if (secondaryClick.selectionOnly) secondaryClick.reset()
+    }
     private fun loadUrl(url: String, extraHeaders: Map<String, String>, preserveTranslation: Boolean = false) {
         if (destroyed) return
         if (url != "about:blank" && !url.startsWith("http://", true) && !url.startsWith("https://", true)) return
+        cancelPointerSelectionMenu()
         historyPreviews.leaving(traverse = false)
         val sameZoomDocument = isSameDocumentFragment(url)
         cancelZoomWork(); cancelSnapshotPresentationRestore()
@@ -963,6 +997,7 @@ class WebViewBrowserEngine(
         if (extraHeaders.isEmpty()) webView.loadUrl(url) else webView.loadUrl(url, extraHeaders)
     }
     override fun reload() { if (!destroyed) {
+        cancelPointerSelectionMenu()
         // reload() targets the committed native history entry. Before the requested
         // GET commits, that entry may still be the previous page or initial blank tab.
         pendingExplicitLoad?.takeIf { webView.copyBackForwardList().currentItem?.url != it.currentUrl }?.let { requested ->
@@ -1004,7 +1039,7 @@ class WebViewBrowserEngine(
         })()""") { result(it != "false") }
     }
 
-    override fun goBack() { if (state.value.readerArticle != null) { toggleReader(); return }; if (canGoBack()) {
+    override fun goBack() { cancelPointerSelectionMenu(); if (state.value.readerArticle != null) { toggleReader(); return }; if (canGoBack()) {
         historyPreviews.leaving(traverse = true)
         pendingExplicitLoad = null
         cancelZoomWork(); cancelSnapshotPresentationRestore()
@@ -1020,6 +1055,7 @@ class WebViewBrowserEngine(
         update { it.copy(isLoading = true, error = null) }; watchLoading(); webView.goBack()
     } }
     override fun goForward() { if (canGoForward()) {
+        cancelPointerSelectionMenu()
         historyPreviews.leaving(traverse = true)
         pendingExplicitLoad = null
         cancelZoomWork(); cancelSnapshotPresentationRestore()
@@ -1319,6 +1355,7 @@ class WebViewBrowserEngine(
         pageTranslation.reset(restore = true)
     } }
     override fun setVisible(visible: Boolean) {
+        if (!visible) cancelPointerSelectionMenu()
         pageTranslation.setVisible(visible)
         humanVerification.setVisible(visible)
         if (visible) webView.onResume() else webView.onPause()
@@ -1384,6 +1421,7 @@ class WebViewBrowserEngine(
         observedIcon = null
         if (destroyed) return
         secondaryClick.reset()
+        pointerSelection.destroy()
         pageTranslation.reset(restore = false)
         destroyed = true
         historyPreviews.clear()

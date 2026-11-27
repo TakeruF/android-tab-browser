@@ -26,6 +26,13 @@ both final-release orders and subsequent page clicks. The translation-action
 case records the real notice's callback without downloading ML Kit models.
 Semantics-only clicks do not establish this Compose/native routing behavior.
 
+Page mouse/trackpad text selection now requests the native horizontal toolbar
+after primary release; see [selection menus](MENU_LAYOUT.md#page-text-selection).
+The `nagiSelection` bridge accepts only a short geometry/selection-status message
+once after recent native pointer input. It returns no app data, exposes no
+clipboard or file operation, and does not send selected text to Android.
+The native WebView retains the selection and owns the eventual menu actions.
+
 ## Camera uploads
 
 `FileSelectionRequest` preserves WebView's capture preference. Single-image JPEG-compatible or unrestricted inputs offer Take photo / Choose files; image inputs requesting capture launch the camera directly. Other MIME types and multiple selection retain the document picker. Android camera permission is requested when the user selects photography.

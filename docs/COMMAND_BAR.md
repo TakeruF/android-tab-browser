@@ -70,6 +70,14 @@ the new design uses the phone transition or wide dropdown described above. Both 
 suggestions, icons, shortcut and CJK composition guards, dismissal and private
 favicon behavior. Switching does not navigate a page or rebuild its WebView.
 
+Right-clicking the input opens the same native horizontal text toolbar as touch
+selection in every layout. Existing full or partial selections are preserved,
+with Compose handling Copy, Cut, Paste and available Android text actions.
+Finishing a mouse/trackpad drag selection also requests that toolbar without a
+right click. Plain cursor placement and active IME composition do not request
+it; a new input gesture or changed selection cancels a queued request.
+See [selection menus](MENU_LAYOUT.md#page-text-selection).
+
 Settings → Command Bar controls which suggestions appear:
 
 - Search and URLs, including the common search engines and AI search.

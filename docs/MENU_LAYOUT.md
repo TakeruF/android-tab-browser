@@ -69,6 +69,60 @@ and Copy, including an existing multiword selection, editable draft and a click
 outside the selected text. These checks require actual WebView instrumentation;
 physical mouse/trackpad and OEM toolbar validation are separate.
 
+The Command Bar also routes secondary clicks to the native horizontal toolbar
+used for touch selection, rather than the Compose mouse dropdown. This applies
+to phone, wide/Split and centered search layouts. Compose retains ownership of
+the selected range, text editing, clipboard and installed text-processing
+actions; a right click does not replace the selection with a simulated long
+press. Provider/OEM-specific actions and styling remain Android-owned.
+`CommandBarSelectionMenuTest` checks actual mouse/touch input, floating ActionMode,
+preserved full/partial selections, and native Copy/Cut/Paste without navigation.
+
+In the normal page WebView and Command Bar, completing a mouse/trackpad text
+selection also opens the horizontal toolbar, without a secondary click.
+Collapsed selections and ordinary clicks do not request it. Page selection
+still uses WebView's native selection/actions and configured long-press timing;
+the Command Bar requests its existing Compose toolbar after primary release.
+Pointer-type touchpad events are normalized for WebView selection, while
+trackpad scroll events keep their existing history/scroll handling.
+
+The page observer reports only the selected region's geometry from the frame
+that received a trusted pointer release. It measures editable selections locally
+without sending text to Android, excludes password fields and active composition,
+and supports child frames through document-start injection when the provider
+supports it. Android accepts at most one bounded geometry message after a native
+primary release. Navigation, detachment, destruction and a new gesture invalidate
+pending requests. Native Copy/Share/installed processing actions remain provider
+owned. No custom page-selection toolbar is injected.
+
+### Selection audit (2026-11-27)
+
+Outside the Command Bar, 12 Compose input fields and one selectable text region
+still use Compose's default mouse dropdown. This audit identified the following
+remaining sites; it did not change their production code:
+
+| Surface | Fields/regions | Evidence |
+| --- | --- | --- |
+| [Find in page](../app/src/main/java/com/takeruf/nagi/ui/browser/BrowserPane.kt) | 1 | Actual component mouse input and screenshot |
+| [History search](../app/src/main/java/com/takeruf/nagi/ui/library/LibraryScreen.kt) | 1 | Source; String-based OutlinedTextField |
+| [Favorite editor](../app/src/main/java/com/takeruf/nagi/ui/sidebar/FavoriteEditor.kt) | 2: name, URL | Name reproduced; both use the same state-based field path |
+| [Search-engine editor](../app/src/main/java/com/takeruf/nagi/ui/settings/SettingsScreen.kt) | 4: name, keyword, URL template, icon URL | Source; String-based OutlinedTextField |
+| [Space editor](../app/src/main/java/com/takeruf/nagi/ui/sidebar/Sidebar.kt) / [custom emoji](../app/src/main/java/com/takeruf/nagi/ui/components/SpaceIcons.kt) | 2 | Source; String-based OutlinedTextField |
+| [Custom color](../app/src/main/java/com/takeruf/nagi/ui/components/ThemeColorEditor.kt) | 1 | Actual component mouse input and screenshot |
+| [Lucide code](../app/src/main/java/com/takeruf/nagi/ui/components/LucideIconEditor.kt) | 1 | Actual component mouse input and screenshot |
+| [License text](../app/src/main/java/com/takeruf/nagi/ui/settings/LicensesScreen.kt) | 1 | Actual SelectionContainer mouse input and screenshot |
+
+The separate [Reader WebView](../app/src/main/java/com/takeruf/nagi/ui/browser/ReaderPane.kt)
+also lacks the normal page's secondary-click/automatic-selection adapter. This is
+a source-confirmed coverage gap, with its runtime mouse menu still unconfirmed:
+the audit harness's initial Reader input attempt timed out. Its JavaScript-disabled
+rendering is outside the normal page observer above.
+
+Five actual production components reproduced the dropdown in an ignored,
+investigation-only instrumentation source set. Screenshots/logs are under
+`artifacts/selection-menu-audit-20261127/`. This is separate from whole-app
+navigation, physical-input and OEM-provider verification.
+
 `OverflowMenuUiTest` checks live density changes, restoration of touch targets,
 disabled actions, dismissal, hover corners, and reachable large-font actions.
 Controlled `LocalConfiguration` values establish configuration-driven behavior;

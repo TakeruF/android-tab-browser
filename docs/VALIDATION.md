@@ -2,6 +2,81 @@
 
 The [1.1.1 Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md) separates final Play validation from the [initial preflight](RELEASE_1.1.1_VERIFICATION.md) and saved Console state. The dated [1.1.0 release verification](RELEASE_1.1.0_VERIFICATION.md) records comprehensive tests, clean artifact checks and publication evidence. The [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) and [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md) remain historical distribution records. These are recorded results, not a live Console or deployment status check.
 
+## Automatic pointer selection menus and coverage audit, 2026-11-27
+
+The working tree based on `bab7ca6` passed JDK 17 / SDK 36
+`assemblePlayDebug`, `assemblePlayDebugAndroidTest`, the complete 299-case
+`testPlayDebugUnitTest`, `lintPlayDebug` and `lintPlayRelease`, with
+`--no-parallel`. The JVM suite had zero failures, errors or skips; both lint
+variants reported zero errors and the existing 97 warnings. `node --check`
+passed for `pointer-selection.js`, and `git diff --check` passed.
+
+The final production APK passed all 36 selected UI cases on fresh dedicated
+`Nagi_Pointer_Selection_QA_20261127` / `emulator-5706` (API 36, WebView
+133.0.6943.137, 320 dpi), starting at 1000 × 820 dp:
+
+- `NativeSelectionMenuTest` (11): actual mouse/trackpad drag release, native
+  floating Copy, exact partial ranges, an editable draft, a cross-origin frame,
+  ordinary-click exclusion, navigation/hiding cancellation, and the original
+  finger/secondary-click selection cases.
+- `CommandBarSelectionMenuTest` (4): phone/light, tablet/dark and centered/light
+  native Copy/Cut/Paste, plus automatic menu display after an actual mouse drag.
+- `CjkInputTest` (4), `CommandBarDropdownUiTest` (5), `HistorySwipeUiTest` (8)
+  and `BrowserNoticeInputUiTest` (4): composition, phone/wide/Split layout and
+  retained pages/drafts, native trackpad history/scroll arbitration, and
+  protection against clicking the page through an app popup.
+
+Two additional `CommandBarSelectionMenuTest` cases then passed on the same
+production APK for automatic drag-release display in phone/dark and
+centered/dark layouts, bringing the selected coverage to 38 distinct UI cases.
+Only the test APK changed for these additional cases.
+
+Initial diagnostic runs included a test-only MotionEvent API compilation error,
+an obsolete test APK, incomplete input injection and fixture focus/window races.
+The fixture now owns its native WebView window, waits for focus and injects
+complete pointer events through Android. A later 34-case run passed 32 cases
+while another task changed the original emulator's foreground app and screen
+size; the fresh dedicated emulator's final 36-case run passed without skips.
+
+The separate source/UI audit found 12 additional Compose fields and license
+text still using the default mouse dropdown; five production components were
+reproduced. Reader's separate adapter is a source-confirmed gap with runtime
+mouse behavior unconfirmed. See [the inventory](MENU_LAYOUT.md#selection-audit-2026-11-27).
+Those remaining surfaces were investigated, not modified by this change.
+
+Builds, initial/final logs, screenshots and artifact hashes are retained under
+ignored `artifacts/pointer-selection-20261127/` and
+`artifacts/selection-menu-audit-20261127/`. This is selected API-36 emulator
+coverage, not a full instrumentation suite, physical-input/OEM or older-API
+result. No version bump, signed upload or release action was performed.
+
+## Command Bar selection menu, 2026-11-27
+
+The working tree based on `bab7ca6` passed JDK 17 / SDK 36
+`assemblePlayDebug`, `assemblePlayDebugAndroidTest` and `lintPlayDebug`
+with `--no-parallel`; Debug lint reported zero errors and 97 warnings.
+The focused `CommandBarSuggestionsTest` (4) and `KeyboardShortcutsTest` (8)
+JVM cases passed without failures, errors or skips. `git diff --check` passed.
+
+On dedicated `Nagi_CommandSelection_QA` / `emulator-5596` (API 36, 320 dpi),
+the three final `CommandBarSelectionMenuTest` cases passed: phone/light,
+tablet/dark and centered/light at 411/1000 dp widths. Actual secondary clicks
+and touch long presses opened floating native ActionMode; full/partial
+selection, visible native Copy/Cut/Paste, CJK clipboard text and no unintended
+navigation were checked. The six menu screenshots were visually inspected.
+The 12 existing cases in `CommandBarDropdownUiTest`, `CommandBarLayoutUiTest`,
+`CommandBarInputUiTest` and `CjkInputTest` also passed, covering both Split
+panes, layout changes, retained live pages/drafts and Japanese/Chinese/Korean
+composition. No case was skipped.
+
+Initial new-test attempts exposed asynchronous dialog focus and native-toolbar
+accessibility-window timing in the harness. The corrected final three-case
+run passed after rebuilding the test APK and rerunning Debug lint. Logs,
+screenshots and APK hashes remain under ignored
+`artifacts/commandbar-selection-20261127/`. The full JVM/instrumentation suites,
+Release lint, physical input devices and OEM menus were not rerun. This is a
+development change, with no version bump or release action.
+
 ## History, native menus and permissions, 2026-11-26
 
 The working tree based on `8f134a3` passed all 298 Play Debug JVM tests, with
