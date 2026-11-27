@@ -25,11 +25,15 @@ internal class NativeSecondaryClick(context: Context) {
     private var dispatch: ((MotionEvent) -> Boolean)? = null
     var longPressActive = false
         private set
+    var selectionOnly = false
+        private set
     private var selectionModeStarted = false
     private var floatingSelectionActive = false
+    private var dispatching = false
     private val finish = Runnable { finishLongPress() }
 
     fun onMotion(event: MotionEvent, sendTouch: (MotionEvent) -> Boolean): Boolean {
+        if (dispatching) return false
         if (!event.isFromSource(InputDevice.SOURCE_MOUSE) && !event.isFromSource(InputDevice.SOURCE_TOUCHPAD)) {
             if (event.actionMasked == MotionEvent.ACTION_DOWN) reset()
             return false
@@ -47,18 +51,7 @@ internal class NativeSecondaryClick(context: Context) {
             cancelLongPress()
             sourceDownTime = event.downTime
             buttonsReleased = false
-            x = event.x; y = event.y
-            touchDownTime = SystemClock.uptimeMillis()
-            dispatch = sendTouch
-            longPressActive = true
-            selectionModeStarted = floatingSelectionActive
-            send(MotionEvent.ACTION_DOWN)
-            // Keep the native press alive even if a quick mouse release arrives.
-            // Only release a recognised selection; other targets must never click.
-            // An existing selection toolbar can be reused without startActionMode.
-            // New selections may await native text classification before starting it.
-            handler.postDelayed(finish, ViewConfiguration.getLongPressTimeout().toLong() +
-                if (selectionModeStarted) 100 else 1_500)
+            showSelectionMenu(event.x, event.y, sendTouch)
             return true
         }
         if (sourceDownTime != event.downTime) return false
@@ -69,18 +62,34 @@ internal class NativeSecondaryClick(context: Context) {
             action == MotionEvent.ACTION_BUTTON_RELEASE || action == MotionEvent.ACTION_MOVE
     }
 
+    fun showSelectionMenu(x: Float, y: Float, sendTouch: (MotionEvent) -> Boolean, selectionOnly: Boolean = false) {
+        cancelLongPress()
+        this.selectionOnly = selectionOnly
+        this.x = x; this.y = y
+        touchDownTime = SystemClock.uptimeMillis()
+        dispatch = sendTouch
+        longPressActive = true
+        selectionModeStarted = floatingSelectionActive
+        send(MotionEvent.ACTION_DOWN)
+        // Only release a recognised native selection; other targets must never click.
+        handler.postDelayed(finish, ViewConfiguration.getLongPressTimeout().toLong() +
+            if (selectionModeStarted) 100 else 1_500)
+    }
+
     private fun send(action: Int) {
         val properties = MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER }
         val coordinates = MotionEvent.PointerCoords().apply { x = this@NativeSecondaryClick.x; y = this@NativeSecondaryClick.y; pressure = 1f }
         val event = MotionEvent.obtain(touchDownTime, SystemClock.uptimeMillis(), action, 1,
             arrayOf(properties), arrayOf(coordinates), 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
-        try { dispatch?.invoke(event) } finally { event.recycle() }
+        dispatching = true
+        try { dispatch?.invoke(event) } finally { dispatching = false; event.recycle() }
     }
 
     private fun cancelLongPress() {
         handler.removeCallbacks(finish)
         if (longPressActive) send(MotionEvent.ACTION_CANCEL)
         longPressActive = false
+        selectionOnly = false
         dispatch = null
     }
 
@@ -106,6 +115,7 @@ internal class NativeSecondaryClick(context: Context) {
         }
         if (longPressActive) send(if (selectionModeStarted) MotionEvent.ACTION_UP else MotionEvent.ACTION_CANCEL)
         longPressActive = false
+        selectionOnly = false
         dispatch = null
     }
 

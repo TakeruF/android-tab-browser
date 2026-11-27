@@ -24,6 +24,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuDropdownProvider
+import androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuToolbarProvider
+import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider
+import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuProvider
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.*
@@ -32,6 +36,7 @@ import com.takeruf.nagi.ui.components.AddressActionButton
 import com.takeruf.nagi.ui.components.SpaceIcon
 import com.takeruf.nagi.ui.components.Favicon
 import com.takeruf.nagi.ui.components.LocalNagiUiDimensions
+import com.takeruf.nagi.ui.components.menuAfterPointerSelection
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.AbsoluteAlignment
@@ -90,6 +95,7 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
     val dismiss = { if (phoneFullscreen && animateEntrance) closing = true else onDismiss() }
     val showPreviousUi = !centered && !settings.commandBarLayoutNoticeDismissed && onLayoutChange != null
     val input = rememberTextFieldState(initialText = initialValue, initialSelection = TextRange(0, initialValue.length))
+    val contextMenu = remember { CommandBarTextContextMenu() }
     val query = input.text.toString()
     val suggestions = remember(query, workspace, settings, strings, splitEnabled) { SuggestionProvider.suggestions(query, workspace, settings, strings::translate, splitEnabled) }
     var selected by remember(query) { mutableIntStateOf(0) }
@@ -226,12 +232,18 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                         .padding(start = if (centered) 24.dp else 14.dp, end = if (centered) 12.dp else 6.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Icon(NagiIcons.Search, null, Modifier.size(if (centered) 24.dp else 16.dp))
+                        CompositionLocalProvider(LocalTextContextMenuDropdownProvider provides contextMenu) {
                         BasicTextField(state = input, lineLimits = TextFieldLineLimits.SingleLine,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             onKeyboardAction = { execute() },
                             textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             decorator = { editor ->
+                                // BasicTextField installs its native toolbar inside the field.
+                                // Reuse that provider for secondary clicks, keeping Compose's
+                                // editing/classification actions and the existing selection.
+                                val toolbar = LocalTextContextMenuToolbarProvider.current
+                                SideEffect { contextMenu.toolbar = toolbar }
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
                                     if (query.isEmpty()) Text(strings(if (compact || !settings.commandBar.showCommands) R.string.ui_search_or_enter_url
                                         else R.string.ui_search_enter_a_url_or_type_for_commands),
@@ -241,9 +253,11 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
                                 }
                             },
                             modifier = Modifier.weight(1f).fillMaxHeight().testTag("command-input").focusRequester(focus)
+                                .menuAfterPointerSelection({ input.selection }, { input.composition == null && inputFocused })
                                 .onFocusChanged { inputFocused = it.isFocused }.semantics {
                                 stateDescription = if (input.composition == null) strings(R.string.ui_ready) else strings(R.string.ui_composing)
                             })
+                        }
                         AddressActionButton(onClick = dismiss, modifier = Modifier.testTag("command-close")) {
                             Icon(NagiIcons.X, strings(R.string.ui_close_1_s, strings(R.string.ui_search)), Modifier.size(if (centered) 24.dp else 16.dp))
                         }
@@ -337,6 +351,14 @@ fun CommandBar(initialValue: String, workspace: WorkspaceSnapshot, settings: Bro
         }
         }
         }
+    }
+}
+
+private class CommandBarTextContextMenu : TextContextMenuProvider {
+    var toolbar: TextContextMenuProvider? = null
+
+    override suspend fun showTextContextMenu(dataProvider: TextContextMenuDataProvider) {
+        toolbar?.showTextContextMenu(dataProvider)
     }
 }
 

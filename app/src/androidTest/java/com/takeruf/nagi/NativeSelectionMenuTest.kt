@@ -103,9 +103,9 @@ class NativeSelectionMenuTest {
             try { view.dispatchTouchEvent(event) } finally { event.recycle() }
         }
     }
-    private fun copy(mode: ActionMode): String {
+    private fun copy(mode: ActionMode, expectedSelection: String? = null): String {
         assertEquals(ActionMode.TYPE_FLOATING, mode.type)
-        val expected = org.json.JSONTokener(js("""(()=>{const e=document.activeElement;
+        val expected = expectedSelection ?: org.json.JSONTokener(js("""(()=>{const e=document.activeElement;
             return e?.tagName==='TEXTAREA'?e.value.slice(e.selectionStart,e.selectionEnd):getSelection().toString()})()""")).nextValue() as String
         val button = copyNode() ?: error("Native floating toolbar Copy button is not visible")
         var target = button
@@ -145,13 +145,17 @@ class NativeSelectionMenuTest {
             }
             engine = WebViewBrowserEngine(activity, host, host, { false }, false, nativePageDrag = { true })
             view = engine.surface as WebView
-            activity.addContentView(view, ViewGroup.LayoutParams(-1, -1))
+            // This fixture owns the window; the app's hidden new-tab editor must
+            // not compete with the tested WebView for keyboard/window focus.
+            activity.setContentView(view, ViewGroup.LayoutParams(-1, -1))
             engine.loadUrl(server.origin + "/selection")
         }
         runBlocking { withTimeout(15_000) { engine.state.first { !it.isLoading && it.url == server.origin + "/selection" && it.progress == 100 } } }
         val painted = CompletableDeferred<Unit>()
         main { view.postVisualStateCallback(0, object : WebView.VisualStateCallback() { override fun onComplete(requestId: Long) { painted.complete(Unit) } }) }
         runBlocking { withTimeout(5_000) { painted.await() } }
+        main { view.requestFocus() }
+        runBlocking { withTimeout(5_000) { while (!js("document.hasFocus()").toBoolean()) delay(20) } }
     }
     @After fun cleanup() {
         if (::engine.isInitialized) main { modes.forEach(ActionMode::finish); engine.destroy() }
@@ -199,5 +203,116 @@ class NativeSelectionMenuTest {
         mouseSecondary("other")
         val mode = awaitMode()
         assertEquals("Another", copy(mode))
+    }
+
+    private fun mouseDragSelection(id: String, start: Int, end: Int, source: Int = InputDevice.SOURCE_MOUSE, frameUrl: String? = null) {
+        main { view.requestFocus() }
+        val location = IntArray(2)
+        main { view.getLocationOnScreen(location) }
+        val points = JSONArray(js("""(()=>{
+            const frame='$id'==='frame'?document.querySelector('iframe'):null;
+            const e=(frame?frame.contentDocument:document).getElementById('$id'),box=e.getBoundingClientRect();
+            const offset=frame?frame.getBoundingClientRect():{left:0,top:0};
+            function x(offset) {
+                if(e.tagName==='TEXTAREA') {
+                    const style=getComputedStyle(e), canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+                    ctx.font=style.font;
+                    return box.left+e.clientLeft+parseFloat(style.paddingLeft)+ctx.measureText(e.value.slice(0,offset)).width-e.scrollLeft;
+                }
+                const range=document.createRange();range.setStart(e.firstChild,offset);range.collapse(true);
+                return range.getBoundingClientRect().left;
+            }
+            return [x($start)+offset.left+(frame?frame.clientLeft:0)+0.1,
+                x($end)+offset.left+(frame?frame.clientLeft:0)+0.1,
+                box.top+box.height/2+offset.top+(frame?frame.clientTop:0),innerWidth];
+        })()"""))
+        if (frameUrl != null) {
+            js("window.frameLoaded=false;document.querySelector('iframe').onload=()=>window.frameLoaded=true;document.querySelector('iframe').src=" + org.json.JSONObject.quote(frameUrl) + ";true")
+            runBlocking { withTimeout(5_000) { while (js("window.frameLoaded") != "true") delay(20) } }
+            val painted = CompletableDeferred<Unit>()
+            main { view.postVisualStateCallback(1, object : WebView.VisualStateCallback() { override fun onComplete(requestId: Long) { painted.complete(Unit) } }) }
+            runBlocking { withTimeout(5_000) { painted.await() } }
+        }
+        val scale = view.width / points.getDouble(3)
+        val startX = (points.getDouble(0) * scale).toFloat()
+        val endX = (points.getDouble(1) * scale).toFloat()
+        val y = (points.getDouble(2) * scale).toFloat()
+        val time = SystemClock.uptimeMillis()
+        val properties = MotionEvent.PointerProperties().apply { this.id = 0; toolType = MotionEvent.TOOL_TYPE_MOUSE }
+        fun send(action: Int, x: Float, buttons: Int) {
+            val point = MotionEvent.PointerCoords().apply { this.x = x + location[0]; this.y = y + location[1]; pressure = 1f }
+            val event = MotionEvent.obtain(time, SystemClock.uptimeMillis(), action, 1,
+                arrayOf(properties), arrayOf(point), 0, buttons, 1f, 1f, 0, 0, source, 0)
+            try {
+                if (action == MotionEvent.ACTION_BUTTON_PRESS || action == MotionEvent.ACTION_BUTTON_RELEASE) {
+                    MotionEvent::class.java.getMethod("setActionButton", Int::class.javaPrimitiveType).invoke(event, MotionEvent.BUTTON_PRIMARY)
+                }
+                assertTrue("Native mouse input must be delivered", instrumentation.uiAutomation.injectInputEvent(event, true))
+            } finally { event.recycle() }
+        }
+        send(MotionEvent.ACTION_HOVER_MOVE, startX, 0)
+        send(MotionEvent.ACTION_DOWN, startX, MotionEvent.BUTTON_PRIMARY)
+        send(MotionEvent.ACTION_BUTTON_PRESS, startX, MotionEvent.BUTTON_PRIMARY)
+        repeat(12) { step ->
+            SystemClock.sleep(16)
+            send(MotionEvent.ACTION_MOVE, startX + (endX - startX) * (step + 1) / 12, MotionEvent.BUTTON_PRIMARY)
+        }
+        send(MotionEvent.ACTION_BUTTON_RELEASE, endX, 0)
+        send(MotionEvent.ACTION_UP, endX, 0)
+    }
+
+    @Test fun mouseDragShowsFloatingMenuOnReleaseAndPreservesPartialSelection() {
+        mouseDragSelection("text", 0, 10)
+        val mode = awaitMode()
+        screenshot("mouse-drag-release")
+        assertEquals("\"Alpha beta\"", js("getSelection().toString()"))
+        assertEquals("Alpha beta", copy(mode))
+    }
+
+    @Test fun mouseDragInEditableTextShowsMenuWithoutChangingTheDraft() {
+        mouseDragSelection("editor", 9, 14)
+        val mode = awaitMode()
+        assertEquals("\"Editable draft text\"", js("document.getElementById('editor').value"))
+        screenshot("mouse-drag-editable")
+        assertEquals("draft", copy(mode))
+    }
+
+    @Test fun touchpadDragShowsTheSameFloatingSelectionMenu() {
+        mouseDragSelection("text", 0, 10, InputDevice.SOURCE_TOUCHPAD)
+        assertEquals("Alpha beta", copy(awaitMode()))
+    }
+
+    @Test fun mouseSelectionInCrossOriginFrameOpensTheNativeMenu() {
+        FixtureServer(pages = mapOf("/frame" to "<!doctype html><p id='frame'>Frame selection text</p>" )).use { other ->
+            mouseDragSelection("frame", 0, 15, frameUrl = other.origin + "/frame")
+            val mode = awaitMode()
+            screenshot("mouse-cross-origin-frame")
+            assertEquals("Frame selection", copy(mode, expectedSelection = "Frame selection"))
+        }
+    }
+
+    @Test fun ordinaryMouseClickWithoutSelectionDoesNotOpenAToolbar() {
+        mouseDragSelection("text", 0, 0)
+        SystemClock.sleep(900)
+        assertEquals("\"\"", js("getSelection().toString()"))
+        assertTrue(modes.isEmpty())
+        assertNull(copyNode())
+    }
+
+    @Test fun hidingThePageCancelsAQueuedSelectionMenu() {
+        mouseDragSelection("text", 0, 10)
+        main { engine.setVisible(false) }
+        SystemClock.sleep(900)
+        assertTrue("A hidden page must not open a delayed toolbar", modes.isEmpty())
+        assertNull(copyNode())
+    }
+
+    @Test fun navigationCancelsAQueuedSelectionMenu() {
+        mouseDragSelection("text", 0, 10)
+        main { engine.loadUrl("about:blank") }
+        runBlocking { withTimeout(5_000) { engine.state.first { it.url == "about:blank" && !it.isLoading } } }
+        SystemClock.sleep(900)
+        assertTrue("The previous page must not open a delayed toolbar", modes.isEmpty())
+        assertNull(copyNode())
     }
 }
