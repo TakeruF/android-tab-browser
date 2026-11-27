@@ -19,8 +19,8 @@ android {
         applicationId = "com.takeruf.nagi"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
-        versionName = "1.6.1"
+        versionCode = 26
+        versionName = "1.6.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["nagiAppLabel"] = "@string/app_name"
         buildConfigField("boolean", "PASSWORD_AUTOFILL_DIAGNOSTICS", "false")
