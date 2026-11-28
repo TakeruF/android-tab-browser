@@ -343,7 +343,7 @@ fun BrowserPane(tab: BrowserTab, engine: BrowserEngine, state: BrowserUiState, f
                 newTab = { NewTabPage({}, compactWindow, state.settings, {}, requestInitialFocus = false) }) {
               Box(Modifier.fillMaxSize()) {
                 if (visibleError != null) BrowserErrorPage(visibleError, page.isLoading, onFocus) { onFocus(); engine.reload() }
-                else if (page.url == "about:blank") Box(Modifier.fillMaxSize()) {
+                else if (page.url == "about:blank" && !page.rendersBlankDocument) Box(Modifier.fillMaxSize()) {
                     WebUrlDropTarget(Modifier.matchParentSize()) { url -> onFocus(); engine.loadUrl(url) }
                     val tabs = state.visibleTabs
                     val shortcuts = remember(tabs, tab.id, compactWindow) { newTabShortcuts(tabs, tab.id, compactWindow) }

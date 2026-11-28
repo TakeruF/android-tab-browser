@@ -1,5 +1,55 @@
 # Validation
 
+## Authentication windows and Android web search (2026-11-28, local)
+
+The reported Claude Google-auth screenshot stops on an opener-dependent popup
+page. The previous adapter discarded the native child and opened its URL in a
+different WebView. It now transfers the actual child into the session pool.
+The supplied recording separately shows Android's selected-text web-search
+chooser; the browser Activity now handles `ACTION_WEB_SEARCH` and its literal
+query using the configured default engine. See
+[browser integration behavior](BROWSER_INTEGRATIONS.md#authentication-windows-and-android-web-search).
+
+Final local validation used JDK 17, SDK/API 36, WebView 133.0.6943.137 and the
+dedicated temporary `Nagi_Auth_QA` emulator (`emulator-5588`). The APK used
+`-PnagiSideBySide=true`, package `com.takeruf.nagi.preview` / **Nagi Test**:
+
+- All 307 Play Debug unit cases passed, including literal search intent parsing,
+  live-engine adoption and persisted popup IDs/collision protection.
+- Play Debug and Play Release lint: 0 errors, 98/97 warnings respectively.
+  Play Debug and instrumentation APK assembly succeeded.
+- All 11 final focused instrumentation cases passed with no skips: three
+  `BrowserLaunchUiTest` cases, six popup cases in
+  `AuthenticationCompatibilityTest`,
+  `WebViewEngineTest.targetBlankPopupUsesLiveChildWindow` and
+  `TranslationNavigationTest.newTabsDoNotInheritManualTranslationButAlwaysRulesApplyAcrossTabsAndDirectEntry`.
+- The fixtures verify the native opener, copied sessionStorage, cross-origin
+  page-driven navigation, `postMessage`, `window.close()`, POST bodies, profile/
+  cookie/UA inheritance, destination display modes without duplicate fetches,
+  script-written blank documents and cancellation when the opener is destroyed.
+  Real app checks cover cold/warm search delivery, default-engine query encoding,
+  the same live opener and retained draft, plus saved Split restoration.
+  An independent PackageManager query on the final installed APK returned Nagi
+  alongside Chrome and Google; the real Android resolver visibly listed
+  **Nagi Test** as a selectable web-search handler.
+- At 411dp/light, 20 of 22 selected device cases passed. Two existing
+  `DownloadUiTest` Split cases timed out waiting for the hidden right pane before
+  opening a popup; that run did not meet their wide-window precondition.
+  At 1000dp/dark, all 12 download cases and two popup checks passed (14/14),
+  including both Split cases. Phone/light and tablet/dark/Split screenshots were
+  inspected. The initial new intent test also required restoring the Activity's
+  original launch intent for ActivityScenario teardown; this was a test-harness
+  correction.
+
+Compact logs, XML results, screenshots and the development APK are in ignored
+`artifacts/auth-browser-picker/`. This is focused fixture/emulator coverage,
+not a full instrumentation-suite run, physical-device proof or completed
+provider authentication. Credential-free live navigation to `claude.ai/login`
+in the final QA APK stopped at Cloudflare's human-verification screen before
+the Google button; the reported Claude popup could not be validated live in
+this environment. No version bump, release tag, signed upload bundle or Play
+submission was made.
+
 The [1.1.1 Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md) separates final Play validation from the [initial preflight](RELEASE_1.1.1_VERIFICATION.md) and saved Console state. The dated [1.1.0 release verification](RELEASE_1.1.0_VERIFICATION.md) records comprehensive tests, clean artifact checks and publication evidence. The [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) and [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md) remain historical distribution records. These are recorded results, not a live Console or deployment status check.
 
 ## Automatic pointer selection menus and coverage audit, 2026-11-27

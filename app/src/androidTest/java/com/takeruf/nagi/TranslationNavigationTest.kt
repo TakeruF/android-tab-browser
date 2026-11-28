@@ -186,16 +186,19 @@ class TranslationNavigationTest {
         manual()
         val opened = runBlocking {
             val event = async(Dispatchers.Default) {
-                withTimeout(15_000) { engine.events.first { it is EngineEvent.OpenTab } as EngineEvent.OpenTab }
+                withTimeout(15_000) { engine.events.first { it is EngineEvent.OpenPopup } as EngineEvent.OpenPopup }
             }
             click("new-tab")
             event.await()
         }
-        assertEquals(server.origin + "/two", opened.url)
         assertEquals(TranslationStage.TRANSLATED, engine.state.value.translation.stage)
         lateinit var child: WebViewBrowserEngine
-        main { child = createEngine() }
-        load("/two", child)
+        main {
+            child = opened.request.attach() as WebViewBrowserEngine
+            engines.add(child)
+            (engine.surface.parent as android.view.ViewGroup).addView(child.surface)
+        }
+        runBlocking { withTimeout(15_000) { child.state.first { it.url == server.origin + "/two" && !it.isLoading } } }
         assertFalse(child.state.value.translation.active)
         main { child.destroy(); engines.remove(child) }
         main { engine.restoreOriginalPage() }

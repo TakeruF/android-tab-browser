@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.takeruf.nagi.browser.engine.NativeBrowserHost
+import com.takeruf.nagi.browser.search.BrowserLaunchRequest
 import com.takeruf.nagi.ui.NagiApp
 import com.takeruf.nagi.ui.browser.KeyboardShortcuts
 import com.takeruf.nagi.ui.browser.Shortcut
@@ -25,7 +26,7 @@ open class MainActivity : ComponentActivity() {
     private lateinit var host: NativeBrowserHost
     lateinit var updateInstaller: com.takeruf.nagi.updates.UpdateInstaller
         private set
-    private val incomingUrls = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 4)
+    private val incomingRequests = MutableSharedFlow<BrowserLaunchRequest>(replay = 1, extraBufferCapacity = 4)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ownsTaskRoot = isTaskRoot
@@ -63,7 +64,7 @@ open class MainActivity : ComponentActivity() {
         }
         setContent {
             com.takeruf.nagi.browser.privacy.PrivateKeyboardInput(isPrivateBrowsing) {
-                NagiApp(this, host, container, incomingUrls)
+                NagiApp(this, host, container, incomingRequests)
             }
         }
     }
@@ -80,7 +81,7 @@ open class MainActivity : ComponentActivity() {
         if (isPrivateBrowsing) outState.clear()
     }
     private fun handleIntent(intent: Intent) {
-        intent.dataString?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { incomingUrls.tryEmit(it) }
+        BrowserLaunchRequest.fromIntent(intent)?.let { incomingRequests.tryEmit(it) }
     }
     private fun handleShortcut(event: KeyEvent): Boolean {
         val shortcut = KeyboardShortcuts.map(event)

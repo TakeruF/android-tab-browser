@@ -7,6 +7,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EnginePoolTest {
+    @Test fun adoptedPopupKeepsLiveStateWithoutLoadingOrRestoring() {
+        var created: BrowserEngine? = null
+        val pool = EnginePool(factory = { _, _ -> FakeEngine() }, onCreate = { _, engine -> created = engine })
+        val placeholder = pool.acquire("popup", "about:blank", false) as FakeEngine
+        pool.setVisible(setOf("popup"))
+        pool.setDarkTheme(true)
+        pool.configurePageDarkening(true, emptySet())
+        val popup = FakeEngine().apply { state.value = PageState(url = "https://example.com/auth", title = "Live popup") }
+        pool.adopt("popup", popup)
+        assertTrue(placeholder.destroyed)
+        assertSame(popup, created)
+        assertSame(popup, pool.acquire("popup", "about:blank", false))
+        assertEquals("Live popup", popup.state.value.title)
+        assertEquals(0, popup.loadCount)
+        assertFalse(popup.restored)
+        assertTrue(popup.displayed)
+        assertTrue(popup.darkThemeActive)
+        assertTrue(popup.darkening)
+        pool.destroyAll()
+        assertEquals(1, popup.destroyCount)
+    }
     private class Snapshot(val url: String) : EngineSnapshot
     private class FakeEngine : BrowserEngine {
         override val state = MutableStateFlow(PageState())

@@ -16,11 +16,12 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
     @Volatile private var protectedTabIds: Set<String> = emptySet()
     fun protectFromArchive(ids: Set<String>) { protectedTabIds = ids.toSet() }
 
-    suspend fun create(spaceId: String, url: String = "about:blank", select: Boolean = true, parentTabId: String? = null): String {
+    suspend fun create(spaceId: String, url: String = "about:blank", select: Boolean = true, parentTabId: String? = null,
+        id: String = UUID.randomUUID().toString()): String {
         workspace.ready.await()
         return db.withTransaction {
             val space = dao.spaces().firstOrNull { it.id == spaceId } ?: error("Space no longer exists")
-            val id = UUID.randomUUID().toString()
+            require(dao.tab(id) == null) { "Tab already exists" }
             val position = (dao.tabs(spaceId).maxOfOrNull { it.position } ?: -1) + 1
             dao.putTab(BrowserTab(id, spaceId, url, if (url == "about:blank") "New tab" else url,
                 position = position, parentTabId = (parentTabId ?: space.activeTabId.takeIf { select })

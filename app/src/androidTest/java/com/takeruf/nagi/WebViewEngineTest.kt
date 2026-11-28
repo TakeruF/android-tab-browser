@@ -641,11 +641,19 @@ class WebViewEngineTest {
             await { it.title.contains(result) }
         }
     }
-    @Test fun targetBlankPopupUsesNewTabEvent() = runBlocking {
+    @Test fun targetBlankPopupUsesLiveChildWindow() = runBlocking {
         main { engine.loadUrl("${server.origin}/one") }; await { it.title == "Fixture One" && !it.isLoading }
-        val result = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(10_000) { engine.events.first { it is EngineEvent.OpenTab } as EngineEvent.OpenTab } }
+        val result = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(10_000) {
+            engine.events.first { it is EngineEvent.OpenPopup } as EngineEvent.OpenPopup
+        } }
         clickElement("popup")
-        assertEquals("${server.origin}/two", result.await().url)
+        val request = result.await().request
+        var child: BrowserEngine? = null
+        try {
+            main { child = request.attach() }
+            withTimeout(10_000) { child!!.state.first { it.url == "${server.origin}/two" && !it.isLoading } }
+        } finally { main { child?.destroy(); request.cancel() } }
+        Unit
     }
     @Test fun fileUploadAndFullscreenReachNativeHost() {
         main { engine.loadUrl("${server.origin}/one") }; await { it.title == "Fixture One" && !it.isLoading }

@@ -3,6 +3,36 @@
 Page loading failures use a native replacement screen; see [page errors](PAGE_ERRORS.md)
 for transport/certificate handling, preserved site responses and retry/history behavior.
 
+## Authentication windows and Android web search
+
+User-initiated child windows are handed from Chromium to a complete
+`WebViewBrowserEngine` and adopted by `EnginePool` under a Room-created tab ID.
+The child is not replaced by a second `loadUrl` call. This preserves
+`window.opener`, `postMessage`, native request bodies and the child's browsing
+context. Script-written `about:blank` content renders as a website document;
+explicit Home navigation still opens Nagi's new-tab screen. A child's
+`window.close()` closes only its own tab through the repository's existing
+opener/selection/Split policy.
+
+The child inherits the opener's WebView profile, initial browser identity,
+cookie policy and current privacy/display preferences. Destination-specific
+display choices still apply during navigation. Pending requests and connected
+opener/child engines are protected from suspension. Closing an opener cancels
+unclaimed windows and releases its link to already adopted children. Popups
+without user input are rejected; each opener permits at most two pending/live
+children. Provider login and Google embedded-OAuth eligibility remain separate
+from preserving this native window connection.
+
+The exported browser Activity handles `ACTION_WEB_SEARCH` with
+`SearchManager.QUERY`, so Nagi appears in Android's web-search app chooser.
+Both cold launch and delivery to the existing Activity open a new tab using
+the current default search engine. Selected text is a literal search query,
+including URL-shaped text and Nagi engine keywords; the source page stays alive.
+Empty or missing queries open no tab.
+
+Sources: [WebView child-window contract](https://developer.android.com/reference/android/webkit/WebChromeClient#onCreateWindow(android.webkit.WebView,%20boolean,%20boolean,%20android.os.Message)),
+[Android web-search intents](https://developer.android.com/guide/components/intents-common#SearchWeb).
+
 ## Mouse input over native pages
 
 `NativeSurface` keeps Compose as the pointer owner above a native WebView. Mouse

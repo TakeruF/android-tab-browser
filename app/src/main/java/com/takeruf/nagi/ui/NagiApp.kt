@@ -2,6 +2,7 @@ package com.takeruf.nagi.ui
 
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
+import com.takeruf.nagi.browser.search.BrowserLaunchRequest
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.activity.compose.BackHandler
@@ -52,7 +53,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 @Composable
-fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingUrls: Flow<String>) {
+fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingRequests: Flow<BrowserLaunchRequest>) {
     Column(Modifier.fillMaxSize().then(if (container.isPrivate) Modifier.statusBarsPadding() else Modifier)) {
         if (container.isPrivate) {
             val strings = rememberNagiStrings()
@@ -67,7 +68,7 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            NagiAppContent(activity, host, container, incomingUrls, maxWidth.value)
+            NagiAppContent(activity, host, container, incomingRequests, maxWidth.value)
         }
     }
 }
@@ -75,7 +76,7 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, container: AppContainer,
-    incomingUrls: Flow<String>, windowWidthDp: Float) {
+    incomingRequests: Flow<BrowserLaunchRequest>, windowWidthDp: Float) {
     val strings = rememberNagiStrings()
     val vm: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
@@ -330,9 +331,13 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         onDispose { activity.shortcutHandler = null }
     }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(currentStrings.translate(it)) } }
-    LaunchedEffect(incomingUrls) { incomingUrls.collect { url ->
+    LaunchedEffect(incomingRequests) { incomingRequests.collect { request ->
         vm.state.first { it.ready }
-        vm.newTab(url); navigate("browser")
+        when (request) {
+            is BrowserLaunchRequest.Navigate -> vm.newTab(request.url)
+            is BrowserLaunchRequest.WebSearch -> vm.newSearchTab(request.query)
+        }
+        navigate("browser")
     } }
     LaunchedEffect(state.currentSpace?.id) {
         state.currentSpace?.id?.let { id ->
