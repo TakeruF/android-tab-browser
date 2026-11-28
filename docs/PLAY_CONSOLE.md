@@ -1,6 +1,23 @@
 # Google Play release preparation
 
-## Current production submission — 2026-11-27
+## Current production submission — 2026-11-28
+
+**1.6.3 / code 27 is IN_REVIEW**, confirmed by the official production lifecycle
+at **11:37:22 JST**. The exact signed AAB from clean source `af0772f` and immutable
+tag `v1.6.3` was accepted, validated and submitted for 100% production rollout.
+All six short [release-note blocks](play-store/release-notes-1.6.3.txt), countries,
+store listings and other tracks were independently reread and matched.
+**Public availability is not yet confirmed.** The GitHub release is a
+source-only draft with no binary assets. Current managed-publishing controls
+were not inspected. See [verification](RELEASE_1.6.3_VERIFICATION.md).
+
+## Latest production publication confirmed — 2026-11-28
+
+**1.6.2 / code 26 is PUBLISHED**, independently confirmed by the official
+production lifecycle. This is the observation date, not its precise publication
+time. Existing release notes and the accepted artifact remain unchanged.
+
+## Historical production submission — 2026-11-27
 
 **1.6.2 / code 26 is IN_REVIEW**, confirmed by the official production release
 lifecycle at **20:19:58 JST**. The exact verified AAB from clean source `dda3dd1`
@@ -11,7 +28,7 @@ countries, store listings and other tracks were independently reread and matched
 source-only draft without binary assets. Console UI and current managed-publishing
 controls were not inspected. See [1.6.2 verification](RELEASE_1.6.2_VERIFICATION.md).
 
-## Latest production publication confirmed — 2026-11-27
+## Historical production publication confirmed — 2026-11-27
 
 **1.6.1 / code 25 is PUBLISHED**, confirmed by the official production release
 lifecycle. This is the observation date, not the precise publication time.

@@ -40,6 +40,33 @@ class BrowserSessionController(private val container: AppContainer,
                         openedTabs.emit(newId)
                     }
                 }
+                is EngineEvent.OpenPopup -> {
+                    var newId: String? = null
+                    var adopted = false
+                    try {
+                        val tab = container.workspace.dao.tab(id)
+                        if (tab != null && tab.closedAt == null && tab.archivedAt == null && pool.peek(id) === engine) {
+                            newId = event.request.tabId
+                            val childId = container.tabs.create(tab.spaceId, parentTabId = id, id = event.request.tabId)
+                            val child = event.request.attach()
+                            if (child != null) {
+                                pool.adopt(childId, child)
+                                adopted = true
+                                pageOpenedTabs.add(childId)
+                                openedTabs.emit(childId)
+                            }
+                        }
+                    } finally {
+                        event.request.cancel()
+                        // Cancellation while Room saves the child must not leave an empty tab.
+                        if (!adopted) newId?.let { childId ->
+                            withContext(NonCancellable) { container.tabs.close(childId) }
+                        }
+                    }
+                }
+                EngineEvent.CloseWindow -> {
+                    if (pool.peek(id) === engine) container.tabs.close(id)
+                }
                 EngineEvent.DownloadHandledWithoutDocument -> {
                     if (pageOpenedTabs.remove(id) && engine.state.value.url == "about:blank" && !engine.state.value.isLoading) {
                         container.tabs.close(id)

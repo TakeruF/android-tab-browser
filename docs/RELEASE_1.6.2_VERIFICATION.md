@@ -1,5 +1,12 @@
 # Nagi 1.6.2 verification — 2026-11-27
 
+## Publication confirmed — 2026-11-28
+
+The official production lifecycle now reports code 26 **PUBLISHED**.
+This is the observation date, not the precise publication time. The artifact,
+source tag and submitted notes below are unchanged; their IN_REVIEW descriptions
+preserve the earlier dated submission evidence.
+
 ## Source and signed artifacts
 
 - Version: **1.6.2 / code 26**, package `com.takeruf.nagi`, minSdk 26, targetSdk 36.

@@ -10,12 +10,15 @@ import android.view.MotionEvent
 import android.view.InputDevice
 import android.webkit.WebView
 import androidx.activity.BackEventCompat
+import androidx.room.withTransaction
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.takeruf.nagi.domain.model.BrowserSettings
 import com.takeruf.nagi.domain.model.ThemeMode
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -113,6 +116,88 @@ class PredictiveHistoryBackUiTest {
 
     @Test fun phoneLeftEdgeFollowsDistanceAndCancelsWithoutNavigating() = exercise(411, ThemeMode.LIGHT, false, BackEventCompat.EDGE_LEFT)
     @Test fun tabletRightEdgeOnlyMovesFocusedSplitPane() = exercise(1000, ThemeMode.DARK, true, BackEventCompat.EDGE_RIGHT)
+
+    @Test fun phoneTabClosurePreviewsItsLiveOpenerAndCancelsWithoutLosingDrafts() = closeTabPreview(411, false, false)
+    @Test fun tabletSplitTabClosurePreviewsItsPeerAndKeepsTheOtherPaneLive() = closeTabPreview(1000, true, false)
+    @Test fun phoneTabClosureCanPreviewTheNewTabScreen() = closeTabPreview(411, false, true)
+
+    private fun closeTabPreview(width: Int, split: Boolean, newTab: Boolean) {
+        shell("wm size ${(width * density).toInt()}x${(820 * density).toInt()}")
+        compose.waitUntil(10_000) { kotlin.math.abs(compose.activity.resources.configuration.screenWidthDp - width) < 10 }
+        val parentId = runBlocking {
+            container.settings.update { it.copy(theme = if (split) ThemeMode.DARK else ThemeMode.LIGHT) }
+            container.tabs.create(spaceId, if (newTab) "about:blank" else server.origin + "/old")
+        }
+        val parent = if (newTab) null else {
+            compose.waitUntil(20_000) { views().any { ready(it, "/old") } }
+            views().single { ready(it, "/old") }.also {
+                visualReady(it)
+                js(it, "document.querySelector('#draft').value='Opener 日本語'; true")
+            }
+        }
+        runBlocking {
+            targetId = container.tabs.create(spaceId, server.origin + "/current", select = !split, parentTabId = parentId)
+            if (split) container.tabs.pair(parentId, targetId)
+        }
+        compose.waitUntil(20_000) { views().any { ready(it, "/current") } }
+        val current = views().single { ready(it, "/current") }
+        compose.onNodeWithTag("browser-content-$targetId").performTouchInput { click(center) }
+        visualReady(current)
+        js(current, "window.previewToken='retained'; document.querySelector('#draft').value='Child 日本語'; true")
+        compose.runOnIdle { assertFalse("This gesture must close a tab, not traverse page history", current.canGoBack()) }
+        val requests = server.requests.count { it.path in listOf("/old", "/current") }
+        val position = IntArray(2)
+        compose.runOnIdle { current.getLocationOnScreen(position) }
+        val x = position[0] + (current.width * 0.25f).toInt()
+        val y = position[1] + (current.height * 0.7f).toInt()
+        val original = capture("close-$width-$newTab-before")
+        begin(BackEventCompat.EDGE_LEFT)
+        move(0.5f, BackEventCompat.EDGE_LEFT)
+        compose.onNodeWithTag("history-back-preview").assertExists()
+        val halfway = capture("close-$width-$newTab-halfway")
+        val pixel = halfway.getPixel(x, y)
+        if (!newTab) assertTrue("The opener's red page must be visible", Color.red(pixel) > Color.blue(pixel) * 1.5f)
+        else assertNotEquals("The new-tab surface must replace the current blue page", original.getPixel(x, y), pixel)
+        original.recycle(); halfway.recycle()
+        assertNull(runBlocking { container.workspace.dao.tab(targetId)!!.closedAt })
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.dispatchOnBackCancelled() }
+        compose.waitForIdle()
+        assertTrue(views().any { it === current })
+        assertEquals("\"retained:Child 日本語\"", js(current, "window.previewToken+':'+document.querySelector('#draft').value"))
+        assertEquals(requests, server.requests.count { it.path in listOf("/old", "/current") })
+        begin(BackEventCompat.EDGE_LEFT)
+        move(0.5f, BackEventCompat.EDGE_LEFT)
+        val releaseTransaction = CompletableDeferred<Unit>()
+        val transactionReady = CompletableDeferred<Unit>()
+        val transactionScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+        val transaction = transactionScope.launch {
+            container.database.withTransaction { transactionReady.complete(Unit); releaseTransaction.await() }
+        }
+        runBlocking { withTimeout(5_000) { transactionReady.await() } }
+        try {
+            compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+            compose.waitForIdle()
+            // The destination must stay over the source while Room commits the close.
+            compose.onNodeWithTag("history-back-preview").assertExists()
+        } finally {
+            releaseTransaction.complete(Unit)
+            runBlocking { withTimeout(5_000) { transaction.join() } }
+            transactionScope.cancel()
+        }
+        compose.waitUntil(15_000) { runBlocking {
+            container.workspace.dao.tab(targetId)!!.closedAt != null &&
+                container.workspace.dao.spaces().first { it.id == spaceId }.activeTabId == parentId
+        } }
+        compose.waitForIdle()
+        compose.onNodeWithTag("history-back-preview").assertDoesNotExist()
+        if (parent != null) {
+            assertTrue(views().any { it === parent })
+            assertEquals("\"Opener 日本語\"", js(parent, "document.querySelector('#draft').value"))
+        }
+        if (split) assertNull(runBlocking { container.workspace.dao.tab(parentId)!!.splitRightTabId })
+        assertEquals(requests, server.requests.count { it.path in listOf("/old", "/current") })
+        capture("close-$width-$newTab-committed").recycle()
+    }
 
     @Test fun systemEdgeGestureShowsPreviewAndCanCancelOrCommit() {
         Assume.assumeTrue("Requires Android gesture navigation", shell("settings get secure navigation_mode").trim() == "2")

@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.MotionEvent
 import android.os.SystemClock
-import android.os.Message
 import android.webkit.*
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
@@ -402,52 +401,46 @@ class AuthenticationCompatibilityTest {
         }
     }
 
+    private fun attachPopup(parent: WebViewBrowserEngine): WebViewBrowserEngine {
+        val event = runBlocking { withTimeout(10_000) {
+            parent.events.first { it is EngineEvent.OpenPopup } as EngineEvent.OpenPopup
+        } }
+        lateinit var child: WebViewBrowserEngine
+        main {
+            child = event.request.attach() as WebViewBrowserEngine
+            val view = parent.surface as WebView
+            (view.parent as ViewGroup).addView(child.surface, ViewGroup.LayoutParams(-1, -1))
+        }
+        return child
+    }
+
     @Test fun popupBootstrapInheritsIdentityAndCookiePolicyFromItsOpener() {
         assumeTrue(WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA))
         AuthFixture().use { server ->
-            val results = JSONArray()
             for (desktop in listOf(true, false)) for (thirdParty in listOf(false, true))
-                withEngine(Configuration("popup", desktop, thirdParty = thirdParty)) { engine, _, cookies ->
-                    val view = engine.surface as WebView
-                    val observed = CompletableDeferred<JSONObject>()
-                    main {
-                        val delegate = view.webChromeClient!!
-                        view.webChromeClient = object : WebChromeClient() {
-                            override fun onProgressChanged(v: WebView, progress: Int) = delegate.onProgressChanged(v, progress)
-                            override fun onReceivedTitle(v: WebView, title: String?) = delegate.onReceivedTitle(v, title)
-                            override fun onReceivedIcon(v: WebView, icon: Bitmap?) = delegate.onReceivedIcon(v, icon)
-                            override fun onCreateWindow(v: WebView, dialog: Boolean, gesture: Boolean, message: Message): Boolean {
-                                val created = delegate.onCreateWindow(v, dialog, gesture, message)
-                                val popup = (message.obj as WebView.WebViewTransport).webView
-                                if (created && popup != null) {
-                                    val parentHints = WebSettingsCompat.getUserAgentMetadata(v.settings)
-                                    val childHints = WebSettingsCompat.getUserAgentMetadata(popup.settings)
-                                    observed.complete(JSONObject().put("desktop", desktop).put("thirdParty", thirdParty)
-                                        .put("sameUa", v.settings.userAgentString == popup.settings.userAgentString)
-                                        .put("sameMobileHint", parentHints.isMobile == childHints.isMobile)
-                                        .put("samePlatformHint", parentHints.platform == childHints.platform)
-                                        .put("sameMetadata", parentHints == childHints)
-                                        .put("sameCookiePolicy", cookies.acceptThirdPartyCookies(v) == cookies.acceptThirdPartyCookies(popup)))
-                                }
-                                return created
-                            }
+                withEngine(Configuration("popup", desktop, thirdParty = thirdParty)) { parent, _, cookies ->
+                    main { parent.loadUrl("${server.origin}/form") }
+                    awaitPage(parent, "${server.origin}/form")
+                    tapPopup(parent.surface as WebView)
+                    val child = attachPopup(parent)
+                    try {
+                        awaitPage(child, "${server.origin}/popup-child")
+                        main {
+                            val source = parent.surface as WebView
+                            val popup = child.surface as WebView
+                            assertEquals(source.settings.userAgentString, popup.settings.userAgentString)
+                            assertEquals(WebSettingsCompat.getUserAgentMetadata(source.settings),
+                                WebSettingsCompat.getUserAgentMetadata(popup.settings))
+                            assertEquals(cookies.acceptThirdPartyCookies(source), cookies.acceptThirdPartyCookies(popup))
+                            assertEquals(WebViewCompat.getProfile(source).name, WebViewCompat.getProfile(popup).name)
                         }
-                        engine.loadUrl("${server.origin}/form")
-                    }
-                    awaitPage(engine, "${server.origin}/form")
-                    tapPopup(view)
-                    val result = runBlocking { withTimeout(10_000) { observed.await() } }
-                    results.put(result)
-                    write("popup-inheritance-controls", JSONObject().put("results", results))
-                    for (key in listOf("sameUa", "sameMobileHint", "samePlatformHint", "sameMetadata", "sameCookiePolicy"))
-                        assertTrue("Popup must inherit $key (desktop=$desktop, thirdParty=$thirdParty)", result.getBoolean(key))
+                    } finally { main { child.destroy() } }
                 }
         }
     }
 
-    @Test fun popupHandoffUsesDestinationModeAndSharedCookieJarWithoutBootstrapFetch() {
+    @Test fun popupHandoffUsesDestinationModeAndSharedCookieJarWithoutDuplicateFetch() {
         AuthFixture().use { server ->
-            val results = JSONArray()
             for (sourceDesktop in listOf(true, false)) for (destinationDesktop in listOf(true, false))
                 withEngine(Configuration("handoff", sourceDesktop)) { parent, store, _ ->
                     val target = "${server.otherOrigin}/handoff-target"
@@ -460,20 +453,9 @@ class AuthenticationCompatibilityTest {
                     server.requests.clear()
                     main { parent.evaluateJavascript("document.getElementById('popup').onclick=()=>window.open(${JSONObject.quote(target)},'_blank')") }
                     tapPopup(view)
-                    val event = runBlocking { withTimeout(10_000) { parent.events.first { it is EngineEvent.OpenTab } as EngineEvent.OpenTab } }
-                    assertEquals(target, event.url)
-                    instrumentation.waitForIdleSync()
-                    assertEquals("URL-capturing popup must not fetch the destination", 0,
-                        server.requests.count { it.path == "/handoff-target" })
-                    var child: WebViewBrowserEngine? = null
+                    val child = attachPopup(parent)
                     try {
-                        main {
-                            child = WebViewBrowserEngine(view.context, host, host, { false }, sourceDesktop,
-                                siteDisplayModes = store, privateProfileName = WebViewCompat.getProfile(view).name)
-                            (view.parent as ViewGroup).addView(child!!.surface, ViewGroup.LayoutParams(-1, -1))
-                            child!!.loadUrl(event.url)
-                        }
-                        awaitPage(child!!, target)
+                        awaitPage(child, target)
                         val received = server.requests.filter { it.path == "/handoff-target" }
                         assertEquals(1, received.size)
                         assertEquals(!destinationDesktop, received.single().ua.contains("Mobile"))
@@ -481,11 +463,113 @@ class AuthenticationCompatibilityTest {
                         assertTrue(received.single().targetCookie)
                         assertFalse(received.single().originCookie)
                         assertEquals(sourceDesktop, parent.state.value.desktopMode)
-                        results.put(JSONObject().put("sourceDesktop", sourceDesktop).put("destinationDesktop", destinationDesktop)
-                            .put("bootstrapRequests", 0).put("destinationRequests", received.size).put("destinationCookieSent", true))
-                        write("popup-wire-handoff", JSONObject().put("results", results))
-                    } finally { main { child?.destroy() } }
+                        main { child.evaluateJavascript("document.title = window.opener ? 'Opener retained' : 'Missing opener'") }
+                        try { runBlocking { withTimeout(5_000) { child.state.first { it.title == "Opener retained" } } } }
+                        catch (e: TimeoutCancellationException) { throw AssertionError("Destination mode must retain opener: ${child.state.value.title}", e) }
+                    } finally { main { child.destroy() } }
                 }
+        }
+    }
+
+    @Test fun popupPreservesOpenerSessionStorageMessageAndCloseAcrossNavigation() {
+        AuthFixture().use { server ->
+            withEngine(Configuration("opener", false)) { parent, _, _ ->
+                main { parent.loadUrl("${server.origin}/form") }
+                awaitPage(parent, "${server.origin}/form")
+                main { parent.evaluateJavascript("""
+                    sessionStorage.setItem('popup-fixture', 'synthetic');
+                    window.addEventListener('message', e => {
+                        if (e.origin === location.origin && e.data === 'fixture-success') document.title = 'Popup returned';
+                    });
+                """.trimIndent()) }
+                tapPopup(parent.surface as WebView)
+                val child = attachPopup(parent)
+                try {
+                    awaitPage(child, "${server.origin}/popup-child")
+                    main {
+                        parent.canSuspend { assertFalse("Keep the opener alive", it) }
+                        child.canSuspend { assertFalse("Keep the connected child alive", it) }
+                        child.evaluateJavascript("document.title = String(!!window.opener) + ':' + sessionStorage.getItem('popup-fixture')")
+                    }
+                    try { runBlocking { withTimeout(5_000) { child.state.first { it.title == "true:synthetic" } } } }
+                    catch (e: TimeoutCancellationException) { throw AssertionError("Popup opener/storage: ${child.state.value.title}", e) }
+                    main { child.evaluateJavascript("location.href=" + JSONObject.quote("${server.otherOrigin}/handoff-target")) }
+                    awaitPage(child, "${server.otherOrigin}/handoff-target")
+                    main { child.evaluateJavascript("location.href=" + JSONObject.quote("${server.origin}/popup-child")) }
+                    awaitPage(child, "${server.origin}/popup-child")
+                    main { child.evaluateJavascript("window.opener.postMessage('fixture-success', location.origin); window.close()") }
+                    try { runBlocking { withTimeout(5_000) {
+                        parent.state.first { it.title == "Popup returned" }
+                        child.events.first { it is EngineEvent.CloseWindow }
+                    } } } catch (e: TimeoutCancellationException) {
+                        throw AssertionError("Popup return/close: ${parent.state.value.title}", e)
+                    }
+                } finally { main { child.destroy() } }
+            }
+        }
+    }
+
+    @Test fun scriptWrittenBlankPopupKeepsItsDocumentAndOpener() {
+        AuthFixture().use { server ->
+            withEngine(Configuration("blank-popup", false)) { parent, _, _ ->
+                main { parent.loadUrl("${server.origin}/form") }
+                awaitPage(parent, "${server.origin}/form")
+                main { parent.evaluateJavascript("""
+                    document.getElementById('popup').onclick = () => {
+                        const child = window.open('', '_blank');
+                        child.document.write('<title>Written popup</title><p>Fixture</p>');
+                        child.document.close();
+                    };
+                """.trimIndent()) }
+                tapPopup(parent.surface as WebView)
+                val child = attachPopup(parent)
+                try {
+                    runBlocking { withTimeout(10_000) { child.state.first { it.title == "Written popup" } } }
+                    main { child.evaluateJavascript("document.title = window.opener ? 'Opener retained' : 'Missing opener'") }
+                    runBlocking { withTimeout(5_000) { child.state.first { it.title == "Opener retained" } } }
+                } finally { main { child.destroy() } }
+            }
+        }
+    }
+
+    @Test fun formPostPopupKeepsItsNativeRequestBody() {
+        AuthFixture().use { server ->
+            withEngine(Configuration("post-popup", false)) { parent, _, _ ->
+                main { parent.loadUrl("${server.origin}/form") }
+                awaitPage(parent, "${server.origin}/form")
+                main { parent.evaluateJavascript("""
+                    document.getElementById('popup').outerHTML = '<form action="/handoff-target" method="post" target="_blank">' +
+                        '<input type="hidden" name="nagi_prediction" value="synthetic">' +
+                        '<button id="popup" style="margin:30px;width:200px;height:90px">Submit fixture</button></form>';
+                """.trimIndent()) }
+                tapPopup(parent.surface as WebView)
+                val child = attachPopup(parent)
+                try {
+                    awaitPage(child, "${server.origin}/handoff-target")
+                    val request = server.requests.single { it.path == "/handoff-target" }
+                    assertEquals("POST", request.method)
+                    assertTrue(request.syntheticBody)
+                } finally { main { child.destroy() } }
+            }
+        }
+    }
+
+    @Test fun pendingPopupIsCancelledWhenItsOpenerIsDestroyed() {
+        AuthFixture().use { server ->
+            withEngine(Configuration("cancel-popup", false)) { parent, _, _ ->
+                main { parent.loadUrl("${server.origin}/form") }
+                awaitPage(parent, "${server.origin}/form")
+                tapPopup(parent.surface as WebView)
+                val event = runBlocking { withTimeout(10_000) {
+                    parent.events.first { it is EngineEvent.OpenPopup } as EngineEvent.OpenPopup
+                } }
+                main {
+                    parent.destroy()
+                    assertNull(event.request.attach())
+                    event.request.cancel()
+                }
+                // withEngine also clears the isolated profile, detecting leaked child WebViews.
+            }
         }
     }
 

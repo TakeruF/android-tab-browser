@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.takeruf.nagi.AppContainer
+import com.takeruf.nagi.browser.search.InputResolver
 import com.takeruf.nagi.domain.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -46,6 +47,14 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
         catch (e: Exception) { messages.emit(e.message ?: "Action could not be completed") }
     }
     fun newTab(url: String = "about:blank") = action { state.value.currentSpace?.let { container.tabs.create(it.id, url) } }
+    fun newSearchTab(query: String) = action {
+        val current = state.value
+        val engine = current.workspace.searchEngines.firstOrNull { it.id == current.settings.defaultSearchEngineId }
+            ?: current.workspace.searchEngines.firstOrNull() ?: return@action
+        current.currentSpace?.let {
+            container.tabs.create(it.id, InputResolver.search(engine, query).url)
+        }
+    }
     fun newTabInSpace(spaceId: String, url: String) = action { container.tabs.create(spaceId, url, select = false) }
     suspend fun createTab(url: String = "about:blank", select: Boolean = true): String? = state.value.currentSpace?.let { container.tabs.create(it.id, url, select) }
     suspend fun prepareFavoritePaneDrop(favoriteId: String, targetId: String, splitToRight: Boolean? = null) =
@@ -59,6 +68,14 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
         onClosed()
     }
     fun closeTabOnBack(id: String) = action { container.tabs.close(id, selectNext = true) }
+    suspend fun closePreviewedTab(id: String, expectedDestinationId: String) {
+        try {
+            if (container.tabs.closePreviewedTab(id, expectedDestinationId)) {
+                state.first { current -> current.workspace.tabs.none { it.id == id && it.closedAt == null } }
+            }
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { messages.emit(e.message ?: "Action could not be completed") }
+    }
     fun restoreClosed() = action { if (container.tabs.restoreClosed() == null) messages.emit("No closed tabs to restore") }
     fun pairTabs(leftId: String, rightId: String) = action { container.tabs.pair(leftId, rightId) }
     fun detachSplit(id: String) = action { container.tabs.detachSplit(id) }

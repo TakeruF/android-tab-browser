@@ -22,14 +22,25 @@ data class PageState(
     val pageZoomPercent: Int = 100,
     val canZoomIn: Boolean = false, val canZoomOut: Boolean = false,
     val errorKind: PageErrorKind = PageErrorKind.OTHER,
+    /** A page-created about:blank document is content, rather than Nagi's new-tab screen. */
+    val rendersBlankDocument: Boolean = false,
 )
 
 sealed interface EngineEvent {
     data class Metadata(val page: PageState) : EngineEvent
     data class Visited(val page: PageState) : EngineEvent
     data class OpenTab(val url: String) : EngineEvent
+    data class OpenPopup(val request: PendingBrowserPopup) : EngineEvent
+    data object CloseWindow : EngineEvent
     /** A native download was accepted while this engine still had no document. */
     data object DownloadHandledWithoutDocument : EngineEvent
+}
+
+/** Single-use native window handoff. The session controller persists this child ID before adoption. */
+interface PendingBrowserPopup {
+    val tabId: String
+    fun attach(): BrowserEngine?
+    fun cancel()
 }
 
 /** Opaque engine-owned state. A Chromium adapter can supply its own snapshot type. */

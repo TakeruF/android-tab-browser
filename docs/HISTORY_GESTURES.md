@@ -7,16 +7,29 @@ either system back edge reveals the preceding page beneath the current page.
 The page follows gesture progress without resizing the browser chrome. In Split,
 only the focused pane moves. Releasing to cancel settles back to the original
 page; committing settles to the preceding page, then traverses native history.
-Back buttons and keyboard Back continue to navigate immediately. Reader exit,
-tab closure and Settings navigation retain their existing back behavior.
+Back buttons and keyboard Back continue to navigate immediately. Reader exit
+and Settings navigation retain their existing back behavior.
+
+If Back will close an unpinned tab, the gesture instead reveals its predicted
+opener/neighbor or the new-tab screen. The UI and transactional repository share
+the same destination policy. The source tab remains live until commit;
+cancellation closes nothing. The repository refuses a close if that predicted
+destination has disappeared. A live destination supplies an in-memory viewport;
+sleeping/restored tabs use a neutral URL surface without being woken or loaded.
+Only the focused Split pane moves, and commit retains the existing selection and
+Split cleanup policy.
 Native navigation availability gates the preview: raw history entries that
 WebView cannot traverse do not cause a misleading history preview during tab
 closure. The action chosen when a gesture starts stays fixed through settling.
 
 `PredictiveBackHandler` owns the gesture in the composition; no Views or images
 are stored in the ViewModel. The engine captures recent departing viewports in
-memory, with the current viewport and three recent destinations, each at most
-0.5 megapixels (four images / at most 8 MiB of pixel data per live engine). History
+memory, with the current viewport and three recent destinations. Images keep
+native viewport resolution when they fit, up to 4 megapixels each, with
+high-quality filtering during display. A shared least-recently-used cache caps
+all live engines together at one quarter of the app heap class, up to 96 MiB.
+Each image is also limited to one quarter of that byte budget, so lower-memory
+devices use a smaller resolution. History
 index and URL identify each image, including repeated URLs. New navigations
 discard forward-branch images. Images are not persisted or added to saved engine
 state, and engine destruction clears its cache, including private engines.
@@ -26,7 +39,8 @@ is active, input-triggered capture is skipped to preserve selection-handle
 geometry. This retains the departing image when
 SPA sites such as YouTube use `pushState` without a document load. Native history
 callbacks keep these images associated with their actual entry, and saved images
-remain available for a three-step Back/Forward round trip. Reloaded, evicted or
+can remain available for a three-step Back/Forward round trip within that shared
+budget. Reloaded, evicted or
 resized entries can still require the fallback described below.
 The original WebView remains live throughout a cancelled gesture. After commit,
 the image covers it until native visual commit, with a 1.5-second fallback for

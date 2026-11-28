@@ -16,7 +16,9 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.6.2: Made some improvements. The Google Play production release is submitted and IN_REVIEW; public availability is not yet confirmed. See [1.6.2 notes](docs/releases/1.6.2.md).
+Version 1.6.3 fixes a Claude sign-in popup issue, adds Android web-search handling, and improves touch Back and Back/Forward preview quality. The Google Play production release is submitted and IN_REVIEW; public availability is not yet confirmed. See [1.6.3 notes](docs/releases/1.6.3.md).
+
+Version 1.6.2: Made some improvements. Google Play publication was confirmed by the official production lifecycle on 2026-11-28; this is the observation date. See [1.6.2 notes](docs/releases/1.6.2.md).
 
 Version 1.6.1 improves history previews and trackpad navigation, records in-page visits, unifies selection and permission dialogs, fixes microphone/download permission handling, and closes empty download tabs when cancelled. Google Play publication was confirmed by the official production lifecycle on 2026-11-27; this is the observation date, not the precise publication time. See [1.6.1 notes](docs/releases/1.6.1.md).
 
@@ -143,7 +145,8 @@ Archive runs on launch and on manual request.
 - Spaces organize tabs; Favorites are shared across Spaces. Cookies, Web Storage, and site logins are also shared.
 - Room restores URLs, titles, order, and selected tabs after restart. Eligible hidden pages can sleep; waking restores their in-Activity history snapshot and scroll position where available, otherwise reloads the URL. WebView does not serialize the live DOM or arbitrary JavaScript state. Form values, scroll position, and in-page history are not guaranteed after Activity/process termination.
 - Cookies are enabled; third-party cookies are blocked. “Clear cookies and site data” resets site logins, storage, and page cache across Spaces while retaining tabs, Bookmarks, and history. Certificate errors are canceled; site permissions require confirmation.
-- User-initiated `target="_blank"` and `window.open` with a URL are supported. Popups that write documents into `about:blank` are not.
+- User-initiated `target="_blank"` and `window.open` retain their live child window in a new tab, including opener communication and script-written `about:blank` documents. Provider restrictions on embedded-browser authentication still apply.
+- Android's **Web search** app chooser can open selected text in Nagi using the configured search engine.
 - HTTP downloads use DownloadManager. Main-frame Blob/data exports up to 32 MB use a bounded page-file transfer after confirmation, then save to Downloads. Android 8–9 uses app-specific Downloads; Android 10+ uses public Downloads. Generated downloads need a supported WebView message API; iframe-generated exports are not supported.
 - Uploads use the system document picker, with a photo option for single-image or unrestricted uploads. Image capture requests open the camera directly and return a scoped content URI. Camera output is JPEG; video/audio capture and folder uploads are not implemented.
 - Sync, in-app AI chat, and Userscripts are not implemented.

@@ -30,7 +30,7 @@ private class WebViewSnapshot(val bundle: Bundle, val scrollX: Int, val scrollY:
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebViewBrowserEngine(
-    context: Context, private val host: BrowserHost, private val fullscreenHost: FullscreenHost,
+    private val context: Context, private val host: BrowserHost, private val fullscreenHost: FullscreenHost,
     private val openLinksInNewTab: () -> Boolean, desktopDefault: Boolean,
     private val nativePageDrag: () -> Boolean = { false },
     private val siteDisplayModes: SiteDisplayModeStore = SiteDisplayModeStore(context),
@@ -177,6 +177,8 @@ class WebViewBrowserEngine(
     private var fullscreenActive = false
     private var restoringScroll: Pair<Int, Int>? = null
     override val surface get() = webView
+    override fun currentPagePreview(): HistoryPagePreview? = if (destroyed) null else
+        historyPreviews.current() ?: HistoryPagePreview(state.value.url, null)
     private val historyPreviews = WebViewHistoryPreviews(webView)
     private val pointerSelection = PagePointerSelection(webView,
         show = { x, y -> secondaryClick.showSelectionMenu(x, y, webView::dispatchTouchEvent, selectionOnly = true) },
@@ -231,7 +233,10 @@ class WebViewBrowserEngine(
     private val pendingPermissions = mutableSetOf<PermissionRequest>()
     private val pendingPermissionResults = mutableMapOf<PermissionRequest, (Set<SitePermission>) -> Unit>()
     private var geolocationPermissionResult: ((Set<SitePermission>) -> Unit)? = null
-    private val popupViews = mutableSetOf<WebView>()
+    private val pendingPopups = mutableSetOf<PendingBrowserPopup>()
+    private val popupChildren = mutableSetOf<WebViewBrowserEngine>()
+    private var popupOpener: WebViewBrowserEngine? = null
+    private var isPopupWindow = false
     private var destroyed = false
     private var autofillRequestJob: Job? = null
     private val autofillManager = context.getSystemService(android.view.autofill.AutofillManager::class.java)
@@ -366,7 +371,7 @@ class WebViewBrowserEngine(
                 val scheme = request.url.scheme?.lowercase()
                 if (request.hasGesture() && host.openExternalLink(url, ::loadUrl)) return true
                 if (scheme == "http" || scheme == "https") {
-                    if (request.hasGesture() && openLinksInNewTab()) {
+                    if (request.hasGesture() && openLinksInNewTab() && !(isPopupWindow && !hasCommittedDocument)) {
                         eventChannel.trySend(EngineEvent.OpenTab(url)); return true
                     }
                     pendingExplicitLoad?.let { pending ->
@@ -486,7 +491,7 @@ class WebViewBrowserEngine(
                 pendingExplicitLoad = null
                 if (url != "about:blank") hasCommittedDocument = true
                 loadingTimeout?.cancel()
-                update { it.copy(url = url, title = if (url == "about:blank") "New tab" else view.title?.takeIf { t -> t.isNotBlank() } ?: url,
+                update { it.copy(url = url, title = if (url == "about:blank" && !it.rendersBlankDocument) "New tab" else view.title?.takeIf { t -> t.isNotBlank() } ?: url,
                     isLoading = false, progress = 100, canGoBack = view.canGoBack(), canGoForward = view.canGoForward()) }
                 documentPage = state.value
                 if (url != "about:blank" && restoredZoomPercent == null) captureZoomBaseline()
@@ -540,7 +545,7 @@ class WebViewBrowserEngine(
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView, newProgress: Int) { update { it.copy(progress = newProgress) } }
             override fun onReceivedTitle(view: WebView, title: String?) {
-                update { it.copy(title = if (it.url == "about:blank") "New tab" else title?.takeIf(String::isNotBlank) ?: it.url) }; metadata()
+                update { it.copy(title = if (it.url == "about:blank" && !it.rendersBlankDocument) "New tab" else title?.takeIf(String::isNotBlank) ?: it.url) }; metadata()
                 // SPA routers often set the video/article title after pushState.
                 if (!state.value.isLoading && documentPage.url == state.value.url && view.url == state.value.url) {
                     documentPage = state.value
@@ -578,42 +583,60 @@ class WebViewBrowserEngine(
                 return true
             }
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
-                if (!isUserGesture || popupViews.size >= 2) return false
-                val popup = object : WebView(webTheme) {
-                    override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
-                        val connection = super.onCreateInputConnection(outAttrs)
-                        com.takeruf.nagi.browser.privacy.PrivateKeyboard.apply(outAttrs, privateProfileName != null)
-                        return connection
-                    }
-                }
-                popup.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-                if (privateProfileName != null) PrivateProfiles.attach(popup, privateProfileName)
-                // This temporary window captures the target URL before a real tab is
-                // created. Keep its browser identity and cookie policy with the opener;
-                // the destination tab will still apply its own saved site display mode.
-                popup.settings.userAgentString = view.settings.userAgentString
+                if (destroyed || !isUserGesture || pendingPopups.size + popupChildren.size >= 2) return false
+                val popupId = java.util.UUID.randomUUID().toString()
+                val child = WebViewBrowserEngine(context, host, fullscreenHost, openLinksInNewTab,
+                    state.value.desktopMode, nativePageDrag, siteDisplayModes, defaultDesktopMode,
+                    popupId, adBlocker, privateProfileName, translationFactory, alwaysTranslateRules,
+                    rememberAlwaysTranslate, passwordAutofillApproved)
+                child.isPopupWindow = true
+                child.update { it.copy(rendersBlankDocument = true) }
+                child.popupOpener = this@WebViewBrowserEngine
+                child.webView.settings.userAgentString = view.settings.userAgentString
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)) {
-                    WebSettingsCompat.setUserAgentMetadata(popup.settings,
+                    WebSettingsCompat.setUserAgentMetadata(child.webView.settings,
                         WebSettingsCompat.getUserAgentMetadata(view.settings))
                 }
-                cookies.setAcceptThirdPartyCookies(popup, cookies.acceptThirdPartyCookies(view))
-                applyPageDarkening(popup, state.value.url)
-                popupViews.add(popup)
-                popup.postDelayed({ if (popupViews.remove(popup)) {
-                    popup.destroy(); host.showMessage(strings(R.string.ui_blank_script_generated_popups_are_not_supported_in_this_mvp))
-                } }, 5_000)
-                popup.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
-                        if (request.isForMainFrame) dispatchPopup(request.url.toString(), v)
-                        return true
+                cookies.setAcceptThirdPartyCookies(child.webView, cookies.acceptThirdPartyCookies(view))
+                child.setDarkTheme(darkTheme)
+                child.configurePageDarkening(pageDarkeningEnabled, darkModeExcludedHosts)
+                child.configureContentBlocking(adBlockingEnabled, excludedHosts)
+                child.configureVisitBlockingExceptions(visitExceptionSites)
+                val request = object : PendingBrowserPopup {
+                    override val tabId = popupId
+                    override fun attach(): BrowserEngine? {
+                        if (!pendingPopups.remove(this) || destroyed) return null
+                        popupChildren.add(child)
+                        return child
                     }
-                    override fun onPageStarted(v: WebView, url: String, favicon: Bitmap?) {
-                        if (url != "about:blank") dispatchPopup(url, v)
+                    override fun cancel() {
+                        if (pendingPopups.remove(this)) child.destroy()
                     }
                 }
-                (resultMsg.obj as WebView.WebViewTransport).webView = popup
+                pendingPopups.add(request)
+                if (eventChannel.trySend(EngineEvent.OpenPopup(request)).isFailure) {
+                    request.cancel()
+                    return false
+                }
+                // Supply the actual child during the native creation callback. Chromium
+                // keeps the opener, document writes, POST bodies and window.close().
+                (resultMsg.obj as WebView.WebViewTransport).webView = child.webView
                 resultMsg.sendToTarget()
+                child.webView.post {
+                    if (!child.destroyed) child.webView.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) {
+                            if (child.destroyed || child.state.value.url != "about:blank") return
+                            // document.write can finish before Java receives title/load callbacks.
+                            child.update { it.copy(title = child.webView.title ?: it.title, isLoading = false) }
+                            child.metadata()
+                        }
+                    })
+                }
+                view.postDelayed({ request.cancel() }, 10_000)
                 return true
+            }
+            override fun onCloseWindow(window: WebView) {
+                if (isPopupWindow && window === webView) eventChannel.trySend(EngineEvent.CloseWindow)
             }
             override fun onShowCustomView(view: android.view.View, callback: CustomViewCallback) {
                 fullscreenActive = true
@@ -698,13 +721,6 @@ class WebViewBrowserEngine(
             blocker.status.first { it != "loading" }
             if (!destroyed) installCosmeticFiltering()
         } }
-    }
-    private fun dispatchPopup(url: String, popup: WebView) {
-        if (!popupViews.remove(popup)) return
-        if (host.openExternalLink(url) { eventChannel.trySend(EngineEvent.OpenTab(it)) }) Unit
-        else if (url.startsWith("http://") || url.startsWith("https://")) eventChannel.trySend(EngineEvent.OpenTab(url))
-        else host.showMessage(strings(R.string.ui_this_popup_address_is_not_supported))
-        popup.post { popup.stopLoading(); popup.destroy() }
     }
     private fun update(change: (PageState) -> PageState) { if (!destroyed) mutableState.update(change) }
     override val supportsPageZoom: Boolean get() = true
@@ -986,6 +1002,7 @@ class WebViewBrowserEngine(
         if (sameZoomDocument) zoomBaselineGeneration = navigationGeneration
         faviconJob?.cancel()
         update { it.copy(url = url, isLoading = url != "about:blank", progress = 0,
+            rendersBlankDocument = if (url == "about:blank") false else it.rendersBlankDocument,
             pageZoomPercent = if (url == "about:blank") 100 else it.pageZoomPercent,
             canZoomIn = false, canZoomOut = false,
             readerArticle = null, readerLoading = false,
@@ -1155,19 +1172,16 @@ class WebViewBrowserEngine(
             uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or
                 if (dark) android.content.res.Configuration.UI_MODE_NIGHT_YES else android.content.res.Configuration.UI_MODE_NIGHT_NO
         }
-        (listOf(webView) + popupViews).forEach { view ->
-            // Keep the default canvas white for pages that leave their background
-            // transparent. Authors control their own dark backgrounds through CSS.
-            view.dispatchConfigurationChanged(configuration)
-            applyPageDarkening(view, state.value.url)
-        }
+        // Keep the default canvas white for transparent pages; authors own CSS backgrounds.
+        webView.dispatchConfigurationChanged(configuration)
+        applyPageDarkening(webView, state.value.url)
     }
 
     override fun configurePageDarkening(enabled: Boolean, excludedHosts: Set<String>) {
         if (destroyed || (pageDarkeningEnabled == enabled && darkModeExcludedHosts == excludedHosts)) return
         pageDarkeningEnabled = enabled
         darkModeExcludedHosts = excludedHosts.toSet()
-        (listOf(webView) + popupViews).forEach { applyPageDarkening(it, state.value.url) }
+        applyPageDarkening(webView, state.value.url)
     }
 
     private fun applyPageDarkening(view: WebView, url: String) {
@@ -1393,8 +1407,11 @@ class WebViewBrowserEngine(
         }
         return restored
     }
+    private fun keepsPopupAlive(): Boolean = popupOpener != null || popupChildren.isNotEmpty() ||
+        pendingPopups.isNotEmpty() || (state.value.rendersBlankDocument && state.value.url == "about:blank")
+
     override fun canSuspend(result: (Boolean) -> Unit) {
-        if (destroyed || state.value.isLoading || restoringScroll != null || fileCallback != null || pendingPermissions.isNotEmpty() ||
+        if (destroyed || keepsPopupAlive() || state.value.isLoading || restoringScroll != null || fileCallback != null || pendingPermissions.isNotEmpty() ||
             mediaPermissionGranted || fullscreenActive || pendingDownloads > 0 || zoomJob?.isActive == true || restoredZoomPercent != null || pageDownloads.isBusy || pageTranslation.active) { result(false); return }
         val generation = navigationGeneration
         webView.evaluateJavascript("""
@@ -1413,6 +1430,7 @@ class WebViewBrowserEngine(
               });
             })()
         """.trimIndent()) { value -> result(!destroyed && generation == navigationGeneration && value == "true" &&
+            !keepsPopupAlive() &&
             !state.value.isLoading && fileCallback == null && pendingPermissions.isEmpty() && !mediaPermissionGranted &&
             !fullscreenActive && pendingDownloads == 0 && zoomJob?.isActive != true && restoredZoomPercent == null && !pageDownloads.isBusy && !pageTranslation.active) }
     }
@@ -1438,7 +1456,11 @@ class WebViewBrowserEngine(
         val cancelledGeolocationResult = geolocationPermissionResult
         geolocationPermissionResult = null
         cancelledGeolocationResult?.let(host::cancelPermission)
-        popupViews.forEach { it.destroy() }; popupViews.clear()
+        pendingPopups.toList().forEach { it.cancel() }
+        popupOpener?.popupChildren?.remove(this)
+        popupOpener = null
+        popupChildren.forEach { it.popupOpener = null }
+        popupChildren.clear()
         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
         webView.stopLoading(); webView.onPause(); webView.destroy()
         scope.cancel(); eventChannel.close()

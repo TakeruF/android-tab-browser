@@ -82,6 +82,20 @@ class EnginePool(
         engine.setVisible(id in visible)
         return engine
     }
+    /** Adopt Chromium's live child window without loading its URL a second time. */
+    fun adopt(id: String, engine: BrowserEngine) {
+        remove(id)
+        saved.remove(id)
+        accessed[id] = clock()
+        engines[id] = engine
+        tabSites[id] = com.takeruf.nagi.browser.blocking.blockingSite(engine.state.value.url)
+        engine.setDarkTheme(darkTheme)
+        engine.configurePageDarkening(pageDarkeningEnabled, darkModeExcludedHosts)
+        engine.configureContentBlocking(adBlockingEnabled, adBlockExcludedHosts)
+        engine.configureVisitBlockingExceptions(pausedSites.toSet())
+        onCreate(id, engine)
+        engine.setVisible(id in visible)
+    }
     fun suspendBackground(maxLive: Int = 6, idleMillis: Long = 10 * 60_000L) {
         val now = clock()
         engines.keys.filter { it !in visible && it !in protected && it !in checking && now - (accessed[it] ?: now) >= idleMillis }

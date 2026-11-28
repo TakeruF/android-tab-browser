@@ -2,6 +2,7 @@ package com.takeruf.nagi.ui
 
 import com.takeruf.nagi.ui.theme.NagiShapes
 import com.takeruf.nagi.R
+import com.takeruf.nagi.browser.search.BrowserLaunchRequest
 import com.takeruf.nagi.ui.localization.rememberNagiStrings
 
 import androidx.activity.compose.BackHandler
@@ -52,7 +53,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 @Composable
-fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingUrls: Flow<String>) {
+fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppContainer, incomingRequests: Flow<BrowserLaunchRequest>) {
     Column(Modifier.fillMaxSize().then(if (container.isPrivate) Modifier.statusBarsPadding() else Modifier)) {
         if (container.isPrivate) {
             val strings = rememberNagiStrings()
@@ -67,7 +68,7 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            NagiAppContent(activity, host, container, incomingUrls, maxWidth.value)
+            NagiAppContent(activity, host, container, incomingRequests, maxWidth.value)
         }
     }
 }
@@ -75,7 +76,7 @@ fun NagiApp(activity: MainActivity, host: NativeBrowserHost, container: AppConta
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, container: AppContainer,
-    incomingUrls: Flow<String>, windowWidthDp: Float) {
+    incomingRequests: Flow<BrowserLaunchRequest>, windowWidthDp: Float) {
     val strings = rememberNagiStrings()
     val vm: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
@@ -330,9 +331,13 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         onDispose { activity.shortcutHandler = null }
     }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(currentStrings.translate(it)) } }
-    LaunchedEffect(incomingUrls) { incomingUrls.collect { url ->
+    LaunchedEffect(incomingRequests) { incomingRequests.collect { request ->
         vm.state.first { it.ready }
-        vm.newTab(url); navigate("browser")
+        when (request) {
+            is BrowserLaunchRequest.Navigate -> vm.newTab(request.url)
+            is BrowserLaunchRequest.WebSearch -> vm.newSearchTab(request.query)
+        }
+        navigate("browser")
     } }
     LaunchedEffect(state.currentSpace?.id) {
         state.currentSpace?.id?.let { id ->
@@ -375,17 +380,29 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         val exitReader = target?.state?.value?.readerArticle != null
         val traverseHistory = target?.canGoBack() == true
         val closeOnBackId = focusedTab?.id?.takeIf { canCloseTabOnBack }
+        val closeDestination = if (!exitReader && !traverseHistory && closeOnBackId != null)
+            focusedTab?.let { TabCloseDestination.next(it, state.visibleTabs) } else null
+        val closePreview = closeDestination?.let { destination ->
+            (sessions.pool.peek(destination.id) as? AndroidEngineSurface)?.currentPagePreview()
+                ?: HistoryPagePreview(destination.url, null)
+        }
         val owner = historyBackPreview.begin()
         try {
             events.collect { event ->
-                if (target != null && target === latestFocusedEngine && latestRoute == "browser")
-                    historyBackPreview.update(owner, target, event)
+                if (target != null && target === latestFocusedEngine && latestRoute == "browser") {
+                    if (closePreview != null) historyBackPreview.updateClosingTab(owner, target, closePreview, event)
+                    else historyBackPreview.update(owner, target, event)
+                }
             }
             if (target === latestFocusedEngine && latestRoute == "browser") historyBackPreview.complete(owner) {
                 if (target === latestFocusedEngine && latestRoute == "browser") {
                     if (exitReader) target?.toggleReader()
                     else if (traverseHistory) target?.goBack()
-                    else closeOnBackId?.let { vm.closeTabOnBack(it); rightFocused = false; showFind = false }
+                    else closeOnBackId?.let {
+                        if (closeDestination != null) vm.closePreviewedTab(it, closeDestination.id)
+                        else vm.closeTabOnBack(it)
+                        rightFocused = false; showFind = false
+                    }
                 }
             }
             else historyBackPreview.reset()

@@ -1,5 +1,97 @@
 # Validation
 
+## Tab-close previews and snapshot quality (2026-11-28, 1.6.3)
+
+Back gestures that close a tab now preview the same opener/neighbor selected by
+the transactional close policy, including the new-tab screen. The image remains
+over the source while Room commits. Cancelling retains both live documents and
+drafts. Closing a predicted destination mid-gesture prevents the source close.
+History snapshots retain native resolution within a shared memory budget, up to
+4 megapixels, with least-recently-used eviction across engines. See
+[history gestures](HISTORY_GESTURES.md).
+
+JDK 17 / SDK 36, dedicated API-36 `Nagi_Auth_QA` / `emulator-5588`, WebView
+133.0.6943.137:
+
+- All **313 Play Debug unit tests** passed, including destination selection,
+  stale-destination refusal, native-size/bounded dimensions, shared byte eviction
+  and owner-specific image cleanup.
+- Debug/Release lint passed: **0 errors**, 98/97 warnings respectively.
+- A **25-case focused device batch** passed: all predictive-back, snapshot and
+  trackpad cases; three intent/popup UI cases; two authentication cases.
+- After making tab-close settlement await its transaction and UI state,
+  **17 final focused cases** passed without skips: all six
+  `PredictiveHistoryBackUiTest`, all six `HistoryPagePreviewEngineTest`, all
+  three `BrowserLaunchUiTest` and two popup/POST authentication cases.
+  The close tests deliberately hold a Room transaction and require the preview
+  to remain visible. Phone/light, tablet/dark/Split halfway and restored images
+  were inspected. No speculative destination requests were observed.
+- The calibrated CSS stripe fixture measured **1956 × 1604** native pixels:
+  adjacent-pixel contrast was **255** in both the actual screen and saved
+  Back/Forward images. Cache dimensions and byte bounds were checked separately.
+
+The first detail test exceeded the QA heap's native-image budget and skipped.
+A resized Canvas-only fixture then returned zero contrast without a calibrated
+screen control. The final CSS fixture checks the real screen first and passed
+through Back/Forward; HTML Canvas capture fidelity and a same-condition physical
+Chrome comparison are not established by this measurement. Other initial cases
+passed. The initial incomplete measurements and final results are retained in
+ignored `artifacts/1.6.3/`.
+
+These are focused emulator results, not a full connected suite, physical-device
+verification or Play availability. Signed artifact and distribution evidence is
+recorded separately in [1.6.3 verification](RELEASE_1.6.3_VERIFICATION.md).
+
+## Authentication windows and Android web search (2026-11-28, local)
+
+The reported Claude Google-auth screenshot stops on an opener-dependent popup
+page. The previous adapter discarded the native child and opened its URL in a
+different WebView. It now transfers the actual child into the session pool.
+The supplied recording separately shows Android's selected-text web-search
+chooser; the browser Activity now handles `ACTION_WEB_SEARCH` and its literal
+query using the configured default engine. See
+[browser integration behavior](BROWSER_INTEGRATIONS.md#authentication-windows-and-android-web-search).
+
+Final local validation used JDK 17, SDK/API 36, WebView 133.0.6943.137 and the
+dedicated temporary `Nagi_Auth_QA` emulator (`emulator-5588`). The APK used
+`-PnagiSideBySide=true`, package `com.takeruf.nagi.preview` / **Nagi Test**:
+
+- All 307 Play Debug unit cases passed, including literal search intent parsing,
+  live-engine adoption and persisted popup IDs/collision protection.
+- Play Debug and Play Release lint: 0 errors, 98/97 warnings respectively.
+  Play Debug and instrumentation APK assembly succeeded.
+- All 11 final focused instrumentation cases passed with no skips: three
+  `BrowserLaunchUiTest` cases, six popup cases in
+  `AuthenticationCompatibilityTest`,
+  `WebViewEngineTest.targetBlankPopupUsesLiveChildWindow` and
+  `TranslationNavigationTest.newTabsDoNotInheritManualTranslationButAlwaysRulesApplyAcrossTabsAndDirectEntry`.
+- The fixtures verify the native opener, copied sessionStorage, cross-origin
+  page-driven navigation, `postMessage`, `window.close()`, POST bodies, profile/
+  cookie/UA inheritance, destination display modes without duplicate fetches,
+  script-written blank documents and cancellation when the opener is destroyed.
+  Real app checks cover cold/warm search delivery, default-engine query encoding,
+  the same live opener and retained draft, plus saved Split restoration.
+  An independent PackageManager query on the final installed APK returned Nagi
+  alongside Chrome and Google; the real Android resolver visibly listed
+  **Nagi Test** as a selectable web-search handler.
+- At 411dp/light, 20 of 22 selected device cases passed. Two existing
+  `DownloadUiTest` Split cases timed out waiting for the hidden right pane before
+  opening a popup; that run did not meet their wide-window precondition.
+  At 1000dp/dark, all 12 download cases and two popup checks passed (14/14),
+  including both Split cases. Phone/light and tablet/dark/Split screenshots were
+  inspected. The initial new intent test also required restoring the Activity's
+  original launch intent for ActivityScenario teardown; this was a test-harness
+  correction.
+
+Compact logs, XML results, screenshots and the development APK are in ignored
+`artifacts/auth-browser-picker/`. This is focused fixture/emulator coverage,
+not a full instrumentation-suite run, physical-device proof or completed
+provider authentication. Credential-free live navigation to `claude.ai/login`
+in the final QA APK stopped at Cloudflare's human-verification screen before
+the Google button; the reported Claude popup could not be validated live in
+this environment. No version bump, release tag, signed upload bundle or Play
+submission was made.
+
 The [1.1.1 Play preparation](RELEASE_1.1.1_PLAY_PREPARATION.md) separates final Play validation from the [initial preflight](RELEASE_1.1.1_VERIFICATION.md) and saved Console state. The dated [1.1.0 release verification](RELEASE_1.1.0_VERIFICATION.md) records comprehensive tests, clean artifact checks and publication evidence. The [1.0.0 publication verification](RELEASE_1.0.0_VERIFICATION.md) and [0.3.0 verification](RELEASE_0.3.0_VERIFICATION.md) remain historical distribution records. These are recorded results, not a live Console or deployment status check.
 
 ## Automatic pointer selection menus and coverage audit, 2026-11-27

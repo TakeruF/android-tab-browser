@@ -32,6 +32,26 @@ class WorkspaceRepositoryTest {
         spaces = SpaceRepository(workspace, settings, tabs); workspace.initialize()
     }
     @After fun close() { db.close() }
+    @Test fun backGestureDoesNotCloseItsTabIfThePredictedDestinationWasClosed() = runBlocking {
+        val opener = tabs.create("personal", "https://example.com/opener")
+        val child = tabs.create("personal", "https://example.com/child", parentTabId = opener)
+        tabs.create("personal", "https://example.com/neighbor", select = false)
+        tabs.close(opener)
+        assertFalse(tabs.closePreviewedTab(child, expectedDestinationId = opener))
+        assertNull(db.browserDao().tab(child)!!.closedAt)
+        assertEquals(child, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+    }
+    @Test fun nativePopupIdentityIsPersistedAndCannotOverwriteAnExistingTab() = runBlocking {
+        val parent = tabs.create("personal", "https://example.com/opener")
+        val child = tabs.create("personal", parentTabId = parent, id = "native-popup")
+        assertEquals("native-popup", child)
+        assertEquals(parent, db.browserDao().tab(child)!!.parentTabId)
+        val before = db.browserDao().tab(child)
+        assertTrue(runCatching { tabs.create("personal", "https://example.com/other", id = child) }.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(before, db.browserDao().tab(child))
+        tabs.close(child)
+        assertEquals(parent, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+    }
     @Test fun disabledSpacesRestoreOnlyCurrentTabsAndKeepOtherSpacesIntact() = runBlocking {
         val local = tabs.create("personal", "https://example.com/local")
         val hidden = tabs.create("work", "https://example.com/hidden")

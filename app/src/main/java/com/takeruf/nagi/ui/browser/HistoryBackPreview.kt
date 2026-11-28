@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -37,6 +38,7 @@ class HistoryBackPreviewState {
         private set
     private val position = Animatable(0f)
     private var generation = 0L
+    private var waitForNativePaint = true
     val progress get() = position.value
     var fromRight by mutableStateOf(false)
         private set
@@ -61,10 +63,25 @@ class HistoryBackPreviewState {
         position.snapTo(progress.coerceIn(0f, 1f))
     }
 
-    suspend fun complete(owner: Long, navigate: () -> Unit) {
+    suspend fun updateClosingTab(owner: Long, target: BrowserEngine, destination: HistoryPagePreview, event: BackEventCompat) {
+        if (owner != generation) return
+        if (engine !== target) {
+            val view = (target as? AndroidEngineSurface)?.surface
+            val image = destination.bitmap?.takeIf { view != null && view.height > 0 &&
+                kotlin.math.abs(it.width.toFloat() / it.height - view.width.toFloat() / view.height) < 0.05f }
+            page = destination.copy(bitmap = image)
+            engine = target
+        }
+        waitForNativePaint = false
+        fromRight = event.swipeEdge == BackEventCompat.EDGE_RIGHT
+        nativeTranslation = false
+        position.snapTo(event.progress.coerceIn(0f, 1f))
+    }
+
+    suspend fun complete(owner: Long, navigate: suspend () -> Unit) {
         if (owner != generation) return
         val renderer = engine as? AndroidEngineSurface
-        val visualChanges = renderer?.historyVisualGeneration
+        val visualChanges = renderer?.historyVisualGeneration?.takeIf { waitForNativePaint }
         try {
             if (engine != null) position.animateTo(1f, settle())
             if (owner != generation) return
@@ -81,7 +98,7 @@ class HistoryBackPreviewState {
         finally { if (owner == generation) reset() }
     }
 
-    suspend fun reset() { generation++; engine = null; page = null; position.snapTo(0f) }
+    suspend fun reset() { generation++; engine = null; page = null; waitForNativePaint = true; position.snapTo(0f) }
     private fun settle() = tween<Float>(180, easing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f))
 }
 
@@ -128,7 +145,7 @@ internal fun HistoryBackPreview(state: HistoryBackPreviewState?, engine: Browser
             .testTag("history-back-preview").clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
             val page = state?.page
             if (page?.bitmap != null) Image(page.bitmap.asImageBitmap(), null,
-                Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+                Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.High)
             else if (page?.url == "about:blank") newTab()
             else Text(page?.url.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.24f * (1f - state!!.progress))))

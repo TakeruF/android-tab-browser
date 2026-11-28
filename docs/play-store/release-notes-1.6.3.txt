@@ -1,0 +1,23 @@
+<en-US>
+Fixed a Google sign-in issue on Claude and improved web search integration and Back/Forward previews.
+</en-US>
+
+<es-ES>
+Corregimos un problema al iniciar sesión con Google en Claude y mejoramos la búsqueda web y las vistas previas al retroceder y avanzar.
+</es-ES>
+
+<fr-FR>
+Correction d’un problème de connexion à Claude avec Google et amélioration de la recherche Web et des aperçus précédent/suivant.
+</fr-FR>
+
+<ja-JP>
+ClaudeのGoogleサインインで失敗する問題を修正し、ウェブ検索連携と戻る・進むプレビューを改善しました。
+</ja-JP>
+
+<zh-CN>
+修复了在 Claude 中使用 Google 登录失败的问题，并改进了网页搜索联动及前进、后退预览。
+</zh-CN>
+
+<ko-KR>
+Claude에서 Google로 로그인할 때 발생하던 문제를 수정하고 웹 검색 연동과 뒤로·앞으로 가기 미리보기를 개선했습니다.
+</ko-KR>
