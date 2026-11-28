@@ -16,7 +16,9 @@ Existing GitHub/website APKs and Google Play use different signing certificates.
 
 ## Features
 
-Version 1.6.2: Made some improvements. The Google Play production release is submitted and IN_REVIEW; public availability is not yet confirmed. See [1.6.2 notes](docs/releases/1.6.2.md).
+Version 1.6.3 fixes a Claude sign-in popup issue, adds Android web-search handling, and improves touch Back and Back/Forward preview quality. Release preparation is in progress; this version is not yet uploaded. See [1.6.3 notes](docs/releases/1.6.3.md).
+
+Version 1.6.2: Made some improvements. Google Play publication was confirmed by the official production lifecycle on 2026-11-28; this is the observation date. See [1.6.2 notes](docs/releases/1.6.2.md).
 
 Version 1.6.1 improves history previews and trackpad navigation, records in-page visits, unifies selection and permission dialogs, fixes microphone/download permission handling, and closes empty download tabs when cancelled. Google Play publication was confirmed by the official production lifecycle on 2026-11-27; this is the observation date, not the precise publication time. See [1.6.1 notes](docs/releases/1.6.1.md).
 

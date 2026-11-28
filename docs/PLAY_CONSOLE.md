@@ -1,6 +1,21 @@
 # Google Play release preparation
 
-## Current production submission — 2026-11-27
+## Current preparation — 2026-11-28
+
+**1.6.3 / code 27** is being prepared for production at the user's request.
+Live preflight found maximum uploaded code 26 across bundles, APKs and all
+tracks. Existing countries, store listings and other tracks are retained.
+The [six-language notes](play-store/release-notes-1.6.3.txt) mention the Claude
+Google sign-in fix and search/preview improvements in one brief sentence.
+No code-27 upload or review submission has occurred yet.
+
+## Latest production publication confirmed — 2026-11-28
+
+**1.6.2 / code 26 is PUBLISHED**, independently confirmed by the official
+production lifecycle. This is the observation date, not its precise publication
+time. Existing release notes and the accepted artifact remain unchanged.
+
+## Historical production submission — 2026-11-27
 
 **1.6.2 / code 26 is IN_REVIEW**, confirmed by the official production release
 lifecycle at **20:19:58 JST**. The exact verified AAB from clean source `dda3dd1`
@@ -11,7 +26,7 @@ countries, store listings and other tracks were independently reread and matched
 source-only draft without binary assets. Console UI and current managed-publishing
 controls were not inspected. See [1.6.2 verification](RELEASE_1.6.2_VERIFICATION.md).
 
-## Latest production publication confirmed — 2026-11-27
+## Historical production publication confirmed — 2026-11-27
 
 **1.6.1 / code 25 is PUBLISHED**, confirmed by the official production release
 lifecycle. This is the observation date, not the precise publication time.

@@ -1,5 +1,47 @@
 # Validation
 
+## Tab-close previews and snapshot quality (2026-11-28, 1.6.3)
+
+Back gestures that close a tab now preview the same opener/neighbor selected by
+the transactional close policy, including the new-tab screen. The image remains
+over the source while Room commits. Cancelling retains both live documents and
+drafts. Closing a predicted destination mid-gesture prevents the source close.
+History snapshots retain native resolution within a shared memory budget, up to
+4 megapixels, with least-recently-used eviction across engines. See
+[history gestures](HISTORY_GESTURES.md).
+
+JDK 17 / SDK 36, dedicated API-36 `Nagi_Auth_QA` / `emulator-5588`, WebView
+133.0.6943.137:
+
+- All **313 Play Debug unit tests** passed, including destination selection,
+  stale-destination refusal, native-size/bounded dimensions, shared byte eviction
+  and owner-specific image cleanup.
+- Debug/Release lint passed: **0 errors**, 98/97 warnings respectively.
+- A **25-case focused device batch** passed: all predictive-back, snapshot and
+  trackpad cases; three intent/popup UI cases; two authentication cases.
+- After making tab-close settlement await its transaction and UI state,
+  **17 final focused cases** passed without skips: all six
+  `PredictiveHistoryBackUiTest`, all six `HistoryPagePreviewEngineTest`, all
+  three `BrowserLaunchUiTest` and two popup/POST authentication cases.
+  The close tests deliberately hold a Room transaction and require the preview
+  to remain visible. Phone/light, tablet/dark/Split halfway and restored images
+  were inspected. No speculative destination requests were observed.
+- The calibrated CSS stripe fixture measured **1956 × 1604** native pixels:
+  adjacent-pixel contrast was **255** in both the actual screen and saved
+  Back/Forward images. Cache dimensions and byte bounds were checked separately.
+
+The first detail test exceeded the QA heap's native-image budget and skipped.
+A resized Canvas-only fixture then returned zero contrast without a calibrated
+screen control. The final CSS fixture checks the real screen first and passed
+through Back/Forward; HTML Canvas capture fidelity and a same-condition physical
+Chrome comparison are not established by this measurement. Other initial cases
+passed. The initial incomplete measurements and final results are retained in
+ignored `artifacts/1.6.3/`.
+
+These are focused emulator results, not a full connected suite, physical-device
+verification or Play availability. Signed artifact and distribution evidence is
+recorded separately in [1.6.3 verification](RELEASE_1.6.3_VERIFICATION.md).
+
 ## Authentication windows and Android web search (2026-11-28, local)
 
 The reported Claude Google-auth screenshot stops on an opener-dependent popup
