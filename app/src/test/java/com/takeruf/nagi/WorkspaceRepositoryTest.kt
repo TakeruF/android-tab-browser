@@ -32,6 +32,15 @@ class WorkspaceRepositoryTest {
         spaces = SpaceRepository(workspace, settings, tabs); workspace.initialize()
     }
     @After fun close() { db.close() }
+    @Test fun backGestureDoesNotCloseItsTabIfThePredictedDestinationWasClosed() = runBlocking {
+        val opener = tabs.create("personal", "https://example.com/opener")
+        val child = tabs.create("personal", "https://example.com/child", parentTabId = opener)
+        tabs.create("personal", "https://example.com/neighbor", select = false)
+        tabs.close(opener)
+        assertFalse(tabs.closePreviewedTab(child, expectedDestinationId = opener))
+        assertNull(db.browserDao().tab(child)!!.closedAt)
+        assertEquals(child, db.browserDao().spaces().first { it.id == "personal" }.activeTabId)
+    }
     @Test fun nativePopupIdentityIsPersistedAndCannotOverwriteAnExistingTab() = runBlocking {
         val parent = tabs.create("personal", "https://example.com/opener")
         val child = tabs.create("personal", parentTabId = parent, id = "native-popup")

@@ -68,6 +68,14 @@ class BrowserViewModel(private val container: AppContainer) : ViewModel() {
         onClosed()
     }
     fun closeTabOnBack(id: String) = action { container.tabs.close(id, selectNext = true) }
+    suspend fun closePreviewedTab(id: String, expectedDestinationId: String) {
+        try {
+            if (container.tabs.closePreviewedTab(id, expectedDestinationId)) {
+                state.first { current -> current.workspace.tabs.none { it.id == id && it.closedAt == null } }
+            }
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { messages.emit(e.message ?: "Action could not be completed") }
+    }
     fun restoreClosed() = action { if (container.tabs.restoreClosed() == null) messages.emit("No closed tabs to restore") }
     fun pairTabs(leftId: String, rightId: String) = action { container.tabs.pair(leftId, rightId) }
     fun detachSplit(id: String) = action { container.tabs.detachSplit(id) }

@@ -380,17 +380,29 @@ private fun NagiAppContent(activity: MainActivity, host: NativeBrowserHost, cont
         val exitReader = target?.state?.value?.readerArticle != null
         val traverseHistory = target?.canGoBack() == true
         val closeOnBackId = focusedTab?.id?.takeIf { canCloseTabOnBack }
+        val closeDestination = if (!exitReader && !traverseHistory && closeOnBackId != null)
+            focusedTab?.let { TabCloseDestination.next(it, state.visibleTabs) } else null
+        val closePreview = closeDestination?.let { destination ->
+            (sessions.pool.peek(destination.id) as? AndroidEngineSurface)?.currentPagePreview()
+                ?: HistoryPagePreview(destination.url, null)
+        }
         val owner = historyBackPreview.begin()
         try {
             events.collect { event ->
-                if (target != null && target === latestFocusedEngine && latestRoute == "browser")
-                    historyBackPreview.update(owner, target, event)
+                if (target != null && target === latestFocusedEngine && latestRoute == "browser") {
+                    if (closePreview != null) historyBackPreview.updateClosingTab(owner, target, closePreview, event)
+                    else historyBackPreview.update(owner, target, event)
+                }
             }
             if (target === latestFocusedEngine && latestRoute == "browser") historyBackPreview.complete(owner) {
                 if (target === latestFocusedEngine && latestRoute == "browser") {
                     if (exitReader) target?.toggleReader()
                     else if (traverseHistory) target?.goBack()
-                    else closeOnBackId?.let { vm.closeTabOnBack(it); rightFocused = false; showFind = false }
+                    else closeOnBackId?.let {
+                        if (closeDestination != null) vm.closePreviewedTab(it, closeDestination.id)
+                        else vm.closeTabOnBack(it)
+                        rightFocused = false; showFind = false
+                    }
                 }
             }
             else historyBackPreview.reset()

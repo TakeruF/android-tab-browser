@@ -12,6 +12,7 @@ interface AndroidEngineSurface {
     val surface: View
     fun setDragPreviewColors(background: Int, content: Int, outline: Int, accent: Int) {}
     fun historyPagePreview(back: Boolean): HistoryPagePreview? = null
+    fun currentPagePreview(): HistoryPagePreview? = null
     val historyVisualGeneration: StateFlow<Long>? get() = null
 }
 interface FullscreenHost {

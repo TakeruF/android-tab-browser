@@ -177,6 +177,8 @@ class WebViewBrowserEngine(
     private var fullscreenActive = false
     private var restoringScroll: Pair<Int, Int>? = null
     override val surface get() = webView
+    override fun currentPagePreview(): HistoryPagePreview? = if (destroyed) null else
+        historyPreviews.current() ?: HistoryPagePreview(state.value.url, null)
     private val historyPreviews = WebViewHistoryPreviews(webView)
     private val pointerSelection = PagePointerSelection(webView,
         show = { x, y -> secondaryClick.showSelectionMenu(x, y, webView::dispatchTouchEvent, selectionOnly = true) },

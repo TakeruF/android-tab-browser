@@ -1,17 +1,16 @@
 package com.takeruf.nagi.browser.engine
 
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.webkit.WebView
 import androidx.core.graphics.createBitmap
 import kotlin.math.abs
-import kotlin.math.sqrt
 
-/** UI-thread only. Three recent destinations plus the current viewport, at 0.5 MP each. */
+/** UI-thread only. Three destinations plus the current viewport, under a shared byte budget. */
 internal class WebViewHistoryPreviews(private val view: WebView) {
     private data class Entry(val index: Int, val url: String)
-    private data class Image(val bitmap: Bitmap, val aspect: Float)
-    private val images = linkedMapOf<Entry, Image>()
+    private val owner = Any()
+    private val cache = HistoryPreviewImageCache.shared(view.context)
+    private val entries = linkedSetOf<Entry>()
     private var visible: Entry? = null
     private var captured = false
     private var traversing = false
@@ -25,26 +24,28 @@ internal class WebViewHistoryPreviews(private val view: WebView) {
     fun leaving(traverse: Boolean = traversing, refresh: Boolean = true) {
         traversing = traverse
         val entry = visible ?: return
-        if (!traverse) images.keys.removeAll { it.index > entry.index }
+        if (!traverse) entries.filter { it.index > entry.index }.forEach(::remove)
         if (captured) return
         if (refresh) capture()
         captured = true
     }
 
-    private fun capture() {
+    private fun remove(entry: Entry) { entries.remove(entry); cache.remove(owner, entry) }
+
+    private fun capture(requireShown: Boolean = true) {
         val entry = visible ?: return
-        if (view.width <= 0 || view.height <= 0 || !view.isShown) return
-        val scale = minOf(1f, sqrt(524_288f / (view.width.toFloat() * view.height)))
-        val bitmap = createBitmap((view.width * scale).toInt().coerceAtLeast(1),
-            (view.height * scale).toInt().coerceAtLeast(1))
+        if (view.width <= 0 || view.height <= 0 || (requireShown && !view.isShown)) return
+        val (width, height) = cache.dimensions(view.width, view.height)
+        val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
-        canvas.scale(scale, scale)
+        canvas.scale(width.toFloat() / view.width, height.toFloat() / view.height)
         // View.draw uses scroll coordinates even for a viewport-sized canvas.
         canvas.translate(-view.scrollX.toFloat(), -view.scrollY.toFloat())
         view.draw(canvas)
-        images.remove(entry)
-        images[entry] = Image(bitmap, view.width.toFloat() / view.height)
-        while (images.size > 4) images.remove(images.keys.first())
+        entries.remove(entry)
+        entries.add(entry)
+        cache.put(owner, entry, bitmap)
+        while (entries.size > 4) remove(entries.first())
     }
 
     // By page-start the renderer may already have cleared its old pixels. Keep
@@ -65,7 +66,7 @@ internal class WebViewHistoryPreviews(private val view: WebView) {
         captured = false
         traversing = false
         awaitingDocument = false
-        images.keys.removeAll { history.getItemAtIndex(it.index)?.url != it.url }
+        entries.filter { history.getItemAtIndex(it.index)?.url != it.url }.forEach(::remove)
         // Same-document navigation can change DOM before its native callback. Keep
         // an image of the current entry in advance rather than drawing the new DOM
         // and labelling it as the departing page. No polling or speculative loads.
@@ -81,11 +82,19 @@ internal class WebViewHistoryPreviews(private val view: WebView) {
         val history = view.copyBackForwardList()
         val index = history.currentIndex + if (back) -1 else 1
         val url = history.getItemAtIndex(index)?.url ?: return null
-        val image = images[Entry(index, url)]?.takeIf {
-            view.height > 0 && abs(it.aspect - view.width.toFloat() / view.height) < 0.05f
+        val image = cache.get(owner, Entry(index, url))?.takeIf {
+            view.height > 0 && abs(it.width.toFloat() / it.height - view.width.toFloat() / view.height) < 0.05f
         }
-        return HistoryPagePreview(url, image?.bitmap)
+        return HistoryPagePreview(url, image)
     }
 
-    fun clear() { images.clear(); visible = null; captured = false; traversing = false; awaitingDocument = false }
+    /** Draw the retained document only; never wake or navigate a destination tab. */
+    fun current(): HistoryPagePreview? {
+        val entry = visible ?: return null
+        if (entry.url == "about:blank") return HistoryPagePreview(entry.url, null)
+        if (!awaitingDocument) capture(requireShown = false)
+        return HistoryPagePreview(entry.url, cache.get(owner, entry))
+    }
+
+    fun clear() { cache.clear(owner); entries.clear(); visible = null; captured = false; traversing = false; awaitingDocument = false }
 }

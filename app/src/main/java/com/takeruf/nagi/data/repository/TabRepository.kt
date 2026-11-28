@@ -77,20 +77,27 @@ class TabRepository(private val workspace: WorkspaceRepository, private val sett
         }
     }
     suspend fun close(id: String, selectNext: Boolean = false) {
+        closeInternal(id, selectNext)
+    }
+    suspend fun closePreviewedTab(id: String, expectedDestinationId: String): Boolean =
+        closeInternal(id, selectNext = true, expectedDestinationId = expectedDestinationId)
+
+    private suspend fun closeInternal(id: String, selectNext: Boolean, expectedDestinationId: String? = null): Boolean {
         workspace.ready.await()
-        db.withTransaction {
-            val tab = dao.tab(id)?.takeIf { it.closedAt == null } ?: return@withTransaction
+        return db.withTransaction {
+            val tab = dao.tab(id)?.takeIf { it.closedAt == null } ?: return@withTransaction false
+            val next = TabCloseDestination.next(tab.model(), dao.tabs(tab.spaceId).map { it.model() })
+            // A gesture must not commit to a different tab if its predicted destination vanished.
+            if (expectedDestinationId != null && next?.id != expectedDestinationId) return@withTransaction false
             unpair(id)
             dao.putTab(dao.tab(id)!!.copy(closedAt = System.currentTimeMillis()))
-            val space = dao.spaces().firstOrNull { it.id == tab.spaceId } ?: return@withTransaction
+            val space = dao.spaces().firstOrNull { it.id == tab.spaceId } ?: return@withTransaction true
             if (space.activeTabId == id || selectNext) {
-                val remaining = dao.tabs(tab.spaceId).filter { it.closedAt == null && it.archivedAt == null }
-                val next = remaining.firstOrNull { it.id == tab.parentTabId }
-                    ?: remaining.minByOrNull { kotlin.math.abs(it.position - tab.position) }
                 val nextId = next?.id ?: create(tab.spaceId, select = false)
                 dao.putSpace(space.copy(activeTabId = nextId))
             }
             dao.trimClosedTabs()
+            true
         }
     }
     suspend fun restoreClosed(): String? {

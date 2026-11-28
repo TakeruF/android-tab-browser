@@ -66,6 +66,7 @@ class HistoryPagePreviewEngineTest {
             "/old" to "$header<div style='height:1200px;background:#e65a45'></div><div style='height:4000px;background:#dcbc45'></div>",
             "/current" to "$header<body style='background:#2879b2'><textarea id='draft'>Unsent</textarea></body>",
             "/green" to "$header<body style='background:#4b9860'></body>",
+            "/details" to """$header<body style="min-height:100vh;background:repeating-linear-gradient(90deg,black 0,black .5px,white .5px,white 1px)"></body>""",
             "/spa" to """$header<body><button style="margin:64px;padding:16px" onclick="nextVideo()">Next video</button>
                 <textarea id='draft'>Unsent</textarea><script>
                 function nextVideo(){history.pushState({},'', '/spa?v='+(Number(new URL(location.href).searchParams.get('v')||0)+1));render()}
@@ -95,7 +96,9 @@ class HistoryPagePreviewEngineTest {
             val preview = engine.historyPagePreview(true)!!
             assertEquals(server.origin + "/old", preview.url)
             val bitmap = preview.bitmap!!
-            assertTrue(bitmap.width.toLong() * bitmap.height <= 524_288)
+            val cache = HistoryPreviewImageCache.shared(view.context)
+            assertTrue(bitmap.width.toLong() * bitmap.height <= cache.maxImagePixels)
+            assertEquals(cache.dimensions(view.width, view.height), bitmap.width to bitmap.height)
             val pixel = bitmap.getPixel(bitmap.width / 2, bitmap.height / 2)
             assertTrue("Preview must capture the scrolled yellow viewport, not its red top", Color.green(pixel) > Color.blue(pixel) * 1.5f)
             engine.goBack()
@@ -110,6 +113,62 @@ class HistoryPagePreviewEngineTest {
             engine.goForward()
         }
         ready("/current")
+    }
+
+    @Test fun nativeResolutionPreviewKeepsSinglePixelDetailsForBackAndForward() {
+        load("/old")
+        var expected = 0 to 0
+        main {
+            val bounded = HistoryPreviewImageCache.shared(view.context).dimensions(view.width, view.height)
+            // A real viewport inside the byte budget, aligned to the QA device's native pixels.
+            expected = (bounded.first / 4 * 4) to (bounded.second / 4 * 4)
+            view.layoutParams = view.layoutParams.apply { width = expected.first; height = expected.second }
+        }
+        runBlocking { withTimeout(5_000) { while (true) {
+            var laidOut = false
+            main { laidOut = view.width == expected.first && view.height == expected.second }
+            if (laidOut) break
+            delay(20)
+        } } }
+        load("/details")
+        val surfaceWidth = expected.first
+        js("document.body.style.backgroundImage='repeating-linear-gradient(90deg,black 0,black '+(innerWidth/$surfaceWidth)+'px,white '+(innerWidth/$surfaceWidth)+'px,white '+(innerWidth/$surfaceWidth*2)+'px)'; true")
+        ready("/details")
+        val sourceScreenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val origin = IntArray(2)
+        main { view.getLocationOnScreen(origin) }
+        val sourceContrast = (expected.first / 4 until expected.first / 4 + 200).map { x ->
+            kotlin.math.abs(Color.red(sourceScreenshot.getPixel(origin[0] + x, origin[1] + expected.second * 3 / 4)) -
+                Color.red(sourceScreenshot.getPixel(origin[0] + x + 1, origin[1] + expected.second * 3 / 4)))
+        }.average()
+        sourceScreenshot.recycle()
+        assertTrue("The fixture itself must render one native pixel per stripe; contrast=$sourceContrast", sourceContrast > 170)
+        fun check(preview: HistoryPagePreview) {
+            val image = preview.bitmap ?: error("Missing detail preview")
+            assertEquals(expected, image.width to image.height)
+            val y = image.height * 3 / 4
+            val start = image.width / 4
+            val contrast = (start until start + 200).map { x ->
+                kotlin.math.abs(Color.red(image.getPixel(x, y)) - Color.red(image.getPixel(x + 1, y)))
+            }.average()
+            val directory = java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "preview-quality").apply { mkdirs() }
+            val stats = org.json.JSONObject().put("width", image.width).put("height", image.height)
+                .put("contrast", contrast).put("sourceContrast", sourceContrast).put("sampleColors", org.json.JSONArray((start until start + 16).map { image.getPixel(it, y) }))
+            java.io.File(directory, "detail-stats.json").writeText(stats.toString(2))
+            android.util.Log.i("NagiPreviewQuality", stats.toString())
+            java.io.File(directory, "detail-preview.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            assertTrue("Single-pixel detail must survive capture; contrast=$contrast colors=${stats.getJSONArray("sampleColors")}", contrast > 170)
+        }
+        load("/current")
+        main { check(engine.historyPagePreview(true)!!); engine.goBack() }
+        ready("/details")
+        main { engine.goBack() }
+        ready("/old")
+        main { check(engine.historyPagePreview(false)!!); engine.goForward() }
+        ready("/details")
+        main { check(engine.currentPagePreview()!!); engine.goForward() }
+        ready("/current")
+        main { check(engine.historyPagePreview(true)!!) }
     }
 
     @Test fun sameDocumentHistoryDoesNotMislabelTheNextViewport() {
